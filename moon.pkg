@@ -1,6 +1,6 @@
 import {
   "moonbitlang/core/list",
-  "moonbitlang/core/hashmap"
+  "moonbitlang/core/hashmap",
 }
 
 options(

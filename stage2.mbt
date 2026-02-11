@@ -2,6 +2,7 @@
 pub(all) enum Term {
   Text(String)
   App(Name, Array[Term])
+  TemplateDefinition(Name, Array[Name], Array[Term])
   Splice(Array[Term]) // App("_", [...])
   Comment(String) // App("%", [...])
 } derive(Eq, Show, Debug)
@@ -33,6 +34,20 @@ fn elaborate_comment(xs : ArrayView[S]) -> String {
 }
 
 ///|
+fn elaborate_template(xs : ArrayView[S]) -> Term {
+  if xs.length() < 2 {
+    try! fail("template requires name and param list: \{xs}")
+  }
+  let name = elaborate_name(xs[0])
+  let params = match xs[1] {
+    App(list) => list.to_array().map(elaborate_name)
+    _ => try! fail("template params \{xs[1]} must be list")
+  }
+  let body = xs[2:].map(Stage2::elaborate_node)
+  TemplateDefinition(name, params, body)
+}
+
+///|
 fn elaborate_app(data : @list.List[S]) -> Term {
   let view = data.to_array()
   match view {
@@ -41,6 +56,7 @@ fn elaborate_app(data : @list.List[S]) -> Term {
       match elaborate_name(f) {
         "%" => Comment(elaborate_comment(xs))
         "_" => Splice(xs.map(Stage2::elaborate_node))
+        "λ" => elaborate_template(xs)
         s => App(s, xs.map(Stage2::elaborate_node))
       }
   }

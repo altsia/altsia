@@ -1,4 +1,11 @@
 ///|
+pub struct Element[T] {
+  name : String
+  attrs : @hashmap.HashMap[String, String]
+  children : Array[T]
+} derive(Eq, Show, Debug)
+
+///|
 fn char_at(source : String, i : Int) -> Char {
   source.get_char(i).unwrap()
 }

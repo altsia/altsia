@@ -11,20 +11,13 @@ pub(all) enum Piece {
 ///|
 pub(all) enum InlineNode {
   Text(String)
-  Span(AttributedNode)
+  Span(Element[InlineNode])
 } derive(Eq, Show, Debug)
 
 ///|
 pub(all) enum BlockNode {
   Paragraph(Array[InlineNode])
-  Container(AttributedNode)
-} derive(Eq, Show, Debug)
-
-///|
-pub(all) struct AttributedNode {
-  name : Name
-  attrs : @hashmap.HashMap[String, String]
-  children : Array[InlineNode]
+  Container(Element[InlineNode])
 } derive(Eq, Show, Debug)
 
 ///|
@@ -37,6 +30,7 @@ pub fn lower_inline(node : Term) -> Array[InlineNode] {
     Splice(terms) => terms.map(lower_inline).flatten()
     App(name, args) => lower_span(name, args)
     Comment(_) => []
+    TemplateDefinition(_) => panic() // unreachable
   }
 }
 
@@ -100,6 +94,7 @@ pub fn lower_block(node : Term) -> Array[Piece] {
     Text(_) => [Block(Paragraph(lower_inline(node)))]
     Splice(terms) => terms.map(lower_block).flatten()
     App(name, args) => lower_block_app(name, args)
+    TemplateDefinition(_) => panic() // unreachable
   }
 }
 

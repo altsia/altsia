@@ -39,7 +39,8 @@ pub fn Mdx::elaborate_block(node : BlockNode) -> Mdx {
   match node {
     Paragraph(xs) => {
       let content = xs.map(Mdx::elaborate_inline)
-      content.push(Text("\n\n"))
+      content.insert(0, Text("\n"))
+      content.push(Text("\n"))
       Group(content)
     }
     Container({ name, attrs, children }) =>

@@ -56,6 +56,7 @@ fn elaborate_app(data : @list.List[S]) -> Term {
       match elaborate_name(f) {
         "%" => Comment(elaborate_comment(xs))
         "_" => Splice(xs.map(Stage2::elaborate_node))
+        "~" => Splice([Text(" "), ..xs.map(Stage2::elaborate_node), Text(" ")])
         "λ" => elaborate_template(xs)
         s => App(s, xs.map(Stage2::elaborate_node))
       }

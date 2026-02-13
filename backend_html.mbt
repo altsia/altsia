@@ -56,31 +56,60 @@ pub fn Html::elaborate_node(piece : Piece) -> Html {
 }
 
 ///|
-pub fn Html::from(doc : Doc) -> Html {
+pub fn Html::from(
+  doc : Doc,
+  f? : (Array[Html]) -> Array[Html] = x => x,
+) -> Html {
   Element({
     name: "div",
     attrs: @hashmap.HashMap::new(),
-    children: doc.map(Html::elaborate_node),
+    children: f(doc.map(Html::elaborate_node)),
   })
 }
 
 ///|
-test {
-  let source =
-    #|
-    #|(pre (code))
-    #|
-    #|```
-    #|balabala
-    #|```
-    #|
-    #|
-  println(
-    source
-    |> Stage1::parse
-    |> Stage2::pass
-    |> Stage3::pass
-    |> Html::from
-    |> Html::to_string,
-  )
+pub fn Html::visit_text(html : Html, visitor : Visitor[String]) -> Html {
+  match html {
+    Comment(_) => html
+    Text(s) => Text(visitor(s))
+    Element({ name, attrs, children }) =>
+      Element({
+        name,
+        attrs,
+        children: children.map(h => Html::visit_text(h, visitor)),
+      })
+  }
+}
+
+///|
+pub fn Html::visit_element(
+  html : Html,
+  visitor : Visitor[Element[Html]],
+) -> Html {
+  match html {
+    Comment(_) => html
+    Text(s) => Text(s)
+    Element({ name, attrs, children }) =>
+      Element(
+        visitor({
+          name,
+          attrs,
+          children: children.map(h => Html::visit_element(h, visitor)),
+        }),
+      )
+  }
+}
+
+///|
+pub fn Html::cmark_desugar(html : Html) -> Html {
+  html.visit_element(element => {
+    let { name, attrs, children } = element
+    let name = match name {
+      "*" => "em"
+      "**" => "strong"
+      ">" => "blockquote"
+      _ => name
+    }
+    { name, attrs, children: children.map(h => Html::cmark_desugar(h)) }
+  })
 }

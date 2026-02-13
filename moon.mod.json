@@ -1,10 +1,14 @@
 {
   "name": "altsia/altsia",
   "version": "0.1.0",
-  "deps": {},
+  "deps": {
+    "TheWaWaR/clap": "0.2.6",
+    "moonbitlang/x": "0.4.40"
+  },
   "readme": "README.md",
   "repository": "",
   "license": "GPL-3.0",
   "keywords": [],
-  "description": ""
+  "description": "",
+  "preferred-target": "js"
 }

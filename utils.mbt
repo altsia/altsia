@@ -6,6 +6,9 @@ pub struct Element[T] {
 } derive(Eq, Show, Debug)
 
 ///|
+pub type Visitor[X] = (X) -> X
+
+///|
 fn char_at(source : String, i : Int) -> Char {
   source.get_char(i).unwrap()
 }

@@ -4,6 +4,16 @@ import {
 }
 
 options(
-  // "is-main": true,
-  targets: { },
+  link: {
+    "js": {
+      "exports": [
+        "altsia_to_html",
+        "altsia_to_html_with_visitor",
+        "altsia_to_html_raise",
+        "altsia_to_html_with_visitor_raise",
+        "altsia_to_html_result",
+        "altsia_to_html_with_visitor_result",
+      ],
+    },
+  },
 )

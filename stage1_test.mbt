@@ -15,7 +15,7 @@ test "Parsing stage 1 per component" {
     [
       App(
         @list.from_array([
-          Block("羽を休めることを\n雲雀は知らないの\n"),
+          Quote("羽を休めることを\n雲雀は知らないの\n"),
         ]),
       ),
     ],
@@ -35,7 +35,7 @@ test "Parsing stage 1 per component" {
         @list.from_array([
           Text("★"),
           Text("étoile et toi (et toi et moi)"),
-          Block("le monde est vous\n(vous êtes le monde)\n"),
+          Quote("le monde est vous\n(vous êtes le monde)\n"),
         ]),
       ),
     ],
@@ -80,10 +80,10 @@ test "Parsing stage 1" {
               Text("Gathering the roses\n      We sang for the hope"),
             ]),
           ),
-          Block(
+          Quote(
             "Your very voice is in my heartbeat\nSweeter than my dream\nWe were there, in everlasting bloom\n",
           ),
-          Block(
+          Quote(
             "Roses die\nThe secret is inside the pain\nWinds are high up on the hill\nI cannot hear you\n",
           ),
         ]),

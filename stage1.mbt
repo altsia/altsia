@@ -1,7 +1,7 @@
 ///|
 pub(all) enum S {
   Text(String)
-  Block(String)
+  Quote(String) // Multi-line text syntax sugar
   App(@list.List[S])
 } derive(Eq, Debug, Show)
 
@@ -238,10 +238,10 @@ fn append_quote_to_last_app(result : Array[S], quote_content : String) -> Unit {
   match result[last_index] {
     App(args) => {
       let updated = args.to_array()
-      updated.push(Block(quote_content))
+      updated.push(Quote(quote_content))
       result[last_index] = App(@list.List::from_array(updated))
     }
-    Block(_) | Text(_) => panic()
+    Quote(_) | Text(_) => panic()
   }
 }
 
@@ -289,7 +289,7 @@ fn render_app(args : @list.List[S]) -> String {
   let blocks : Array[String] = []
   for arg in args {
     match arg {
-      Block(content) => blocks.push(render_block(content))
+      Quote(content) => blocks.push(render_block(content))
       Text(text) => inline_parts.push(escape_text(text))
       App(nested) => inline_parts.push(render_app(nested))
     }
@@ -306,7 +306,7 @@ fn render_app(args : @list.List[S]) -> String {
 impl ToSource for S with to_source(node) {
   match node {
     Text(value) => escape_text(value)
-    Block(content) => render_block(content)
+    Quote(content) => render_block(content)
     App(args) => render_app(args)
   }
 }

@@ -58,6 +58,6 @@ pub fn Mdx::elaborate_node(piece : Piece) -> Mdx {
 }
 
 ///|
-pub fn Mdx::from(doc : Doc) -> Mdx {
-  Group(doc.map(Mdx::elaborate_node))
+pub fn Mdx::from(doc : Doc, f? : (Array[Mdx]) -> Array[Mdx] = x => x) -> Mdx {
+  Group(f(doc.map(Mdx::elaborate_node)))
 }

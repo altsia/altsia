@@ -2,6 +2,17 @@
 pub type Stage2Etale
 
 ///|
+pub(all) suberror Stage2EtaleError {
+  TemplateArityMismatch(
+    template_name~ : Name,
+    expected~ : Int,
+    got~ : Int,
+    args~ : Array[Term],
+  )
+  NestedTemplateDefinitionInSubstitution(term~ : Term)
+} derive(Eq, Show)
+
+///|
 pub struct Template {
   params : Array[Name]
   body : Array[Term]
@@ -20,7 +31,7 @@ pub fn Stage2Etale::expand_program(terms : Array[Term]) -> Array[Term] raise {
   for term in terms {
     match term {
       TemplateDefinition(name, params, body) => env[name] = { params, body }
-      _ => program.push(term)
+      _ => program.push(term) // TemplateDefinition(...) ∉ program
     }
   }
   program.map(t => expand(env, t)).flatten()
@@ -35,17 +46,18 @@ pub fn expand_args(env : Env, args : Array[Term]) -> Array[Term] raise {
 pub fn expand(env : Env, term : Term) -> Array[Term] raise {
   match term {
     App(name, args) if env.get(name) is Some(template) =>
-      return expand_template_call(env, template, args)
+      return expand_template_call(env, name, template, args)
     App(name, args) => [App(name, expand_args(env, args))]
     Splice(terms) => terms.map(t => expand(env, t)).flatten()
     Text(_) | Comment(_) => [term]
-    TemplateDefinition(_) => panic() // unreachable
+    TemplateDefinition(_) => panic() // unreachable, see: Stage2Etale::expand_program
   }
 }
 
 ///|
 pub fn expand_template_call(
   env : Env,
+  template_name : Name,
   template : Template,
   args : Array[Term],
 ) -> Array[Term] raise {
@@ -56,7 +68,12 @@ pub fn expand_template_call(
   if params_length == 1 && args_length > 1 {
     args = [Splice(args)] // ad-hoc rule
   } else if params_length != args_length {
-    fail("template arity mismatch: expected \{params_length}, got \{args_length}: \{args}")
+    raise Stage2EtaleError::TemplateArityMismatch(
+      template_name=template_name,
+      expected=params_length,
+      got=args_length,
+      args=args,
+    )
   }
 
   let expand_args = args.map(a => expand(env, a))
@@ -76,6 +93,6 @@ pub fn substitute(env : ParamsEnv, term : Term) -> Array[Term] raise {
     App(name, args) => [App(name, args.map(t => substitute(env, t)).flatten())]
     Text(_) | Comment(_) => [term]
     TemplateDefinition(_) =>
-      fail("nested template definition is not allowed in substitution: \{term}") // unreachable
+      raise Stage2EtaleError::NestedTemplateDefinitionInSubstitution(term=term)
   }
 }

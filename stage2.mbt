@@ -14,13 +14,20 @@ pub type Name = String
 pub type Stage2
 
 ///|
+pub(all) suberror Stage2Error {
+  FunctionNameMustBePlainText(found~ : S)
+  TemplateRequiresNameAndParamList(items~ : Array[S])
+  TemplateParamsMustBeList(found~ : S)
+} derive(Eq, Show)
+
+///|
 let empty : Term = Text("")
 
 ///|
 fn elaborate_name(s : S) -> Name raise {
   match s {
     Text(s) => s
-    _ => fail("function name must be plain text: \{s}")
+    _ => raise Stage2Error::FunctionNameMustBePlainText(found=s)
   }
 }
 
@@ -36,12 +43,12 @@ fn elaborate_comment(xs : ArrayView[S]) -> String {
 ///|
 fn elaborate_template(xs : ArrayView[S]) -> Term raise {
   if xs.length() < 2 {
-    fail("template requires name and param list: \{xs}")
+    raise Stage2Error::TemplateRequiresNameAndParamList(items=xs.to_array())
   }
   let name = elaborate_name(xs[0])
   let params = match xs[1] {
     App(list) => list.to_array().map(elaborate_name)
-    _ => fail("template params must be a list: \{xs[1]}")
+    _ => raise Stage2Error::TemplateParamsMustBeList(found=xs[1])
   }
   let body = xs[2:].map(Stage2::elaborate_node)
   TemplateDefinition(name, params, body)

@@ -1,5 +1,31 @@
 ///|
-fn render_html(source : String) -> String raise {
+fn error_to_string(err : Error) -> String {
+  match err {
+    Stage2Error::FunctionNameMustBePlainText(found~) =>
+      "function name must be plain text: \{found}"
+    Stage2Error::TemplateRequiresNameAndParamList(items~) =>
+      "template requires name and param list: \{items}"
+    Stage2Error::TemplateParamsMustBeList(found~) =>
+      "template params must be a list: \{found}"
+    Stage2EtaleError::TemplateArityMismatch(
+      template_name~,
+      expected~,
+      got~,
+      args~
+    ) =>
+      "template arity mismatch: template=\{template_name}, " +
+      "expected=\{expected}, got=\{got}, args=\{args}"
+    Stage2EtaleError::NestedTemplateDefinitionInSubstitution(term~) =>
+      "nested template definition is not allowed in substitution: \{term}"
+    Stage3Error::AttributeExpectsAtMostOneValue(values~) =>
+      "attribute expects at most one value: \{values}"
+    Failure::Failure(message) => message
+    _ => "\{err}"
+  }
+}
+
+///|
+pub fn altsia_to_html_raise(source : String) -> String raise {
   source
   |> Stage1::parse
   |> Stage2::pass
@@ -10,7 +36,7 @@ fn render_html(source : String) -> String raise {
 }
 
 ///|
-fn render_html_with_visitor(
+pub fn altsia_to_html_with_visitor_raise(
   source : String,
   visitor : (String) -> String,
 ) -> String raise {
@@ -23,27 +49,6 @@ fn render_html_with_visitor(
   |> Html::cmark_desugar
   |> Html::visit_text(visitor)
   |> Html::to_string
-}
-
-///|
-fn error_to_string(err : Error) -> String {
-  match err {
-    Failure::Failure(message) => message
-    _ => "\{err}"
-  }
-}
-
-///|
-pub fn altsia_to_html_raise(source : String) -> String raise {
-  render_html(source)
-}
-
-///|
-pub fn altsia_to_html_with_visitor_raise(
-  source : String,
-  visitor : (String) -> String,
-) -> String raise {
-  render_html_with_visitor(source, visitor)
 }
 
 ///|

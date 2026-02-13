@@ -24,6 +24,11 @@ pub(all) enum BlockNode {
 pub type Stage3
 
 ///|
+pub(all) suberror Stage3Error {
+  AttributeExpectsAtMostOneValue(values~ : Array[Term])
+} derive(Eq, Show)
+
+///|
 pub fn lower_inline(node : Term) -> Array[InlineNode] raise {
   match node {
     Text(s) => [Text(s)]
@@ -68,7 +73,7 @@ pub fn attr_value(term : Array[Term]) -> String raise {
     [] => ""
     [Text(s)] => s
     [t] => t.to_string()
-    _ => fail("attribute expects at most one value: \{term}")
+    _ => raise Stage3Error::AttributeExpectsAtMostOneValue(values=term)
   }
 }
 

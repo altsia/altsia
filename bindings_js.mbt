@@ -1,50 +1,221 @@
 ///|
-fn error_to_string(err : Error) -> String {
-  match err {
-    Stage2Error::FunctionNameMustBePlainText(found~) =>
-      "function name must be plain text: \{found}"
-    Stage2Error::TemplateRequiresNameAndParamList(items~) =>
-      "template requires name and param list: \{items}"
-    Stage2Error::TemplateParamsMustBeList(found~) =>
-      "template params must be a list: \{found}"
-    Stage2EtaleError::TemplateArityMismatch(
-      template_name~,
-      expected~,
-      got~,
-      args~
-    ) =>
-      "template arity mismatch: template=\{template_name}, " +
-      "expected=\{expected}, got=\{got}, args=\{args}"
-    Stage2EtaleError::NestedTemplateDefinitionInSubstitution(term~) =>
-      "nested template definition is not allowed in substitution: \{term}"
-    Stage3Error::AttributeExpectsAtMostOneValue(values~) =>
-      "attribute expects at most one value: \{values}"
-    Failure::Failure(message) => message
-    _ => "\{err}"
+pub(all) struct RenderError {
+  code : String
+  message : String
+  loc : SourceLoc?
+} derive(Eq, Show, Debug)
+
+///|
+fn loc_or(existing : SourceLoc?, fallback : SourceLoc?) -> SourceLoc? {
+  match existing {
+    Some(_) => existing
+    None => fallback
   }
 }
 
 ///|
-pub fn altsia_to_html_raise(source : String) -> String raise {
+fn term_snippet(term : Term) -> String {
+  match term {
+    Text(s) => s
+    Comment(s) => s
+    Splice(terms) => terms.map(term_snippet).join(" ")
+    TemplateDefinition(name, params, body) => {
+      let joined_params = params.join(" ")
+      let params_snippet = "(\{joined_params})"
+      let body_snippet = body.map(term_snippet).join(" ")
+      if body_snippet.is_empty() {
+        "(λ \{name} \{params_snippet})"
+      } else {
+        "(λ \{name} \{params_snippet} \{body_snippet})"
+      }
+    }
+    App(name, args) => {
+      let args_snippet = args.map(term_snippet).join(" ")
+      if args_snippet.is_empty() {
+        "(\{name})"
+      } else {
+        "(\{name} \{args_snippet})"
+      }
+    }
+  }
+}
+
+///|
+fn template_call_snippet(template_name : Name, args : Array[Term]) -> String {
+  let args_snippet = args.map(term_snippet).join(" ")
+  if args_snippet.is_empty() {
+    "(\{template_name})"
+  } else {
+    "(\{template_name} \{args_snippet})"
+  }
+}
+
+///|
+fn enrich_error_loc(err : Error, source : String) -> Error {
+  match err {
+    Stage2Error::FunctionNameMustBePlainText(found~, loc~) =>
+      Stage2Error::FunctionNameMustBePlainText(
+        found=found,
+        loc=loc_or(loc, find_source_loc(source, found.to_source())),
+      )
+    Stage2Error::TemplateRequiresNameAndParamList(items~, loc~) =>
+      Stage2Error::TemplateRequiresNameAndParamList(
+        items=items,
+        loc=loc_or(loc, find_source_loc(source, items.map(ToSource::to_source).join(" "))),
+      )
+    Stage2Error::TemplateParamsMustBeList(found~, loc~) =>
+      Stage2Error::TemplateParamsMustBeList(
+        found=found,
+        loc=loc_or(loc, find_source_loc(source, found.to_source())),
+      )
+    Stage2EtaleError::TemplateArityMismatch(
+      template_name~,
+      expected~,
+      got~,
+      args~,
+      loc~,
+    ) =>
+      Stage2EtaleError::TemplateArityMismatch(
+        template_name=template_name,
+        expected=expected,
+        got=got,
+        args=args,
+        loc=loc_or(loc, find_source_loc(source, template_call_snippet(template_name, args))),
+      )
+    Stage2EtaleError::NestedTemplateDefinitionInSubstitution(term~, loc~) =>
+      Stage2EtaleError::NestedTemplateDefinitionInSubstitution(
+        term=term,
+        loc=loc_or(loc, find_source_loc(source, term_snippet(term))),
+      )
+    Stage3Error::AttributeExpectsAtMostOneValue(values~, loc~) =>
+      Stage3Error::AttributeExpectsAtMostOneValue(
+        values=values,
+        loc=loc_or(loc, find_source_loc(source, values.map(term_snippet).join(" "))),
+      )
+    _ => err
+  }
+}
+
+///|
+fn render_error(err : Error, source : String) -> RenderError {
+  let err = enrich_error_loc(err, source)
+  match err {
+    Stage1Error::InvalidQuoteBlockStart(loc~) => {
+      code: "stage1.invalid-quote-block-start",
+      message: "quote block must start with ```",
+      loc: Some(loc),
+    }
+    Stage1Error::InvalidApplicationStart(loc~) => {
+      code: "stage1.invalid-application-start",
+      message: "application must start with (",
+      loc: Some(loc),
+    }
+    Stage1Error::UnexpectedEof(context~, loc~) => {
+      code: "stage1.unexpected-eof",
+      message: "unexpected EOF while parsing \{context}",
+      loc: Some(loc),
+    }
+    Stage1Error::EmptyApplicationHead(loc~) => {
+      code: "stage1.empty-application-head",
+      message: "application head cannot be empty",
+      loc: Some(loc),
+    }
+    Stage1Error::UnclosedApplication(loc~) => {
+      code: "stage1.unclosed-application",
+      message: "application is missing closing )",
+      loc: Some(loc),
+    }
+    Stage1Error::UnclosedQuoteBlock(loc~) => {
+      code: "stage1.unclosed-quote-block",
+      message: "quote block is missing closing ```",
+      loc: Some(loc),
+    }
+    Stage1Error::QuoteBlockRequiresPrecedingApp(loc~) => {
+      code: "stage1.quote-block-requires-preceding-app",
+      message: "quote block must follow a preceding application",
+      loc: Some(loc),
+    }
+    Stage1Error::QuoteBlockMustFollowApp(loc~) => {
+      code: "stage1.quote-block-must-follow-app",
+      message: "quote block can only be appended to an application",
+      loc: Some(loc),
+    }
+    Stage1Error::UnexpectedTopLevelToken(token~, loc~) => {
+      code: "stage1.unexpected-top-level-token",
+      message: "unexpected top-level token: \{token}",
+      loc: Some(loc),
+    }
+    Stage2Error::FunctionNameMustBePlainText(found~, loc~) => {
+      code: "stage2.function-name-not-text",
+      message: "function name must be plain text: \{found}",
+      loc,
+    }
+    Stage2Error::TemplateRequiresNameAndParamList(items~, loc~) => {
+      code: "stage2.template-missing-header",
+      message: "template requires name and param list: \{items}",
+      loc,
+    }
+    Stage2Error::TemplateParamsMustBeList(found~, loc~) => {
+      code: "stage2.template-params-not-list",
+      message: "template params must be a list: \{found}",
+      loc,
+    }
+    Stage2EtaleError::TemplateArityMismatch(
+      template_name~,
+      expected~,
+      got~,
+      args~,
+      loc~,
+    ) => {
+      code: "stage2-etale.template-arity-mismatch",
+      message:
+        "template arity mismatch: template=\{template_name}, expected=\{expected}, got=\{got}, args=\{args}",
+      loc,
+    }
+    Stage2EtaleError::NestedTemplateDefinitionInSubstitution(term~, loc~) => {
+      code: "stage2-etale.nested-template-definition",
+      message: "nested template definition is not allowed in substitution: \{term}",
+      loc,
+    }
+    Stage3Error::AttributeExpectsAtMostOneValue(values~, loc~) => {
+      code: "stage3.attribute-too-many-values",
+      message: "attribute expects at most one value: \{values}",
+      loc,
+    }
+    Failure::Failure(message) => { code: "failure", message, loc: None }
+    _ => { code: "unknown", message: "\{err}", loc: None }
+  }
+}
+
+///|
+fn render_error_to_string(err : RenderError) -> String {
+  match err.loc {
+    Some(loc) => "\{loc.line}:\{loc.column}: \{err.message}"
+    None => err.message
+  }
+}
+
+///|
+fn altsia_to_html_impl(source : String) -> String raise {
   source
-  |> Stage1::parse
-  |> Stage2::pass
-  |> Stage2Etale::expand_program
-  |> Stage3::pass
+  |> Stage1::parse_spanned
+  |> Stage2::pass_spanned
+  |> Stage2Etale::expand_program_spanned
+  |> Stage3::pass_spanned
   |> Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
   |> Html::to_string
 }
 
 ///|
-pub fn altsia_to_html_with_visitor_raise(
+fn altsia_to_html_with_visitor_impl(
   source : String,
   visitor : (String) -> String,
 ) -> String raise {
   source
-  |> Stage1::parse
-  |> Stage2::pass
-  |> Stage2Etale::expand_program
-  |> Stage3::pass
+  |> Stage1::parse_spanned
+  |> Stage2::pass_spanned
+  |> Stage2Etale::expand_program_spanned
+  |> Stage3::pass_spanned
   |> Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
   |> Html::cmark_desugar
   |> Html::visit_text(visitor)
@@ -52,11 +223,46 @@ pub fn altsia_to_html_with_visitor_raise(
 }
 
 ///|
-pub fn altsia_to_html_result(source : String) -> Result[String, Array[String]] {
-  try altsia_to_html_raise(source) catch {
-    err => Err([error_to_string(err)])
+pub fn altsia_to_html_raise(source : String) -> String raise {
+  altsia_to_html_impl(source)
+}
+
+///|
+pub fn altsia_to_html_with_visitor_raise(
+  source : String,
+  visitor : (String) -> String,
+) -> String raise {
+  altsia_to_html_with_visitor_impl(source, visitor)
+}
+
+///|
+pub fn altsia_to_html_diagnostics(
+  source : String,
+) -> Result[String, Array[RenderError]] {
+  try altsia_to_html_impl(source) catch {
+    err => Err([render_error(err, source)])
   } noraise {
     html => Ok(html)
+  }
+}
+
+///|
+pub fn altsia_to_html_with_visitor_diagnostics(
+  source : String,
+  visitor : (String) -> String,
+) -> Result[String, Array[RenderError]] {
+  try altsia_to_html_with_visitor_impl(source, visitor) catch {
+    err => Err([render_error(err, source)])
+  } noraise {
+    html => Ok(html)
+  }
+}
+
+///|
+pub fn altsia_to_html_result(source : String) -> Result[String, Array[String]] {
+  match altsia_to_html_diagnostics(source) {
+    Ok(html) => Ok(html)
+    Err(errors) => Err(errors.map(render_error_to_string))
   }
 }
 
@@ -65,10 +271,9 @@ pub fn altsia_to_html_with_visitor_result(
   source : String,
   visitor : (String) -> String,
 ) -> Result[String, Array[String]] {
-  try altsia_to_html_with_visitor_raise(source, visitor) catch {
-    err => Err([error_to_string(err)])
-  } noraise {
-    html => Ok(html)
+  match altsia_to_html_with_visitor_diagnostics(source, visitor) {
+    Ok(html) => Ok(html)
+    Err(errors) => Err(errors.map(render_error_to_string))
   }
 }
 

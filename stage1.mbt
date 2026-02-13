@@ -6,6 +6,44 @@ pub(all) enum S {
 } derive(Eq, Debug, Show)
 
 ///|
+pub(all) enum SpannedS {
+  Text(String, SourceLoc)
+  Quote(String, SourceLoc)
+  App(Array[SpannedS], SourceLoc)
+} derive(Eq, Debug, Show)
+
+///|
+pub fn SpannedS::loc(node : SpannedS) -> SourceLoc {
+  match node {
+    Text(_, loc) => loc
+    Quote(_, loc) => loc
+    App(_, loc) => loc
+  }
+}
+
+///|
+pub fn SpannedS::erase_span(node : SpannedS) -> S {
+  match node {
+    Text(s, _) => Text(s)
+    Quote(s, _) => Quote(s)
+    App(args, _) => App(@list.List::from_array(args.map(SpannedS::erase_span)))
+  }
+}
+
+///|
+pub(all) suberror Stage1Error {
+  InvalidQuoteBlockStart(loc~ : SourceLoc)
+  InvalidApplicationStart(loc~ : SourceLoc)
+  UnexpectedEof(context~ : String, loc~ : SourceLoc)
+  EmptyApplicationHead(loc~ : SourceLoc)
+  UnclosedApplication(loc~ : SourceLoc)
+  UnclosedQuoteBlock(loc~ : SourceLoc)
+  QuoteBlockRequiresPrecedingApp(loc~ : SourceLoc)
+  QuoteBlockMustFollowApp(loc~ : SourceLoc)
+  UnexpectedTopLevelToken(token~ : String, loc~ : SourceLoc)
+} derive(Eq, Show)
+
+///|
 pub type Stage1
 
 ///|
@@ -100,9 +138,27 @@ fn normalize_quote_content(raw : String) -> String {
 }
 
 ///|
-fn parse_quote_block(source : String, start : Int) -> (String, Int) {
+fn one_char_loc(source : String, i : Int) -> SourceLoc {
+  let start = if i < 0 {
+    0
+  } else if i > source.length() {
+    source.length()
+  } else {
+    i
+  }
+  let end = if start < source.length() { start + 1 } else { start }
+  source_loc_from_offsets(source, start, end)
+}
+
+///|
+fn end_loc(source : String) -> SourceLoc {
+  source_loc_from_offsets(source, source.length(), source.length())
+}
+
+///|
+fn parse_quote_block(source : String, start : Int) -> (String, Int) raise {
   if !has_prefix_at(source, start, "```") {
-    panic()
+    raise Stage1Error::InvalidQuoteBlockStart(loc=one_char_loc(source, start))
   }
   let len = source.length()
   let mut i = start + 3
@@ -139,12 +195,27 @@ fn parse_quote_block(source : String, start : Int) -> (String, Int) {
       line_start = i
     }
   }
-  panic()
+  raise Stage1Error::UnclosedQuoteBlock(
+    loc=source_loc_from_offsets(source, start, len),
+  )
+}
+
+///|
+fn trim_segment_bounds(source : String, start : Int, end_index : Int) -> (Int, Int) {
+  let mut left = start
+  let mut right = end_index
+  while left < right && is_stage1_space(char_at(source, left)) {
+    left += 1
+  }
+  while right > left && is_stage1_space(char_at(source, right - 1)) {
+    right -= 1
+  }
+  (left, right)
 }
 
 ///|
 fn push_plain_argument(
-  args : Array[S],
+  args : Array[SpannedS],
   source : String,
   start : Int,
   end_index : Int,
@@ -152,32 +223,45 @@ fn push_plain_argument(
   if start < 0 || start >= end_index {
     return
   }
-  let raw = source.unsafe_substring(start~, end=end_index)
+  let (trim_start, trim_end) = trim_segment_bounds(source, start, end_index)
+  if trim_start >= trim_end {
+    return
+  }
+  let raw = source.unsafe_substring(start=trim_start, end=trim_end)
   let content = raw
-    .trim()
-    .to_string()
     .replace_all(old="\\(", new="(")
     .replace_all(old="\\)", new=")")
   if !content.is_empty() {
-    args.push(Text(content))
+    args.push(
+      Text(content, source_loc_from_offsets(source, trim_start, trim_end)),
+    )
   }
 }
 
 ///|
-fn parse_app(source : String, start : Int) -> (S, Int) {
+fn parse_app(source : String, start : Int) -> (SpannedS, Int) raise {
   // Phase 1: parse the outer opening `(` and read the first argument (head).
   let len = source.length()
-  if start >= len || char_at(source, start) != '(' {
-    panic()
+  if start >= len {
+    raise Stage1Error::UnexpectedEof(
+      context="application start",
+      loc=end_loc(source),
+    )
+  }
+  if char_at(source, start) != '(' {
+    raise Stage1Error::InvalidApplicationStart(loc=one_char_loc(source, start))
   }
   let mut i = start + 1
-  let args : Array[S] = []
+  let args : Array[SpannedS] = []
   i = skip_stage1_spaces(source, i)
   if i >= len {
-    panic()
+    raise Stage1Error::UnexpectedEof(
+      context="application head",
+      loc=end_loc(source),
+    )
   }
   if char_at(source, i) == ')' {
-    return (App(@list.List::from_array(args)), i + 1)
+    return (App(args, source_loc_from_offsets(source, start, i + 1)), i + 1)
   }
   if char_at(source, i) == '(' {
     let (head, next) = parse_app(source, i)
@@ -193,13 +277,13 @@ fn parse_app(source : String, start : Int) -> (S, Int) {
       i += 1
     }
     if head_start == i {
-      panic()
+      raise Stage1Error::EmptyApplicationHead(loc=one_char_loc(source, i))
     }
     let head = source
       .unsafe_substring(start=head_start, end=i)
       .replace_all(old="\\(", new="(")
       .replace_all(old="\\)", new=")")
-    args.push(Text(head))
+    args.push(Text(head, source_loc_from_offsets(source, head_start, i)))
   }
 
   // Phase 2: scan remaining content inside this app.
@@ -211,7 +295,7 @@ fn parse_app(source : String, start : Int) -> (S, Int) {
     let ch = char_at(source, i)
     if ch == ')' && !(i > 0 && char_at(source, i - 1) == '\\') {
       push_plain_argument(args, source, segment_start, i)
-      return (App(@list.List::from_array(args)), i + 1)
+      return (App(args, source_loc_from_offsets(source, start, i + 1)), i + 1)
     }
     if ch == '(' && !(i > 0 && char_at(source, i - 1) == '\\') {
       push_plain_argument(args, source, segment_start, i)
@@ -226,38 +310,51 @@ fn parse_app(source : String, start : Int) -> (S, Int) {
     }
     i += 1
   }
-  panic()
+  raise Stage1Error::UnclosedApplication(
+    loc=source_loc_from_offsets(source, start, len),
+  )
 }
 
 ///|
-fn append_quote_to_last_app(result : Array[S], quote_content : String) -> Unit {
+fn append_quote_to_last_app(
+  result : Array[SpannedS],
+  quote_content : String,
+  quote_loc : SourceLoc,
+) -> Unit raise {
   if result.is_empty() {
-    panic()
+    raise Stage1Error::QuoteBlockRequiresPrecedingApp(loc=quote_loc)
   }
   let last_index = result.length() - 1
   match result[last_index] {
-    App(args) => {
-      let updated = args.to_array()
-      updated.push(Quote(quote_content))
-      result[last_index] = App(@list.List::from_array(updated))
+    App(args, app_loc) => {
+      let updated = []
+      updated.append(args)
+      updated.push(Quote(quote_content, quote_loc))
+      result[last_index] = App(updated, app_loc)
     }
-    Quote(_) | Text(_) => panic()
+    Quote(_, _) | Text(_, _) =>
+      raise Stage1Error::QuoteBlockMustFollowApp(loc=quote_loc)
   }
 }
 
 ///|
-pub fn Stage1::parse(source : String) -> Array[S] {
+pub fn Stage1::parse_spanned(source : String) -> Array[SpannedS] raise {
   let len = source.length()
   let mut i = 0
-  let result : Array[S] = []
+  let result : Array[SpannedS] = []
   while i < len {
     i = skip_stage1_spaces(source, i)
     if i >= len {
       break
     }
     if has_prefix_at(source, i, "```") {
+      let quote_start = i
       let (quote_content, next) = parse_quote_block(source, i)
-      append_quote_to_last_app(result, quote_content)
+      append_quote_to_last_app(
+        result,
+        quote_content,
+        source_loc_from_offsets(source, quote_start, next),
+      )
       i = next
       continue
     }
@@ -267,9 +364,18 @@ pub fn Stage1::parse(source : String) -> Array[S] {
       i = next
       continue
     }
-    panic()
+    let token = source.unsafe_substring(start=i, end=i + 1)
+    raise Stage1Error::UnexpectedTopLevelToken(
+      token=token,
+      loc=one_char_loc(source, i),
+    )
   }
   result
+}
+
+///|
+pub fn Stage1::parse(source : String) -> Array[S] raise {
+  Stage1::parse_spanned(source).map(SpannedS::erase_span)
 }
 
 ///|

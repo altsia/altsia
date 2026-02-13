@@ -6,99 +6,7 @@ pub(all) struct RenderError {
 } derive(Eq, Show, Debug)
 
 ///|
-fn loc_or(existing : SourceLoc?, fallback : SourceLoc?) -> SourceLoc? {
-  match existing {
-    Some(_) => existing
-    None => fallback
-  }
-}
-
-///|
-fn term_snippet(term : Term) -> String {
-  match term {
-    Text(s) => s
-    Comment(s) => s
-    Splice(terms) => terms.map(term_snippet).join(" ")
-    TemplateDefinition(name, params, body) => {
-      let joined_params = params.join(" ")
-      let params_snippet = "(\{joined_params})"
-      let body_snippet = body.map(term_snippet).join(" ")
-      if body_snippet.is_empty() {
-        "(λ \{name} \{params_snippet})"
-      } else {
-        "(λ \{name} \{params_snippet} \{body_snippet})"
-      }
-    }
-    App(name, args) => {
-      let args_snippet = args.map(term_snippet).join(" ")
-      if args_snippet.is_empty() {
-        "(\{name})"
-      } else {
-        "(\{name} \{args_snippet})"
-      }
-    }
-  }
-}
-
-///|
-fn template_call_snippet(template_name : Name, args : Array[Term]) -> String {
-  let args_snippet = args.map(term_snippet).join(" ")
-  if args_snippet.is_empty() {
-    "(\{template_name})"
-  } else {
-    "(\{template_name} \{args_snippet})"
-  }
-}
-
-///|
-fn enrich_error_loc(err : Error, source : String) -> Error {
-  match err {
-    Stage2Error::FunctionNameMustBePlainText(found~, loc~) =>
-      Stage2Error::FunctionNameMustBePlainText(
-        found=found,
-        loc=loc_or(loc, find_source_loc(source, found.to_source())),
-      )
-    Stage2Error::TemplateRequiresNameAndParamList(items~, loc~) =>
-      Stage2Error::TemplateRequiresNameAndParamList(
-        items=items,
-        loc=loc_or(loc, find_source_loc(source, items.map(ToSource::to_source).join(" "))),
-      )
-    Stage2Error::TemplateParamsMustBeList(found~, loc~) =>
-      Stage2Error::TemplateParamsMustBeList(
-        found=found,
-        loc=loc_or(loc, find_source_loc(source, found.to_source())),
-      )
-    Stage2EtaleError::TemplateArityMismatch(
-      template_name~,
-      expected~,
-      got~,
-      args~,
-      loc~,
-    ) =>
-      Stage2EtaleError::TemplateArityMismatch(
-        template_name=template_name,
-        expected=expected,
-        got=got,
-        args=args,
-        loc=loc_or(loc, find_source_loc(source, template_call_snippet(template_name, args))),
-      )
-    Stage2EtaleError::NestedTemplateDefinitionInSubstitution(term~, loc~) =>
-      Stage2EtaleError::NestedTemplateDefinitionInSubstitution(
-        term=term,
-        loc=loc_or(loc, find_source_loc(source, term_snippet(term))),
-      )
-    Stage3Error::AttributeExpectsAtMostOneValue(values~, loc~) =>
-      Stage3Error::AttributeExpectsAtMostOneValue(
-        values=values,
-        loc=loc_or(loc, find_source_loc(source, values.map(term_snippet).join(" "))),
-      )
-    _ => err
-  }
-}
-
-///|
-fn render_error(err : Error, source : String) -> RenderError {
-  let err = enrich_error_loc(err, source)
+fn render_error(err : Error) -> RenderError {
   match err {
     Stage1Error::InvalidQuoteBlockStart(loc~) => {
       code: "stage1.invalid-quote-block-start",
@@ -240,7 +148,7 @@ pub fn altsia_to_html_diagnostics(
   source : String,
 ) -> Result[String, Array[RenderError]] {
   try altsia_to_html_impl(source) catch {
-    err => Err([render_error(err, source)])
+    err => Err([render_error(err)])
   } noraise {
     html => Ok(html)
   }
@@ -252,7 +160,7 @@ pub fn altsia_to_html_with_visitor_diagnostics(
   visitor : (String) -> String,
 ) -> Result[String, Array[RenderError]] {
   try altsia_to_html_with_visitor_impl(source, visitor) catch {
-    err => Err([render_error(err, source)])
+    err => Err([render_error(err)])
   } noraise {
     html => Ok(html)
   }

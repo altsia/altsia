@@ -11,23 +11,6 @@ fn source_char_at(source : String, i : Int) -> Char {
   source.get_char(i).unwrap()
 }
 
-///|
-pub fn find_substring(source : String, needle : String) -> Int? {
-  let source_len = source.length()
-  let needle_len = needle.length()
-  if needle_len == 0 || needle_len > source_len {
-    return None
-  }
-  let last = source_len - needle_len
-  for i in 0..=last {
-    if source.unsafe_substring(start=i, end=i + needle_len) == needle {
-      return Some(i)
-    }
-  }
-  None
-}
-
-///|
 fn line_column_at(source : String, offset : Int) -> (Int, Int) {
   let clamped = if offset < 0 {
     0
@@ -71,19 +54,4 @@ pub fn source_loc_from_offsets(
   }
   let (line, column) = line_column_at(source, safe_start)
   { start_offset: safe_start, end_offset: safe_end, line, column }
-}
-
-///|
-pub fn find_source_loc(source : String, snippet : String) -> SourceLoc? {
-  match find_substring(source, snippet) {
-    Some(start_offset) =>
-      Some(
-        source_loc_from_offsets(
-          source,
-          start_offset,
-          start_offset + snippet.length(),
-        ),
-      )
-    None => None
-  }
 }

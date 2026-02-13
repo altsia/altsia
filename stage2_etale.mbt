@@ -11,6 +11,7 @@ pub(all) suberror Stage2EtaleError {
     loc~ : SourceLoc?,
   )
   NestedTemplateDefinitionInSubstitution(term~ : Term, loc~ : SourceLoc?)
+  UnexpectedTemplateDefinitionInExpand(term~ : Term, loc~ : SourceLoc?)
 } derive(Eq, Show)
 
 ///|
@@ -64,7 +65,11 @@ pub fn expand(env : Env, term : Term) -> Array[Term] raise {
     App(name, args) => [App(name, expand_args(env, args))]
     Splice(terms) => terms.map(t => expand(env, t)).flatten()
     Text(_) | Comment(_) => [term]
-    TemplateDefinition(_) => panic() // unreachable, see: Stage2Etale::expand_program
+    TemplateDefinition(_) =>
+      raise Stage2EtaleError::UnexpectedTemplateDefinitionInExpand(
+        term=term,
+        loc=None,
+      )
   }
 }
 
@@ -152,7 +157,11 @@ fn expand_spanned(env : LocatedEnv, term : LocatedTerm) -> Array[LocatedTerm] ra
     TApp(name, args, loc) => [TApp(name, expand_args_spanned(env, args), loc)]
     TSplice(terms, _) => terms.map(t => expand_spanned(env, t)).flatten()
     TText(_, _) | TComment(_, _) => [term]
-    TTemplateDefinition(_, _, _, _) => panic() // unreachable
+    TTemplateDefinition(_, _, _, loc) =>
+      raise Stage2EtaleError::UnexpectedTemplateDefinitionInExpand(
+        term=LocatedTerm::to_term(term),
+        loc=Some(loc),
+      )
   }
 }
 

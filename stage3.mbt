@@ -26,6 +26,7 @@ pub type Stage3
 ///|
 pub(all) suberror Stage3Error {
   AttributeExpectsAtMostOneValue(values~ : Array[Term], loc~ : SourceLoc?)
+  UnexpectedTemplateDefinition(term~ : Term, loc~ : SourceLoc?)
 } derive(Eq, Show)
 
 ///|
@@ -35,7 +36,8 @@ pub fn lower_inline(node : Term) -> Array[InlineNode] raise {
     Splice(terms) => terms.map(lower_inline).flatten()
     App(name, args) => lower_span(name, args)
     Comment(_) => []
-    TemplateDefinition(_) => panic() // unreachable
+    TemplateDefinition(_) =>
+      raise Stage3Error::UnexpectedTemplateDefinition(term=node, loc=None)
   }
 }
 
@@ -99,7 +101,8 @@ pub fn lower_block(node : Term) -> Array[Piece] raise {
     Text(_) => [Block(Paragraph(lower_inline(node)))]
     Splice(terms) => terms.map(lower_block).flatten()
     App(name, args) => lower_block_app(name, args)
-    TemplateDefinition(_) => panic() // unreachable
+    TemplateDefinition(_) =>
+      raise Stage3Error::UnexpectedTemplateDefinition(term=node, loc=None)
   }
 }
 
@@ -124,7 +127,11 @@ fn lower_inline_spanned(node : LocatedTerm) -> Array[InlineNode] raise {
     TSplice(terms, _) => terms.map(lower_inline_spanned).flatten()
     TApp(name, args, _) => lower_span_spanned(name, args)
     TComment(_, _) => []
-    TTemplateDefinition(_, _, _, _) => panic() // unreachable
+    TTemplateDefinition(_, _, _, loc) =>
+      raise Stage3Error::UnexpectedTemplateDefinition(
+        term=LocatedTerm::to_term(node),
+        loc=Some(loc),
+      )
   }
 }
 
@@ -198,7 +205,11 @@ fn lower_block_spanned(node : LocatedTerm) -> Array[Piece] raise {
     TText(_, _) => [Block(Paragraph(lower_inline_spanned(node)))]
     TSplice(terms, _) => terms.map(lower_block_spanned).flatten()
     TApp(name, args, _) => lower_block_app_spanned(name, args)
-    TTemplateDefinition(_, _, _, _) => panic() // unreachable
+    TTemplateDefinition(_, _, _, loc) =>
+      raise Stage3Error::UnexpectedTemplateDefinition(
+        term=LocatedTerm::to_term(node),
+        loc=Some(loc),
+      )
   }
 }
 

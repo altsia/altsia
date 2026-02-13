@@ -115,6 +115,31 @@ test "Stage3 propagates structured attribute value arity error" {
 }
 
 ///|
+test "Stage3 returns structured unexpected template-definition error" {
+  let terms : Array[Term] = [TemplateDefinition("t", ["x"], [App("x", [])])]
+  let result : Result[Doc, Error] = try? Stage3::pass(terms)
+  guard result is Err(Stage3Error::UnexpectedTemplateDefinition(term~, loc~)) else {
+    fail("expected Stage3Error::UnexpectedTemplateDefinition")
+  }
+  assert_eq(term, TemplateDefinition("t", ["x"], [App("x", [])]))
+  assert_eq(loc, None)
+}
+
+///|
+test "Stage2Etale returns structured unexpected template-definition error" {
+  let env : Env = @hashmap.HashMap::new()
+  let input_term : Term = TemplateDefinition("t", ["x"], [App("x", [])])
+  let result : Result[Array[Term], Error] = try? expand(env, input_term)
+  guard result is Err(
+    Stage2EtaleError::UnexpectedTemplateDefinitionInExpand(term=found_term, loc~),
+  ) else {
+    fail("expected Stage2EtaleError::UnexpectedTemplateDefinitionInExpand")
+  }
+  assert_eq(found_term, input_term)
+  assert_eq(loc, None)
+}
+
+///|
 test "bindings expose stage3 error as structured and displayable" {
   let source = "(div (:class (a) (b)) hi)"
 
@@ -133,7 +158,12 @@ test "bindings expose stage3 error as structured and displayable" {
 
   let diagnostic = first_collected_diagnostic(altsia_to_html_diagnostics(source))
   assert_eq(diagnostic.code, "stage3.attribute-too-many-values")
+  assert_eq(diagnostic.phase, "stage3.lower")
   assert_true(diagnostic.loc is Some(_))
+  guard diagnostic.source_excerpt is Some(excerpt) else {
+    fail("expected source excerpt")
+  }
+  assert_true(excerpt.contains("(:class (a) (b))"))
 
   let rendered = altsia_to_html(source)
   assert_true(rendered.contains("attribute expects at most one value"))
@@ -150,7 +180,9 @@ test "bindings stringify structured template mismatch error" {
 
   let diagnostic = first_collected_diagnostic(altsia_to_html_diagnostics(source))
   assert_eq(diagnostic.code, "stage2-etale.template-arity-mismatch")
+  assert_eq(diagnostic.phase, "stage2-etale.expand")
   assert_true(diagnostic.loc is Some(_))
+  assert_true(diagnostic.source_excerpt is Some(_))
 }
 
 ///|
@@ -160,7 +192,9 @@ test "bindings stringify structured stage2 function-name error" {
   assert_true(first.contains("function name must be plain text"))
   let diagnostic = first_collected_diagnostic(altsia_to_html_diagnostics(source))
   assert_eq(diagnostic.code, "stage2.function-name-not-text")
+  assert_eq(diagnostic.phase, "stage2.elaborate")
   assert_true(diagnostic.loc is Some(_))
+  assert_true(diagnostic.source_excerpt is Some(_))
 }
 
 ///|
@@ -194,11 +228,16 @@ test "bindings expose Stage1 parse error with precise loc" {
   let source = "oops"
   let diagnostic = first_collected_diagnostic(altsia_to_html_diagnostics(source))
   assert_eq(diagnostic.code, "stage1.unexpected-top-level-token")
+  assert_eq(diagnostic.phase, "stage1.parse")
   guard diagnostic.loc is Some(loc) else {
     fail("expected diagnostic loc")
   }
   assert_eq(loc.line, 1)
   assert_eq(loc.column, 1)
+  guard diagnostic.source_excerpt is Some(excerpt) else {
+    fail("expected source excerpt")
+  }
+  assert_true(excerpt.contains("oops"))
 
   let first = first_collected_error(altsia_to_html_result(source))
   assert_true(first.contains("1:1:"))

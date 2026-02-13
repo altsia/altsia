@@ -50,6 +50,7 @@ pub(all) suberror Stage2Error {
   FunctionNameMustBePlainText(found~ : S, loc~ : SourceLoc?)
   TemplateRequiresNameAndParamList(items~ : Array[S], loc~ : SourceLoc?)
   TemplateParamsMustBeList(found~ : S, loc~ : SourceLoc?)
+  InternalInvariantViolation(context~ : String, loc~ : SourceLoc?)
 } derive(Eq, Show)
 
 ///|
@@ -200,7 +201,11 @@ fn elaborate_app_spanned(node : SpannedS) -> LocatedTerm raise {
             s => TApp(s, elaborate_nodes_spanned(xs), app_loc)
           }
       }
-    _ => panic()
+    _ =>
+      raise Stage2Error::InternalInvariantViolation(
+        context="elaborate_app_spanned expects an App node",
+        loc=Some(node.loc()),
+      )
   }
 }
 

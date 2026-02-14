@@ -1,6 +1,6 @@
 
 <h1>
-  <img src="./altsia.svg" title="altsia" width=200 />
+  <img src="./images/altsia.svg" title="altsia" width=200 />
   /a.lɛ.tʰ.ʃi.ja/
 </h>
 

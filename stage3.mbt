@@ -63,7 +63,10 @@ pub fn lower_paragraph(args : Array[Term]) -> Array[Piece] raise {
 }
 
 ///|
-pub fn lower_container_block(name : Name, args : Array[Term]) -> Array[Piece] raise {
+pub fn lower_container_block(
+  name : Name,
+  args : Array[Term],
+) -> Array[Piece] raise {
   let (attrs, body) = extract_attrs(args)
   let children = body.map(lower_inline).flatten()
   [Block(Container({ name, attrs, children }))]
@@ -75,7 +78,8 @@ pub fn attr_value(term : Array[Term]) -> String raise {
     [] => ""
     [Text(s)] => s
     [t] => t.to_string()
-    _ => raise Stage3Error::AttributeExpectsAtMostOneValue(values=term, loc=None)
+    _ =>
+      raise Stage3Error::AttributeExpectsAtMostOneValue(values=term, loc=None)
   }
 }
 
@@ -136,7 +140,10 @@ fn lower_inline_spanned(node : LocatedTerm) -> Array[InlineNode] raise {
 }
 
 ///|
-fn lower_span_spanned(name : Name, args : Array[LocatedTerm]) -> Array[InlineNode] raise {
+fn lower_span_spanned(
+  name : Name,
+  args : Array[LocatedTerm],
+) -> Array[InlineNode] raise {
   let (attrs, body) = extract_attrs_spanned(args)
   let children = body.map(lower_inline_spanned).flatten()
   [Span({ name, attrs, children })]
@@ -170,7 +177,10 @@ fn lower_container_block_spanned(
 }
 
 ///|
-fn attr_value_spanned(term : Array[LocatedTerm], loc : SourceLoc) -> String raise {
+fn attr_value_spanned(
+  term : Array[LocatedTerm],
+  loc : SourceLoc,
+) -> String raise {
   match term {
     [] => ""
     [TText(s, _)] => s

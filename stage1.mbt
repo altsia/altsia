@@ -201,7 +201,11 @@ fn parse_quote_block(source : String, start : Int) -> (String, Int) raise {
 }
 
 ///|
-fn trim_segment_bounds(source : String, start : Int, end_index : Int) -> (Int, Int) {
+fn trim_segment_bounds(
+  source : String,
+  start : Int,
+  end_index : Int,
+) -> (Int, Int) {
   let mut left = start
   let mut right = end_index
   while left < right && is_stage1_space(char_at(source, left)) {
@@ -366,7 +370,7 @@ pub fn Stage1::parse_spanned(source : String) -> Array[SpannedS] raise {
     }
     let token = source.unsafe_substring(start=i, end=i + 1)
     raise Stage1Error::UnexpectedTopLevelToken(
-      token=token,
+      token~,
       loc=one_char_loc(source, i),
     )
   }

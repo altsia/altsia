@@ -9,39 +9,9 @@ pub(all) struct RenderError {
 
 ///|
 let supported_languages : Array[String] = [
-  "en",
-  "en-US",
-  "zh-CN",
-  "zh-TW",
-  "ja",
-  "ko",
-  "fr",
-  "de",
-  "es",
-  "es-419",
-  "it",
-  "pt-PT",
-  "pt-BR",
-  "ru",
-  "uk",
-  "pl",
-  "cs",
-  "hu",
-  "ro",
-  "tr",
-  "nl",
-  "sv",
-  "da",
-  "nb",
-  "fi",
-  "el",
-  "ar",
-  "he",
-  "hi",
-  "th",
-  "vi",
-  "id",
-  "ms",
+  "en", "en-US", "zh-CN", "zh-TW", "ja", "ko", "fr", "de", "es", "es-419", "it",
+  "pt-PT", "pt-BR", "ru", "uk", "pl", "cs", "hu", "ro", "tr", "nl", "sv", "da", "nb",
+  "fi", "el", "ar", "he", "hi", "th", "vi", "id", "ms",
 ]
 
 ///|
@@ -108,7 +78,7 @@ fn source_excerpt_for(source : String, loc : SourceLoc?) -> String? {
       if start >= end {
         None
       } else {
-        Some(source.unsafe_substring(start=start, end=end))
+        Some(source.unsafe_substring(start~, end~))
       }
     }
   }
@@ -126,18 +96,19 @@ fn make_render_error(
 }
 
 ///|
-pub fn render_error(err : Error, source : String, language : String) -> RenderError {
+pub fn render_error(
+  err : Error,
+  source : String,
+  language : String,
+) -> RenderError {
   match err {
     Stage1Error::InvalidQuoteBlockStart(loc~) =>
       make_render_error(
         "stage1.invalid-quote-block-start",
         "stage1.parse",
         localized(
-          language,
-          "quote block must start with ```",
-          "引用块必须以 ``` 开始",
-          "引用區塊必須以 ``` 開始",
-          "引用ブロックは ``` で始まる必要があります",
+          language, "quote block must start with ```", "引用块必须以 ``` 开始",
+          "引用區塊必須以 ``` 開始", "引用ブロックは ``` で始まる必要があります",
         ),
         Some(loc),
         source,
@@ -147,11 +118,8 @@ pub fn render_error(err : Error, source : String, language : String) -> RenderEr
         "stage1.invalid-application-start",
         "stage1.parse",
         localized(
-          language,
-          "application must start with (",
-          "应用必须以 ( 开始",
-          "應用必須以 ( 開始",
-          "アプリケーションは ( で始まる必要があります",
+          language, "application must start with (", "应用必须以 ( 开始",
+          "應用必須以 ( 開始", "アプリケーションは ( で始まる必要があります",
         ),
         Some(loc),
         source,
@@ -175,11 +143,8 @@ pub fn render_error(err : Error, source : String, language : String) -> RenderEr
         "stage1.empty-application-head",
         "stage1.parse",
         localized(
-          language,
-          "application head cannot be empty",
-          "应用头不能为空",
-          "應用頭不能為空",
-          "アプリケーションのヘッドは空にできません",
+          language, "application head cannot be empty", "应用头不能为空",
+          "應用頭不能為空", "アプリケーションのヘッドは空にできません",
         ),
         Some(loc),
         source,
@@ -209,11 +174,8 @@ pub fn render_error(err : Error, source : String, language : String) -> RenderEr
         "stage1.unclosed-quote-block",
         "stage1.parse",
         localized(
-          language,
-          "quote block is missing closing ```",
-          "引用块缺少结束的 ```",
-          "引用區塊缺少結束的 ```",
-          "引用ブロックの閉じ ``` が不足しています",
+          language, "quote block is missing closing ```", "引用块缺少结束的 ```",
+          "引用區塊缺少結束的 ```", "引用ブロックの閉じ ``` が不足しています",
         ),
         Some(loc),
         source,
@@ -223,11 +185,8 @@ pub fn render_error(err : Error, source : String, language : String) -> RenderEr
         "stage1.quote-block-requires-preceding-app",
         "stage1.parse",
         localized(
-          language,
-          "quote block must follow a preceding application",
-          "引用块必须跟在前一个应用之后",
-          "引用區塊必須跟在前一個應用之後",
-          "引用ブロックは直前のアプリケーションに続く必要があります",
+          language, "quote block must follow a preceding application", "引用块必须跟在前一个应用之后",
+          "引用區塊必須跟在前一個應用之後", "引用ブロックは直前のアプリケーションに続く必要があります",
         ),
         Some(loc),
         source,
@@ -237,11 +196,8 @@ pub fn render_error(err : Error, source : String, language : String) -> RenderEr
         "stage1.quote-block-must-follow-app",
         "stage1.parse",
         localized(
-          language,
-          "quote block can only be appended to an application",
-          "引用块只能附加到应用节点",
-          "引用區塊只能附加到應用節點",
-          "引用ブロックはアプリケーションにのみ追加できます",
+          language, "quote block can only be appended to an application", "引用块只能附加到应用节点",
+          "引用區塊只能附加到應用節點", "引用ブロックはアプリケーションにのみ追加できます",
         ),
         Some(loc),
         source,
@@ -327,7 +283,7 @@ pub fn render_error(err : Error, source : String, language : String) -> RenderEr
       expected~,
       got~,
       args~,
-      loc~,
+      loc~
     ) =>
       make_render_error(
         "stage2-etale.template-arity-mismatch",

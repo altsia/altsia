@@ -8,7 +8,7 @@ pub(all) suberror Stage2EtaleError {
     expected~ : Int,
     got~ : Int,
     args~ : Array[Term],
-    loc~ : SourceLoc?,
+    loc~ : SourceLoc?
   )
   NestedTemplateDefinitionInSubstitution(term~ : Term, loc~ : SourceLoc?)
   UnexpectedTemplateDefinitionInExpand(term~ : Term, loc~ : SourceLoc?)
@@ -67,7 +67,7 @@ pub fn expand(env : Env, term : Term) -> Array[Term] raise {
     Text(_) | Comment(_) => [term]
     TemplateDefinition(_) =>
       raise Stage2EtaleError::UnexpectedTemplateDefinitionInExpand(
-        term=term,
+        term~,
         loc=None,
       )
   }
@@ -88,10 +88,10 @@ pub fn expand_template_call(
     args = [Splice(args)] // ad-hoc rule
   } else if params_length != args_length {
     raise Stage2EtaleError::TemplateArityMismatch(
-      template_name=template_name,
+      template_name~,
       expected=params_length,
       got=args_length,
-      args=args,
+      args~,
       loc=None,
     )
   }
@@ -114,7 +114,7 @@ pub fn substitute(env : ParamsEnv, term : Term) -> Array[Term] raise {
     Text(_) | Comment(_) => [term]
     TemplateDefinition(_) =>
       raise Stage2EtaleError::NestedTemplateDefinitionInSubstitution(
-        term=term,
+        term~,
         loc=None,
       )
   }
@@ -150,7 +150,10 @@ fn expand_args_spanned(
 }
 
 ///|
-fn expand_spanned(env : LocatedEnv, term : LocatedTerm) -> Array[LocatedTerm] raise {
+fn expand_spanned(
+  env : LocatedEnv,
+  term : LocatedTerm,
+) -> Array[LocatedTerm] raise {
   match term {
     TApp(name, args, call_loc) if env.get(name) is Some(template) =>
       return expand_template_call_spanned(env, name, call_loc, template, args)
@@ -181,7 +184,7 @@ fn expand_template_call_spanned(
     args = [TSplice(args, call_loc)] // ad-hoc rule
   } else if params_length != args_length {
     raise Stage2EtaleError::TemplateArityMismatch(
-      template_name=template_name,
+      template_name~,
       expected=params_length,
       got=args_length,
       args=located_terms_to_plain_terms(args),

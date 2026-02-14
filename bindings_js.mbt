@@ -1,3 +1,4 @@
+///|
 fn altsia_to_html_impl(source : String) -> String raise {
   source
   |> Stage1::parse_spanned
@@ -67,7 +68,7 @@ pub fn altsia_to_html_result(
   source : String,
   language? : String = "en",
 ) -> Result[String, Array[String]] {
-  match altsia_to_html_diagnostics(source, language=language) {
+  match altsia_to_html_diagnostics(source, language~) {
     Ok(html) => Ok(html)
     Err(errors) => Err(errors.map(render_error_to_string))
   }
@@ -79,11 +80,7 @@ pub fn altsia_to_html_with_visitor_result(
   visitor : (String) -> String,
   language? : String = "en",
 ) -> Result[String, Array[String]] {
-  match altsia_to_html_with_visitor_diagnostics(
-    source,
-    visitor,
-    language=language,
-  ) {
+  match altsia_to_html_with_visitor_diagnostics(source, visitor, language~) {
     Ok(html) => Ok(html)
     Err(errors) => Err(errors.map(render_error_to_string))
   }
@@ -91,7 +88,7 @@ pub fn altsia_to_html_with_visitor_result(
 
 ///|
 pub fn altsia_to_html(source : String, language? : String = "en") -> String {
-  match altsia_to_html_result(source, language=language) {
+  match altsia_to_html_result(source, language~) {
     Ok(html) => html
     Err(errors) => errors.join("\n")
   }
@@ -103,7 +100,7 @@ pub fn altsia_to_html_with_visitor(
   visitor : (String) -> String,
   language? : String = "en",
 ) -> String {
-  match altsia_to_html_with_visitor_result(source, visitor, language=language) {
+  match altsia_to_html_with_visitor_result(source, visitor, language~) {
     Ok(html) => html
     Err(errors) => errors.join("\n")
   }

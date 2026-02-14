@@ -11,6 +11,7 @@ fn source_char_at(source : String, i : Int) -> Char {
   source.get_char(i).unwrap()
 }
 
+///|
 fn line_column_at(source : String, offset : Int) -> (Int, Int) {
   let clamped = if offset < 0 {
     0

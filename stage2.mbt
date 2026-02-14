@@ -151,7 +151,9 @@ fn elaborate_comment_spanned(xs : ArrayView[SpannedS]) -> String {
 }
 
 ///|
-fn elaborate_nodes_spanned(xs : ArrayView[SpannedS]) -> Array[LocatedTerm] raise {
+fn elaborate_nodes_spanned(
+  xs : ArrayView[SpannedS],
+) -> Array[LocatedTerm] raise {
   let result = []
   for x in xs {
     result.push(Stage2::elaborate_node_spanned(x))
@@ -195,7 +197,10 @@ fn elaborate_app_spanned(node : SpannedS) -> LocatedTerm raise {
             "_" => TSplice(elaborate_nodes_spanned(xs), app_loc)
             "~" => {
               let body = elaborate_nodes_spanned(xs)
-              TSplice([TText(" ", app_loc), ..body, TText(" ", app_loc)], app_loc)
+              TSplice(
+                [TText(" ", app_loc), ..body, TText(" ", app_loc)],
+                app_loc,
+              )
             }
             "λ" => elaborate_template_spanned(xs, app_loc)
             s => TApp(s, elaborate_nodes_spanned(xs), app_loc)
@@ -219,7 +224,9 @@ pub fn Stage2::elaborate_node_spanned(node : SpannedS) -> LocatedTerm raise {
 }
 
 ///|
-pub fn Stage2::pass_spanned(nodes : Array[SpannedS]) -> Array[LocatedTerm] raise {
+pub fn Stage2::pass_spanned(
+  nodes : Array[SpannedS],
+) -> Array[LocatedTerm] raise {
   let result = []
   for node in nodes {
     result.push(Stage2::elaborate_node_spanned(node))

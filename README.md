@@ -1,5 +1,5 @@
 
-# Altsia /a.lɛ.tʰ.ʃi.ja/
+# <img src="./altsia.svg" title="altsia" height=64 />  /a.lɛ.tʰ.ʃi.ja/
 
 ### Or, Lambda: the Ultimate Document
 

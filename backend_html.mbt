@@ -18,7 +18,7 @@ pub fn Html::to_string(node : Html) -> String {
         " \{html_attrs}"
       }
       let body = children.map(Html::to_string).join("")
-      "<\{name}\{html_attrs}>\n\{body}\n</\{name}>"
+      "<\{name}\{html_attrs}>\{body}</\{name}>"
     }
   }
 }

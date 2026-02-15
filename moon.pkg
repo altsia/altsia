@@ -7,6 +7,10 @@ options(
   link: {
     "js": {
       "exports": [
+        "altsia_normalize",
+        "altsia_normalize_result",
+        "altsia_normalize_diagnostics",
+        "altsia_normalize_raise",
         "altsia_to_html",
         "altsia_to_html_with_visitor",
         "altsia_to_html_result",

@@ -1,4 +1,10 @@
 ///|
+let default_max_width : Int = 80
+
+///|
+let default_language : String = "en"
+
+///|
 fn raw_term_source(source : String, node : SpannedS) -> String {
   let loc = node.loc()
   source.unsafe_substring(start=loc.start_offset, end=loc.end_offset)
@@ -6,7 +12,11 @@ fn raw_term_source(source : String, node : SpannedS) -> String {
 
 ///|
 fn sanitize_max_width(max_width : Int) -> Int {
-  if max_width < 20 { 20 } else { max_width }
+  if max_width < 20 {
+    20
+  } else {
+    max_width
+  }
 }
 
 ///|
@@ -20,7 +30,7 @@ fn is_fmt_skip_directive(node : SpannedS) -> Bool {
 ///|
 fn is_template_definition_app(args : Array[SpannedS]) -> Bool {
   match args {
-    [Text("λ", _), Text(_, _), App(_, _), .. _] => true
+    [Text("λ", _), Text(_, _), App(_, _), ..] => true
     _ => false
   }
 }
@@ -53,34 +63,118 @@ fn normalize_node_canonical(
 }
 
 ///|
+fn render_inline_app(
+  parts : Array[String],
+  nested_flags : Array[Bool],
+  max_width : Int,
+) -> String {
+  let single_line = "(" + parts.join(" ") + ")"
+  if single_line.length() <= max_width {
+    return single_line
+  }
+  if !nested_flags.contains(true) {
+    return single_line
+  }
+  let mut first_nested = -1
+  for i in 0..<nested_flags.length() {
+    if nested_flags[i] {
+      first_nested = i
+      break
+    }
+  }
+  if first_nested == -1 {
+    return single_line
+  }
+  let header = if first_nested == 0 {
+    "("
+  } else {
+    "(" + parts[:first_nested].join(" ")
+  }
+  // Build groups at nested-app boundaries; then pack multiple groups per line
+  // as long as line width allows.
+  let groups : Array[String] = []
+  let mut current_group = parts[first_nested]
+  for i in (first_nested + 1)..<parts.length() {
+    if nested_flags[i] {
+      groups.push(current_group)
+      current_group = parts[i]
+    } else {
+      current_group = current_group + " " + parts[i]
+    }
+  }
+  groups.push(current_group)
+
+  let content_max = max_width - 2 // reserve 2 spaces indentation
+  let packed_lines : Array[String] = []
+  let mut current_line = ""
+  for group in groups {
+    if current_line == "" {
+      current_line = group
+      continue
+    }
+    let candidate = current_line + " " + group
+    if candidate.length() <= content_max {
+      current_line = candidate
+    } else {
+      packed_lines.push(current_line)
+      current_line = group
+    }
+  }
+  if current_line != "" {
+    packed_lines.push(current_line)
+  }
+  let last_line_index = packed_lines.length() - 1
+  packed_lines[last_line_index] = packed_lines[last_line_index] + " )"
+  let indented_lines = packed_lines.map(fn(line) { "  " + line })
+  header + "\n" + indented_lines.join("\n")
+}
+
+///|
 fn normalize_app_with_skip(
   args : Array[SpannedS],
   source : String,
   max_width : Int,
 ) -> String {
   let inline_parts : Array[String] = []
+  let inline_nested : Array[Bool] = []
   let blocks : Array[String] = []
   let mut skip_next = false
   for arg in args {
     if skip_next {
       match arg {
         Quote(_, _) => blocks.push(raw_term_source(source, arg))
-        _ => inline_parts.push(raw_term_source(source, arg))
+        App(_, _) => {
+          inline_parts.push(raw_term_source(source, arg))
+          inline_nested.push(true)
+        }
+        _ => {
+          inline_parts.push(raw_term_source(source, arg))
+          inline_nested.push(false)
+        }
       }
       skip_next = false
       continue
     }
     if is_fmt_skip_directive(arg) {
       inline_parts.push(normalize_node_canonical(arg, source, max_width))
+      inline_nested.push(false)
       skip_next = true
       continue
     }
     match arg {
-      Quote(_, _) => blocks.push(normalize_node_canonical(arg, source, max_width))
-      _ => inline_parts.push(normalize_node_canonical(arg, source, max_width))
+      Quote(_, _) =>
+        blocks.push(normalize_node_canonical(arg, source, max_width))
+      App(_, _) => {
+        inline_parts.push(normalize_node_canonical(arg, source, max_width))
+        inline_nested.push(true)
+      }
+      _ => {
+        inline_parts.push(normalize_node_canonical(arg, source, max_width))
+        inline_nested.push(false)
+      }
     }
   }
-  let app_line = "(" + inline_parts.join(" ") + ")"
+  let app_line = render_inline_app(inline_parts, inline_nested, max_width)
   if blocks.is_empty() {
     app_line
   } else {
@@ -168,14 +262,17 @@ fn altsia_normalize_impl(source : String, max_width : Int) -> String raise {
 }
 
 ///|
-pub fn Stage1::normalize(source : String, max_width? : Int = 80) -> String raise {
+pub fn Stage1::normalize(
+  source : String,
+  max_width? : Int = default_max_width,
+) -> String raise {
   altsia_normalize_impl(source, max_width)
 }
 
 ///|
 pub fn altsia_normalize_raise(
   source : String,
-  max_width? : Int = 80,
+  max_width? : Int = default_max_width,
 ) -> String raise {
   altsia_normalize_impl(source, max_width)
 }
@@ -183,8 +280,8 @@ pub fn altsia_normalize_raise(
 ///|
 pub fn altsia_normalize_diagnostics(
   source : String,
-  language? : String = "en",
-  max_width? : Int = 80,
+  language? : String = default_language,
+  max_width? : Int = default_max_width,
 ) -> Result[String, Array[RenderError]] {
   try altsia_normalize_impl(source, max_width) catch {
     err => Err([render_error(err, source, language)])
@@ -196,8 +293,8 @@ pub fn altsia_normalize_diagnostics(
 ///|
 pub fn altsia_normalize_result(
   source : String,
-  language? : String = "en",
-  max_width? : Int = 80,
+  language? : String = default_language,
+  max_width? : Int = default_max_width,
 ) -> Result[String, Array[String]] {
   match altsia_normalize_diagnostics(source, language~, max_width~) {
     Ok(normalized) => Ok(normalized)
@@ -208,8 +305,8 @@ pub fn altsia_normalize_result(
 ///|
 pub fn altsia_normalize(
   source : String,
-  language? : String = "en",
-  max_width? : Int = 80,
+  language? : String = default_language,
+  max_width? : Int = default_max_width,
 ) -> String {
   match altsia_normalize_result(source, language~, max_width~) {
     Ok(normalized) => normalized

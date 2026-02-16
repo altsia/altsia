@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/list",
   "moonbitlang/core/hashmap",
+  "altsia/altsia/display_width",
 }
 
 options(
@@ -11,6 +12,10 @@ options(
         "altsia_normalize_result",
         "altsia_normalize_diagnostics",
         "altsia_normalize_raise",
+        "altsia_normalize_range",
+        "altsia_normalize_range_result",
+        "altsia_normalize_range_diagnostics",
+        "altsia_normalize_range_raise",
         "altsia_to_html",
         "altsia_to_html_with_visitor",
         "altsia_to_html_result",

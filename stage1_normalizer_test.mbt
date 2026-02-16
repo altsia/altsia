@@ -54,6 +54,61 @@ test "Stage1 normalizer supports altsia-fmt-skip inside app" {
 }
 
 ///|
+test "Stage1 normalizer supports altsia-fmt-off/on at top level" {
+  let source =
+    #|(% altsia-fmt-off)
+    #|
+    #|(  p   keep   this  )
+    #|
+    #|(q    also   keep)
+    #|
+    #|(% altsia-fmt-on)
+    #|
+    #|(r    normalize this)
+  let normalized = altsia_normalize_raise(source)
+  let expected =
+    #|(% altsia-fmt-off)
+    #|
+    #|(  p   keep   this  )
+    #|
+    #|(q    also   keep)
+    #|
+    #|(% altsia-fmt-on)
+    #|
+    #|(r normalize this)
+  assert_eq(normalized, expected)
+}
+
+///|
+test "Stage1 normalizer supports altsia-fmt-off/on inside app" {
+  let source =
+    "(p (% altsia-fmt-off) (  q   keep  this ) (  s   keep2 ) (% altsia-fmt-on) (r    normalize this))"
+  let normalized = altsia_normalize_raise(source, max_width=200)
+  assert_eq(
+    normalized,
+    "(p (% altsia-fmt-off) (  q   keep  this ) (  s   keep2 ) (% altsia-fmt-on) (r normalize this))",
+  )
+}
+
+///|
+test "Stage1 normalizer applies nested on/off without changing parent off state" {
+  let source =
+    #|(% altsia-fmt-off)
+    #|
+    #|(p (% altsia-fmt-on) (r    normalize this) (% altsia-fmt-off) (  s   keep   this ))
+    #|
+    #|(u    still   keep)
+  let normalized = altsia_normalize_raise(source, max_width=200)
+  let expected =
+    #|(% altsia-fmt-off)
+    #|
+    #|(p (% altsia-fmt-on) (r normalize this) (% altsia-fmt-off) (  s   keep   this ))
+    #|
+    #|(u    still   keep)
+  assert_eq(normalized, expected)
+}
+
+///|
 test "Stage1 normalizer smart-wraps template definition by max_width" {
   let source = "(λ card (title subtitle) (div class card-body) (p title) (p subtitle) (footer note))"
   let normalized = altsia_normalize_raise(source, max_width=42)
@@ -116,6 +171,22 @@ test "Stage1 normalizer does not force-wrap long plain-text app" {
 }
 
 ///|
+test "Stage1 normalizer counts CJK display width as double" {
+  let latin = altsia_normalize_raise("(p (_ a)(_ b)(_ c)(_ d))", max_width=28)
+  assert_eq(latin, "(p (_ a) (_ b) (_ c) (_ d))")
+
+  let cjk = altsia_normalize_raise(
+    "(p (_ 寻)(_ 觅)(_ 冷)(_ 清))",
+    max_width=28,
+  )
+  let expected =
+    #|(p
+    #|  (_ 寻) (_ 觅) (_ 冷)
+    #|  (_ 清) )
+  assert_eq(cjk, expected)
+}
+
+///|
 test "Stage1 normalizer exposes structured diagnostics" {
   let diagnostic = match altsia_normalize_diagnostics("oops") {
     Err(errors) => {
@@ -137,4 +208,87 @@ test "Stage1 normalizer exposes structured diagnostics" {
     fail("expected Stage1 normalize source excerpt")
   }
   assert_true(excerpt.contains("oops"))
+}
+
+///|
+test "Stage1 range normalize only rewrites selected top-level node" {
+  let source = "(p   one)\n\n(q    two)\n\n(r   three)"
+  let nodes = Stage1::parse_spanned(source)
+  let loc = nodes[1].loc()
+  let normalized = altsia_normalize_range_raise(
+    source,
+    loc.start_offset,
+    loc.end_offset,
+  )
+  let expected = "(p   one)\n\n(q two)\n\n(r   three)"
+  assert_eq(normalized, expected)
+}
+
+///|
+test "Stage1 range normalize selects node on partial overlap" {
+  let source = "(p   one)\n\n(q    two)\n\n(r   three)"
+  let nodes = Stage1::parse_spanned(source)
+  let loc = nodes[1].loc()
+  let normalized = altsia_normalize_range_raise(
+    source,
+    loc.start_offset + 2,
+    loc.start_offset + 5,
+  )
+  let expected = "(p   one)\n\n(q two)\n\n(r   three)"
+  assert_eq(normalized, expected)
+}
+
+///|
+test "Stage1 range normalize inherits fmt state before range" {
+  let source =
+    #|(% altsia-fmt-off)
+    #|
+    #|(q    keep   this)
+    #|
+    #|(% altsia-fmt-on)
+    #|
+    #|(r    normalize this)
+  let nodes = Stage1::parse_spanned(source)
+  let loc = nodes[1].loc()
+  let normalized = altsia_normalize_range_raise(
+    source,
+    loc.start_offset,
+    loc.end_offset,
+    max_width=200,
+  )
+  assert_eq(normalized, source)
+}
+
+///|
+test "Stage1 range normalize leaves source unchanged for empty range" {
+  let source = "(p   one)\n\n(q    two)"
+  let nodes = Stage1::parse_spanned(source)
+  let empty_offset = nodes[0].loc().end_offset
+  let normalized = altsia_normalize_range_raise(source, empty_offset, empty_offset)
+  assert_eq(normalized, source)
+}
+
+///|
+test "Stage1 range normalize exposes structured invalid-range diagnostics" {
+  let source = "(p hi)"
+  let diagnostic = match altsia_normalize_range_diagnostics(source, 5, 1) {
+    Err(errors) => {
+      guard !errors.is_empty() else {
+        fail("expected at least one range normalize error")
+      }
+      errors[0]
+    }
+    Ok(_) => fail("expected range normalize diagnostics error")
+  }
+  assert_eq(diagnostic.code, "stage1.normalize.invalid-range")
+  assert_eq(diagnostic.phase, "stage1.normalize")
+  guard diagnostic.loc is Some(loc) else {
+    fail("expected Stage1 range normalize loc")
+  }
+  assert_eq(loc.line, 1)
+  assert_eq(loc.column, 6)
+  guard diagnostic.source_excerpt is Some(excerpt) else {
+    fail("expected Stage1 range normalize source excerpt")
+  }
+  assert_true(excerpt.contains("(p hi)"))
 }

@@ -222,6 +222,25 @@ pub fn render_error(
         Some(loc),
         source,
       )
+    Stage1NormalizeError::InvalidRange(
+      start_offset~,
+      end_offset~,
+      source_length~,
+      loc~
+    ) =>
+      make_render_error(
+        "stage1.normalize.invalid-range",
+        "stage1.normalize",
+        localized(
+          language,
+          "invalid normalize range: start=\{start_offset}, end=\{end_offset}, source_length=\{source_length}",
+          "invalid normalize range: start=\{start_offset}, end=\{end_offset}, source_length=\{source_length}",
+          "invalid normalize range: start=\{start_offset}, end=\{end_offset}, source_length=\{source_length}",
+          "invalid normalize range: start=\{start_offset}, end=\{end_offset}, source_length=\{source_length}",
+        ),
+        Some(loc),
+        source,
+      )
     Stage2Error::FunctionNameMustBePlainText(found~, loc~) =>
       make_render_error(
         "stage2.function-name-not-text",

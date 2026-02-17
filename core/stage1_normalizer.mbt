@@ -225,7 +225,7 @@ fn render_inline_app(
   max_width : Int,
 ) -> String {
   let single_line = "(" + parts.join(" ") + ")"
-  if @display_width.string_display_width(single_line) <= max_width {
+  if string_display_width(single_line) <= max_width {
     return single_line
   }
   if !nested_flags.contains(true) {
@@ -269,7 +269,7 @@ fn render_inline_app(
       continue
     }
     let candidate = current_line + " " + group
-    if @display_width.string_display_width(candidate) <= content_max {
+    if string_display_width(candidate) <= content_max {
       current_line = candidate
     } else {
       packed_lines.push(current_line)
@@ -433,7 +433,7 @@ fn normalize_template_app(
     fmt_enabled_init=fmt_enabled,
   )
   let single_line = "(" + parts.join(" ") + ")"
-  if @display_width.string_display_width(single_line) <= max_width {
+  if string_display_width(single_line) <= max_width {
     return single_line
   }
   if parts.length() <= 3 {

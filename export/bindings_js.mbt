@@ -1,12 +1,12 @@
 ///|
 fn altsia_to_html_impl(source : String) -> String raise {
   source
-  |> Stage1::parse_spanned
-  |> Stage2::pass_spanned
-  |> Stage2Etale::expand_program_spanned
-  |> Stage3::pass_spanned
-  |> Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
-  |> Html::to_string
+  |> @core.Stage1::parse_spanned
+  |> @core.Stage2::pass_spanned
+  |> @core.Stage2Etale::expand_program_spanned
+  |> @core.Stage3::pass_spanned
+  |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
+  |> @core.Html::to_string
 }
 
 ///|
@@ -15,14 +15,14 @@ fn altsia_to_html_with_visitor_impl(
   visitor : (String) -> String,
 ) -> String raise {
   source
-  |> Stage1::parse_spanned
-  |> Stage2::pass_spanned
-  |> Stage2Etale::expand_program_spanned
-  |> Stage3::pass_spanned
-  |> Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
-  |> Html::cmark_desugar
-  |> Html::visit_text(visitor)
-  |> Html::to_string
+  |> @core.Stage1::parse_spanned
+  |> @core.Stage2::pass_spanned
+  |> @core.Stage2Etale::expand_program_spanned
+  |> @core.Stage3::pass_spanned
+  |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
+  |> @core.Html::cmark_desugar
+  |> @core.Html::visit_text(visitor)
+  |> @core.Html::to_string
 }
 
 ///|
@@ -42,9 +42,9 @@ pub fn altsia_to_html_with_visitor_raise(
 pub fn altsia_to_html_diagnostics(
   source : String,
   language? : String = "en",
-) -> Result[String, Array[RenderError]] {
+) -> Result[String, Array[@core.RenderError]] {
   try altsia_to_html_impl(source) catch {
-    err => Err([render_error(err, source, language)])
+    err => Err([@core.render_error(err, source, language)])
   } noraise {
     html => Ok(html)
   }
@@ -55,9 +55,9 @@ pub fn altsia_to_html_with_visitor_diagnostics(
   source : String,
   visitor : (String) -> String,
   language? : String = "en",
-) -> Result[String, Array[RenderError]] {
+) -> Result[String, Array[@core.RenderError]] {
   try altsia_to_html_with_visitor_impl(source, visitor) catch {
-    err => Err([render_error(err, source, language)])
+    err => Err([@core.render_error(err, source, language)])
   } noraise {
     html => Ok(html)
   }
@@ -70,7 +70,7 @@ pub fn altsia_to_html_result(
 ) -> Result[String, Array[String]] {
   match altsia_to_html_diagnostics(source, language~) {
     Ok(html) => Ok(html)
-    Err(errors) => Err(errors.map(render_error_to_string))
+    Err(errors) => Err(errors.map(@core.render_error_to_string))
   }
 }
 
@@ -82,7 +82,7 @@ pub fn altsia_to_html_with_visitor_result(
 ) -> Result[String, Array[String]] {
   match altsia_to_html_with_visitor_diagnostics(source, visitor, language~) {
     Ok(html) => Ok(html)
-    Err(errors) => Err(errors.map(render_error_to_string))
+    Err(errors) => Err(errors.map(@core.render_error_to_string))
   }
 }
 

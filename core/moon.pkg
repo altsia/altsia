@@ -1,7 +1,6 @@
 import {
   "moonbitlang/core/list",
   "moonbitlang/core/hashmap",
-  "altsia/altsia/display_width",
 }
 
 options(

@@ -180,6 +180,17 @@ pub fn render_error(
         Some(loc),
         source,
       )
+    Stage1Error::UnclosedQuoteInline(loc~) =>
+      make_render_error(
+        "stage1.unclosed-quote-inline",
+        "stage1.parse",
+        localized(
+          language, "inline quote is missing closing `", "行内引用缺少结束的 `",
+          "行內引用缺少結束的 `", "インライン引用の閉じ ` が不足しています",
+        ),
+        Some(loc),
+        source,
+      )
     Stage1Error::QuoteBlockRequiresPrecedingApp(loc~) =>
       make_render_error(
         "stage1.quote-block-requires-preceding-app",

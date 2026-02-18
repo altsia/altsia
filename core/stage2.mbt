@@ -145,7 +145,8 @@ fn elaborate_app(node : S) -> Term raise {
 pub fn Stage2::elaborate_node(node : S) -> Term raise {
   match node {
     Text(s, loc) => Text(s, loc)
-    Quote(s, loc) => Text(s, loc) // raw block -> text
+    QuoteBlock(s, loc) => Text(s, loc) // raw block -> text
+    QuoteInline(s, loc) => Text(s, loc) // inline raw -> text
     App(_, _) => elaborate_app(node)
   }
 }

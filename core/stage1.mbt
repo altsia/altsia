@@ -1,7 +1,10 @@
 ///|
 pub(all) enum S {
   Text(String, SourceLoc)
-  Quote(String, SourceLoc)
+  /// Multi-line text syntax sugar
+  QuoteInline(String, SourceLoc)
+  /// Multi-line text syntax sugar (strip common spaces at the beginning of lines)
+  QuoteBlock(String, SourceLoc)
   App(Array[S], SourceLoc)
 } derive(Eq, Debug, Show)
 
@@ -9,7 +12,8 @@ pub(all) enum S {
 pub fn S::loc(node : S) -> SourceLoc {
   match node {
     Text(_, loc) => loc
-    Quote(_, loc) => loc
+    QuoteBlock(_, loc) => loc
+    QuoteInline(_, loc) => loc
     App(_, loc) => loc
   }
 }
@@ -22,6 +26,7 @@ pub(all) suberror Stage1Error {
   EmptyApplicationHead(loc~ : SourceLoc)
   UnclosedApplication(loc~ : SourceLoc)
   UnclosedQuoteBlock(loc~ : SourceLoc)
+  UnclosedQuoteInline(loc~ : SourceLoc)
   QuoteBlockRequiresPrecedingApp(loc~ : SourceLoc)
   QuoteBlockMustFollowApp(loc~ : SourceLoc)
   UnexpectedTopLevelToken(token~ : String, loc~ : SourceLoc)
@@ -185,6 +190,21 @@ fn parse_quote_block(source : String, start : Int) -> (String, Int) raise {
 }
 
 ///|
+fn parse_quote_inline(source : String, start : Int) -> (String, Int) raise {
+  let len = source.length()
+  let mut i = start + 1
+  while i < len {
+    if char_at(source, i) == '`' {
+      return (source.unsafe_substring(start=start + 1, end=i), i + 1)
+    }
+    i += 1
+  }
+  raise Stage1Error::UnclosedQuoteInline(
+    loc=source_loc_from_offsets(source, start, len),
+  )
+}
+
+///|
 fn trim_segment_bounds(
   source : String,
   start : Int,
@@ -251,7 +271,17 @@ fn parse_app(source : String, start : Int) -> (S, Int) raise {
   if char_at(source, i) == ')' {
     return (App(args, source_loc_from_offsets(source, start, i + 1)), i + 1)
   }
-  if char_at(source, i) == '(' {
+  if char_at(source, i) == '`' {
+    let quote_start = i
+    let (quote_content, next) = parse_quote_inline(source, i)
+    args.push(
+      QuoteInline(
+        quote_content,
+        source_loc_from_offsets(source, quote_start, next),
+      ),
+    )
+    i = next
+  } else if char_at(source, i) == '(' {
     let (head, next) = parse_app(source, i)
     args.push(head)
     i = next
@@ -293,6 +323,20 @@ fn parse_app(source : String, start : Int) -> (S, Int) raise {
       i = next
       continue
     }
+    if ch == '`' && !(i > 0 && char_at(source, i - 1) == '\\') {
+      push_plain_argument(args, source, segment_start, i)
+      segment_start = -1
+      let quote_start = i
+      let (quote_content, next) = parse_quote_inline(source, i)
+      args.push(
+        QuoteInline(
+          quote_content,
+          source_loc_from_offsets(source, quote_start, next),
+        ),
+      )
+      i = next
+      continue
+    }
     if segment_start == -1 {
       segment_start = i
     }
@@ -317,10 +361,10 @@ fn append_quote_to_last_app(
     App(args, app_loc) => {
       let updated = []
       updated.append(args)
-      updated.push(Quote(quote_content, quote_loc))
+      updated.push(QuoteBlock(quote_content, quote_loc))
       result[last_index] = App(updated, app_loc)
     }
-    Quote(_, _) | Text(_, _) =>
+    QuoteBlock(_, _) | QuoteInline(_, _) | Text(_, _) =>
       raise Stage1Error::QuoteBlockMustFollowApp(loc=quote_loc)
   }
 }
@@ -373,12 +417,18 @@ fn render_block(content : String) -> String {
 }
 
 ///|
+fn render_inline_quote(content : String) -> String {
+  "`" + content + "`"
+}
+
+///|
 fn render_app(args : Array[S]) -> String {
   let inline_parts : Array[String] = []
   let blocks : Array[String] = []
   for arg in args {
     match arg {
-      Quote(content, _) => blocks.push(render_block(content))
+      QuoteBlock(content, _) => blocks.push(render_block(content))
+      QuoteInline(content, _) => inline_parts.push(render_inline_quote(content))
       Text(text, _) => inline_parts.push(escape_text(text))
       App(nested, _) => inline_parts.push(render_app(nested))
     }
@@ -395,7 +445,8 @@ fn render_app(args : Array[S]) -> String {
 impl ToSource for S with to_source(node) {
   match node {
     Text(value, _) => escape_text(value)
-    Quote(content, _) => render_block(content)
+    QuoteBlock(content, _) => render_block(content)
+    QuoteInline(content, _) => render_inline_quote(content)
     App(args, _) => render_app(args)
   }
 }

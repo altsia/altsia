@@ -226,7 +226,8 @@ fn normalize_node_canonical(
 ) -> String {
   if !fmt_enabled {
     match node {
-      Text(_, _) | Quote(_, _) => raw_term_source(source, node)
+      Text(_, _) | QuoteBlock(_, _) | QuoteInline(_, _) =>
+        raw_term_source(source, node)
       App(args, _) =>
         if contains_fmt_toggle(node) {
           if is_template_definition_app(args) {
@@ -246,7 +247,8 @@ fn normalize_node_canonical(
   } else {
     match node {
       Text(_, _) => node.to_source()
-      Quote(_, _) => node.to_source()
+      QuoteBlock(_, _) => node.to_source()
+      QuoteInline(_, _) => node.to_source()
       App(args, _) =>
         if is_template_definition_app(args) {
           normalize_template_app(args, source, max_width, fmt_enabled=true)
@@ -379,7 +381,7 @@ fn normalize_app_with_skip(
         raw_term_source(source, arg)
       }
       match arg {
-        Quote(_, _) => blocks.push(rendered)
+        QuoteBlock(_, _) => blocks.push(rendered)
         App(_, _) => inline_parts.push(make_render_part(rendered, true))
         _ => inline_parts.push(make_render_part(rendered, false))
       }
@@ -387,7 +389,7 @@ fn normalize_app_with_skip(
     }
     if skip_next {
       match arg {
-        Quote(_, _) => blocks.push(raw_term_source(source, arg))
+        QuoteBlock(_, _) => blocks.push(raw_term_source(source, arg))
         App(_, _) =>
           inline_parts.push(
             make_render_part(raw_term_source(source, arg), true),
@@ -411,7 +413,7 @@ fn normalize_app_with_skip(
       continue
     }
     match arg {
-      Quote(_, _) =>
+      QuoteBlock(_, _) =>
         blocks.push(normalize_node_canonical(arg, source, max_width, true))
       App(_, _) =>
         inline_parts.push(

@@ -62,3 +62,12 @@ test "Stage2 turns quote blocks into text nodes" {
     App("p", [Text("hello", loc), Text("line1\nline2\n", loc)], loc),
   ])
 }
+
+///|
+test "Stage2 turns inline quotes into text nodes" {
+  let source = "(p `line one` tail)"
+  let loc = dummy_loc()
+  assert_eq(source |> Stage1::parse |> Stage2::pass |> erase_terms_locs, [
+    App("p", [Text("line one", loc), Text("tail", loc)], loc),
+  ])
+}

@@ -1,21 +1,23 @@
 ///|
-enum SExpr {
+enum ES {
   EText(String)
   EQuote(String)
-  EApp(Array[SExpr])
+  EQuoteInline(String)
+  EApp(Array[ES])
 } derive(Eq, Show)
 
 ///|
-fn strip_loc(node : S) -> SExpr {
+fn strip_loc(node : S) -> ES {
   match node {
     Text(s, _) => EText(s)
-    Quote(s, _) => EQuote(s)
+    QuoteBlock(s, _) => EQuote(s)
+    QuoteInline(s, _) => EQuoteInline(s)
     App(args, _) => EApp(args.map(strip_loc))
   }
 }
 
 ///|
-fn parse_semantics(source : String) -> Array[SExpr] raise {
+fn parse_semantics(source : String) -> Array[ES] raise {
   Stage1::parse(source).map(strip_loc)
 }
 
@@ -35,6 +37,12 @@ test "Parsing stage 1 per component" {
     |> parse_semantics,
     [EApp([EQuote("line1\nline2\n")])],
   )
+  assert_eq("(p `inline value` tail)" |> parse_semantics, [
+    EApp([EText("p"), EQuoteInline("inline value"), EText("tail")]),
+  ])
+  assert_eq("(p `line1\nline2` tail)" |> parse_semantics, [
+    EApp([EText("p"), EQuoteInline("line1\nline2"), EText("tail")]),
+  ])
 }
 
 ///|
@@ -49,6 +57,8 @@ test "Parsing stage 1 nested app and escaped parens" {
 test "Reconstructing stage 1 per component" {
   let source = "(p hello world)"
   assert_eq(source |> Stage1::parse |> to_source, source)
+  let inline_source = "(p head `inline value` tail)"
+  assert_eq(inline_source |> Stage1::parse |> to_source, inline_source)
 
   let source =
     #|(p line-1

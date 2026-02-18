@@ -42,7 +42,7 @@ test "Stage2 propagates structured template header errors" {
     is Err(Stage2Error::TemplateParamsMustBeList(found~, loc~)) else {
     fail("expected Stage2Error::TemplateParamsMustBeList")
   }
-  guard found is Quote("not-a-list\n", _) else {
+  guard found is QuoteBlock("not-a-list\n", _) else {
     fail("expected non-list params found to be quote")
   }
   guard loc is Some(params_loc) else {
@@ -202,4 +202,17 @@ test "Stage1 propagates structured unclosed application error" {
   assert_eq(loc.end_offset, source.length())
   assert_eq(loc.line, 1)
   assert_eq(loc.column, 1)
+}
+
+///|
+test "Stage1 propagates structured unclosed inline quote error" {
+  let source = "(p `hello)"
+  let result : Result[Array[S], Error] = try? Stage1::parse(source)
+  guard result is Err(Stage1Error::UnclosedQuoteInline(loc~)) else {
+    fail("expected Stage1Error::UnclosedQuoteInline")
+  }
+  assert_eq(loc.start_offset, 3)
+  assert_eq(loc.end_offset, source.length())
+  assert_eq(loc.line, 1)
+  assert_eq(loc.column, 4)
 }

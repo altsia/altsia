@@ -59,7 +59,11 @@ fn validate_normalize_range(
 }
 
 ///|
-fn range_intersects_node(node : SpannedS, range_start : Int, range_end : Int) -> Bool {
+fn range_intersects_node(
+  node : SpannedS,
+  range_start : Int,
+  range_end : Int,
+) -> Bool {
   let loc = node.loc()
   loc.end_offset > range_start && loc.start_offset < range_end
 }
@@ -88,10 +92,7 @@ fn selected_node_bounds(
 }
 
 ///|
-fn state_before_index(
-  nodes : Array[SpannedS],
-  index : Int,
-) -> (Bool, Bool) {
+fn state_before_index(nodes : Array[SpannedS], index : Int) -> (Bool, Bool) {
   let mut fmt_enabled = true
   let mut skip_next = false
   for i in 0..<index {
@@ -356,11 +357,15 @@ fn normalize_app_with_skip(
       Quote(_, _) =>
         blocks.push(normalize_node_canonical(arg, source, max_width, true))
       App(_, _) => {
-        inline_parts.push(normalize_node_canonical(arg, source, max_width, true))
+        inline_parts.push(
+          normalize_node_canonical(arg, source, max_width, true),
+        )
         inline_nested.push(true)
       }
       _ => {
-        inline_parts.push(normalize_node_canonical(arg, source, max_width, true))
+        inline_parts.push(
+          normalize_node_canonical(arg, source, max_width, true),
+        )
         inline_nested.push(false)
       }
     }
@@ -518,9 +523,7 @@ fn altsia_normalize_range_impl(
 ) -> String raise {
   let max_width = sanitize_max_width(max_width)
   let (range_start, range_end) = validate_normalize_range(
-    source,
-    start_offset,
-    end_offset,
+    source, start_offset, end_offset,
   )
   if range_start == range_end {
     return source
@@ -529,7 +532,9 @@ fn altsia_normalize_range_impl(
   match selected_node_bounds(nodes, range_start, range_end) {
     None => source
     Some((first_index, last_index)) => {
-      let (fmt_enabled_init, skip_next_init) = state_before_index(nodes, first_index)
+      let (fmt_enabled_init, skip_next_init) = state_before_index(
+        nodes, first_index,
+      )
       let selected_nodes : Array[SpannedS] = []
       for i in first_index..<(last_index + 1) {
         selected_nodes.push(nodes[i])
@@ -544,7 +549,10 @@ fn altsia_normalize_range_impl(
       let first_loc = nodes[first_index].loc()
       let last_loc = nodes[last_index].loc()
       let prefix = source.unsafe_substring(start=0, end=first_loc.start_offset)
-      let suffix = source.unsafe_substring(start=last_loc.end_offset, end=source.length())
+      let suffix = source.unsafe_substring(
+        start=last_loc.end_offset,
+        end=source.length(),
+      )
       prefix + normalized_segment + suffix
     }
   }
@@ -631,7 +639,9 @@ pub fn altsia_normalize_range_diagnostics(
   language? : String = default_language,
   max_width? : Int = default_max_width,
 ) -> Result[String, Array[RenderError]] {
-  try altsia_normalize_range_impl(source, start_offset, end_offset, max_width) catch {
+  try
+    altsia_normalize_range_impl(source, start_offset, end_offset, max_width)
+  catch {
     err => Err([render_error(err, source, language)])
   } noraise {
     normalized => Ok(normalized)
@@ -646,13 +656,14 @@ pub fn altsia_normalize_range_result(
   language? : String = default_language,
   max_width? : Int = default_max_width,
 ) -> Result[String, Array[String]] {
-  match altsia_normalize_range_diagnostics(
-    source,
-    start_offset,
-    end_offset,
-    language~,
-    max_width~,
-  ) {
+  match
+    altsia_normalize_range_diagnostics(
+      source,
+      start_offset,
+      end_offset,
+      language~,
+      max_width~,
+    ) {
     Ok(normalized) => Ok(normalized)
     Err(errors) => Err(errors.map(render_error_to_string))
   }
@@ -666,13 +677,14 @@ pub fn altsia_normalize_range(
   language? : String = default_language,
   max_width? : Int = default_max_width,
 ) -> String {
-  match altsia_normalize_range_result(
-    source,
-    start_offset,
-    end_offset,
-    language~,
-    max_width~,
-  ) {
+  match
+    altsia_normalize_range_result(
+      source,
+      start_offset,
+      end_offset,
+      language~,
+      max_width~,
+    ) {
     Ok(normalized) => normalized
     Err(errors) => errors.join("\n")
   }

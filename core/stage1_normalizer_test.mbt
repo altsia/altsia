@@ -81,12 +81,10 @@ test "Stage1 normalizer supports altsia-fmt-off/on at top level" {
 
 ///|
 test "Stage1 normalizer supports altsia-fmt-off/on inside app" {
-  let source =
-    "(p (% altsia-fmt-off) (  q   keep  this ) (  s   keep2 ) (% altsia-fmt-on) (r    normalize this))"
+  let source = "(p (% altsia-fmt-off) (  q   keep  this ) (  s   keep2 ) (% altsia-fmt-on) (r    normalize this))"
   let normalized = altsia_normalize_raise(source, max_width=200)
   assert_eq(
-    normalized,
-    "(p (% altsia-fmt-off) (  q   keep  this ) (  s   keep2 ) (% altsia-fmt-on) (r normalize this))",
+    normalized, "(p (% altsia-fmt-off) (  q   keep  this ) (  s   keep2 ) (% altsia-fmt-on) (r normalize this))",
   )
 }
 
@@ -264,7 +262,9 @@ test "Stage1 range normalize leaves source unchanged for empty range" {
   let source = "(p   one)\n\n(q    two)"
   let nodes = Stage1::parse_spanned(source)
   let empty_offset = nodes[0].loc().end_offset
-  let normalized = altsia_normalize_range_raise(source, empty_offset, empty_offset)
+  let normalized = altsia_normalize_range_raise(
+    source, empty_offset, empty_offset,
+  )
   assert_eq(normalized, source)
 }
 

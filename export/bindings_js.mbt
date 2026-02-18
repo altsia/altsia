@@ -20,7 +20,7 @@ fn altsia_to_html_with_visitor_impl(
   |> @core.Stage2Etale::expand_program_spanned
   |> @core.Stage3::pass_spanned
   |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
-  |> @core.Html::cmark_desugar
+  |> CommonMark::desugar
   |> @core.Html::visit_text(visitor)
   |> @core.Html::to_string
 }

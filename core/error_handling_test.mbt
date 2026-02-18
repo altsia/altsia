@@ -1,4 +1,3 @@
-
 ///|
 test "Stage2 propagates structured function-name error" {
   let bad_head : S = App(@list.from_array([Text("head")]))
@@ -128,7 +127,6 @@ test "Stage2Etale returns structured unexpected template-definition error" {
   assert_eq(found_term, input_term)
   assert_eq(loc, None)
 }
-
 
 ///|
 test "Stage1 propagates structured unexpected top-level token error" {

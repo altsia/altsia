@@ -1,5 +1,5 @@
 ///|
-pub struct Element[T] {
+pub(all) struct Element[T] {
   name : String
   attrs : @hashmap.HashMap[String, String]
   children : Array[T]

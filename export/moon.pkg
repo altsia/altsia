@@ -1,5 +1,3 @@
 import {
-  "altsia/altsia/core"
+  "altsia/altsia/core",
 }
-
-options()

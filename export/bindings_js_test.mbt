@@ -50,8 +50,6 @@ test "bindings expose stage3 error as structured and displayable" {
   assert_true(rendered.contains("attribute expects at most one value"))
 }
 
-
-
 ///|
 test "bindings stringify structured template mismatch error" {
   let source = "(λ dup2 (x y) (x)) (dup2 only-one)"
@@ -85,7 +83,6 @@ test "bindings stringify structured stage2 function-name error" {
   assert_true(diagnostic.loc is Some(_))
   assert_true(diagnostic.source_excerpt is Some(_))
 }
-
 
 ///|
 test "bindings expose Stage1 parse error with precise loc" {

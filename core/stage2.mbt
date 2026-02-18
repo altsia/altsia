@@ -43,7 +43,8 @@ fn erase_nodes(xs : ArrayView[S]) -> Array[S] {
 }
 
 ///|
-fn elaborate_name(node : S) -> Name raise {
+#alias(elaborate_string_literal)
+pub fn elaborate_name(node : S) -> Name raise {
   match node {
     Text(s, _) => s
     _ =>

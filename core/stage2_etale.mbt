@@ -44,38 +44,6 @@ pub fn Stage2Etale::expand_program(terms : Array[Term]) -> Array[Term] raise {
 }
 
 ///|
-fn rewrite_apps_in_term(term : Term, rewriter : AppRewriter) -> Array[Term] {
-  match term {
-    App(name, args, loc) => {
-      let rewritten_args = args
-        .map(t => rewrite_apps_in_term(t, rewriter))
-        .flatten()
-      rewriter(name, rewritten_args, loc)
-    }
-    Splice(terms, loc) =>
-      [Splice(terms.map(t => rewrite_apps_in_term(t, rewriter)).flatten(), loc)]
-    TemplateDefinition(name, params, body, loc) =>
-      [
-        TemplateDefinition(
-          name,
-          params,
-          body.map(t => rewrite_apps_in_term(t, rewriter)).flatten(),
-          loc,
-        ),
-      ]
-    Text(_, _) | Comment(_, _) => [term]
-  }
-}
-
-///|
-pub fn Stage2Etale::rewrite_apps(
-  terms : Array[Term],
-  rewriter : AppRewriter,
-) -> Array[Term] {
-  terms.map(t => rewrite_apps_in_term(t, rewriter)).flatten()
-}
-
-///|
 fn expand_args(env : Env, args : Array[Term]) -> Array[Term] raise {
   args.map(a => expand(env, a)).flatten()
 }

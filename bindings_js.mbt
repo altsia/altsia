@@ -14,16 +14,36 @@ fn altsia_to_html_impl(source : String) -> String raise {
 }
 
 ///|
-fn altsia_to_html_with_extern_api_impl(
+pub(all) struct ExternApi {
+  read : (String) -> String
+}
+
+///|
+fn ExternApi::to_rewriter(api : ExternApi) -> @core.AppRewriter {
+  (name, args, loc) => {
+    match name {
+      "read" => {
+        guard args.get(0) is Some(Text(path, _)) else {
+          [Text("[Error]: \{args} should be [path: text]", loc)]
+        }
+        [Text((api.read)(path), loc)]
+      }
+      _ => [@core.Term::App(name, args, loc)]
+    }
+  }
+}
+
+///|
+fn altsia_to_html_with_rewriter_impl(
   source : String,
   text_rewriter : (String) -> String,
-  app_rewriter : @core.AppRewriter,
+  extern_api : ExternApi,
 ) -> String raise {
   source
   |> @core.Stage1::parse
   |> @core.Stage2::pass
   |> @core.Stage2Etale::expand_program
-  |> @core.Stage2Etale::rewrite_apps(app_rewriter)
+  |> @core.Stage2Extern::rewrite_apps(extern_api.to_rewriter())
   |> @core.Stage3::pass
   |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
   |> CommonMark::desugar
@@ -37,12 +57,12 @@ pub fn altsia_to_html_raise(source : String) -> String raise {
 }
 
 ///|
-pub fn altsia_to_html_with_extern_api_raise(
+pub fn altsia_to_html_with_rewriter_raise(
   source : String,
   text_rewriter : (String) -> String,
-  app_rewriter : @core.AppRewriter,
+  extern_api : ExternApi,
 ) -> String raise {
-  altsia_to_html_with_extern_api_impl(source, text_rewriter, app_rewriter)
+  altsia_to_html_with_rewriter_impl(source, text_rewriter, extern_api)
 }
 
 ///|
@@ -58,14 +78,14 @@ pub fn altsia_to_html_diagnostics(
 }
 
 ///|
-pub fn altsia_to_html_with_extern_api_diagnostics(
+pub fn altsia_to_html_with_rewriter_diagnostics(
   source : String,
   text_rewriter : (String) -> String,
-  app_rewriter : @core.AppRewriter,
+  extern_api : ExternApi,
   language? : String = @core.default_language,
 ) -> Result[String, Array[@core.RenderError]] {
   try
-    altsia_to_html_with_extern_api_impl(source, text_rewriter, app_rewriter)
+    altsia_to_html_with_rewriter_impl(source, text_rewriter, extern_api)
   catch {
     err => Err([@core.render_error(err, source, language)])
   } noraise {
@@ -85,17 +105,17 @@ pub fn altsia_to_html_result(
 }
 
 ///|
-pub fn altsia_to_html_with_extern_api_result(
+pub fn altsia_to_html_with_rewriter_result(
   source : String,
   text_rewriter : (String) -> String,
-  app_rewriter : @core.AppRewriter,
+  extern_api : ExternApi,
   language? : String = @core.default_language,
 ) -> Result[String, Array[String]] {
   match
-    altsia_to_html_with_extern_api_diagnostics(
+    altsia_to_html_with_rewriter_diagnostics(
       source,
       text_rewriter,
-      app_rewriter,
+      extern_api,
       language~,
     ) {
     Ok(html) => Ok(html)
@@ -115,17 +135,17 @@ pub fn altsia_to_html(
 }
 
 ///|
-pub fn altsia_to_html_with_extern_api(
+pub fn altsia_to_html_with_rewriter(
   source : String,
   text_rewriter : (String) -> String,
-  app_rewriter : @core.AppRewriter,
+  extern_api : ExternApi,
   language? : String = @core.default_language,
 ) -> String {
   match
-    altsia_to_html_with_extern_api_result(
+    altsia_to_html_with_rewriter_result(
       source,
       text_rewriter,
-      app_rewriter,
+      extern_api,
       language~,
     ) {
     Ok(html) => html

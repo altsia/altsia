@@ -128,23 +128,6 @@ pub impl Eq for InlineNode
 pub impl Show for InlineNode
 pub impl @debug.Debug for InlineNode
 
-pub struct Template {
-  params : Array[String]
-  body : Array[Term]
-}
-
-pub(all) enum Term {
-  Text(String, SourceLoc)
-  App(String, Array[Term], SourceLoc)
-  TemplateDefinition(String, Array[String], Array[Term], SourceLoc)
-  Splice(Array[Term], SourceLoc)
-  Comment(String, SourceLoc)
-}
-pub fn Term::loc(Self) -> SourceLoc
-pub impl Eq for Term
-pub impl Show for Term
-pub impl @debug.Debug for Term
-
 pub(all) enum Mdx {
   Text(String)
   Comment(String)
@@ -214,16 +197,33 @@ pub fn Stage2Etale::rewrite_apps(Array[Term], (String, Array[Term], SourceLoc) -
 pub type Stage3
 pub fn Stage3::pass(Array[Term]) -> Array[Piece] raise
 
-// Type aliases
-pub type Doc = Array[Piece]
+pub struct Template {
+  params : Array[String]
+  body : Array[Term]
+}
 
+pub(all) enum Term {
+  Text(String, SourceLoc)
+  App(String, Array[Term], SourceLoc)
+  TemplateDefinition(String, Array[String], Array[Term], SourceLoc)
+  Splice(Array[Term], SourceLoc)
+  Comment(String, SourceLoc)
+}
+pub fn Term::loc(Self) -> SourceLoc
+pub impl Eq for Term
+pub impl Show for Term
+pub impl @debug.Debug for Term
+
+// Type aliases
 pub type AppRewriter = (String, Array[Term], SourceLoc) -> Array[Term]
+
+pub type Doc = Array[Piece]
 
 pub type Env = @hashmap.HashMap[String, Template]
 
-pub type ParamsEnv = @hashmap.HashMap[String, Array[Term]]
-
 pub type Name = String
+
+pub type ParamsEnv = @hashmap.HashMap[String, Array[Term]]
 
 pub type Visitor[X] = (X) -> X
 

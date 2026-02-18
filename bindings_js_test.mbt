@@ -85,6 +85,24 @@ test "bindings stringify structured stage2 function-name error" {
 }
 
 ///|
+test "bindings stringify structured stage2 template-param missing-head error" {
+  let source = "(λ tpl (() x) (x))"
+  let first = first_collected_error(altsia_to_html_result(source))
+  assert_true(first.contains("[stage2.elaborate]"))
+  assert_true(first.contains("template param application must have a head"))
+
+  let diagnostic = first_collected_diagnostic(
+    altsia_to_html_diagnostics(source),
+  )
+  assert_eq(diagnostic.code, "stage2.template-param-application-missing-head")
+  assert_eq(diagnostic.phase, "stage2.elaborate")
+  guard diagnostic.loc is Some(loc) else { fail("expected diagnostic loc") }
+  assert_eq(loc.line, 1)
+  assert_eq(loc.column, 9)
+  assert_true(diagnostic.source_excerpt is Some(_))
+}
+
+///|
 test "bindings expose Stage1 parse error with precise loc" {
   let source = "oops"
   let diagnostic = first_collected_diagnostic(

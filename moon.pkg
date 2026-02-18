@@ -1,0 +1,23 @@
+import {
+  "altsia/altsia/core",
+}
+
+options(
+  link: {
+    "js": {
+      "exports": [
+        "altsia_normalize",
+        "altsia_normalize_range",
+        "altsia_to_html",
+        "altsia_to_html_with_visitor",
+        "altsia_to_html_result",
+        "altsia_to_html_with_visitor_result",
+        "altsia_to_html_diagnostics",
+        "altsia_to_html_with_visitor_diagnostics",
+        "render_error_supported_languages",
+        "altsia_to_html_raise",
+        "altsia_to_html_with_visitor_raise",
+      ],
+    },
+  },
+)

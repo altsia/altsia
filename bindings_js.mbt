@@ -41,7 +41,7 @@ pub fn altsia_to_html_with_visitor_raise(
 ///|
 pub fn altsia_to_html_diagnostics(
   source : String,
-  language? : String = "en",
+  language? : String = @core.default_language,
 ) -> Result[String, Array[@core.RenderError]] {
   try altsia_to_html_impl(source) catch {
     err => Err([@core.render_error(err, source, language)])
@@ -54,7 +54,7 @@ pub fn altsia_to_html_diagnostics(
 pub fn altsia_to_html_with_visitor_diagnostics(
   source : String,
   visitor : (String) -> String,
-  language? : String = "en",
+  language? : String = @core.default_language,
 ) -> Result[String, Array[@core.RenderError]] {
   try altsia_to_html_with_visitor_impl(source, visitor) catch {
     err => Err([@core.render_error(err, source, language)])
@@ -66,7 +66,7 @@ pub fn altsia_to_html_with_visitor_diagnostics(
 ///|
 pub fn altsia_to_html_result(
   source : String,
-  language? : String = "en",
+  language? : String = @core.default_language,
 ) -> Result[String, Array[String]] {
   match altsia_to_html_diagnostics(source, language~) {
     Ok(html) => Ok(html)
@@ -78,7 +78,7 @@ pub fn altsia_to_html_result(
 pub fn altsia_to_html_with_visitor_result(
   source : String,
   visitor : (String) -> String,
-  language? : String = "en",
+  language? : String = @core.default_language,
 ) -> Result[String, Array[String]] {
   match altsia_to_html_with_visitor_diagnostics(source, visitor, language~) {
     Ok(html) => Ok(html)
@@ -87,7 +87,7 @@ pub fn altsia_to_html_with_visitor_result(
 }
 
 ///|
-pub fn altsia_to_html(source : String, language? : String = "en") -> String {
+pub fn altsia_to_html(source : String, language? : String = @core.default_language) -> String {
   match altsia_to_html_result(source, language~) {
     Ok(html) => html
     Err(errors) => errors.join("\n")
@@ -98,7 +98,7 @@ pub fn altsia_to_html(source : String, language? : String = "en") -> String {
 pub fn altsia_to_html_with_visitor(
   source : String,
   visitor : (String) -> String,
-  language? : String = "en",
+  language? : String = @core.default_language,
 ) -> String {
   match altsia_to_html_with_visitor_result(source, visitor, language~) {
     Ok(html) => html

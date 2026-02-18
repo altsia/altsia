@@ -1,8 +1,3 @@
-///|
-let default_max_width : Int = 80
-
-///|
-let default_language : String = "en"
 
 ///|
 pub(all) suberror Stage1NormalizeError {
@@ -620,18 +615,6 @@ pub fn altsia_normalize_result(
 }
 
 ///|
-pub fn altsia_normalize(
-  source : String,
-  language? : String = default_language,
-  max_width? : Int = default_max_width,
-) -> String {
-  match altsia_normalize_result(source, language~, max_width~) {
-    Ok(normalized) => normalized
-    Err(errors) => errors.join("\n")
-  }
-}
-
-///|
 pub fn altsia_normalize_range_diagnostics(
   source : String,
   start_offset : Int,
@@ -666,26 +649,5 @@ pub fn altsia_normalize_range_result(
     ) {
     Ok(normalized) => Ok(normalized)
     Err(errors) => Err(errors.map(render_error_to_string))
-  }
-}
-
-///|
-pub fn altsia_normalize_range(
-  source : String,
-  start_offset : Int,
-  end_offset : Int,
-  language? : String = default_language,
-  max_width? : Int = default_max_width,
-) -> String {
-  match
-    altsia_normalize_range_result(
-      source,
-      start_offset,
-      end_offset,
-      language~,
-      max_width~,
-    ) {
-    Ok(normalized) => normalized
-    Err(errors) => errors.join("\n")
   }
 }

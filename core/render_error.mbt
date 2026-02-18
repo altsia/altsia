@@ -283,6 +283,20 @@ pub fn render_error(
         loc,
         source,
       )
+    Stage2Error::TemplateParamApplicationMissingHead(found~, loc~) =>
+      make_render_error(
+        "stage2.template-param-application-missing-head",
+        "stage2.elaborate",
+        localized(
+          language,
+          "template param application must have a head: \{found}",
+          "template param application must have a head: \{found}",
+          "template param application must have a head: \{found}",
+          "template param application must have a head: \{found}",
+        ),
+        loc,
+        source,
+      )
     Stage2Error::InternalInvariantViolation(context~, loc~) =>
       make_render_error(
         "stage2.internal-invariant-violation",

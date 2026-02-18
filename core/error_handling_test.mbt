@@ -38,6 +38,33 @@ test "Stage2 propagates structured template header errors" {
 }
 
 ///|
+test "Stage2 propagates template-param missing-head and spanned loc" {
+  let source = "(λ tpl (() x) (x))"
+
+  let plain_result : Result[Array[Term], Error] =
+    try? (source |> Stage1::parse |> Stage2::pass)
+  guard plain_result
+    is Err(Stage2Error::TemplateParamApplicationMissingHead(found~, loc~)) else {
+    fail("expected Stage2Error::TemplateParamApplicationMissingHead for plain pass")
+  }
+  assert_eq(found, App(@list.from_array([])))
+  assert_eq(loc, None)
+
+  let spanned_result : Result[Array[LocatedTerm], Error] =
+    try? (source |> Stage1::parse_spanned |> Stage2::pass_spanned)
+  guard spanned_result
+    is Err(Stage2Error::TemplateParamApplicationMissingHead(found=spanned_found, loc~)) else {
+    fail("expected Stage2Error::TemplateParamApplicationMissingHead for spanned pass")
+  }
+  assert_eq(spanned_found, App(@list.from_array([])))
+  guard loc is Some(error_loc) else {
+    fail("expected loc for spanned template param missing-head")
+  }
+  assert_eq(error_loc.line, 1)
+  assert_eq(error_loc.column, 9)
+}
+
+///|
 test "Stage2Etale propagates structured arity mismatch error" {
   let terms : Array[Term] = [
     TemplateDefinition("dup2", ["x", "y"], [App("x", [])]),

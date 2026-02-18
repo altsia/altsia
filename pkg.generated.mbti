@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "altsia/altsia"
+
+import {
+  "altsia/altsia/core",
+}
+
+// Values
+pub fn altsia_normalize(String, language? : String, max_width? : Int) -> String
+
+pub fn altsia_normalize_range(String, Int, Int, language? : String, max_width? : Int) -> String
+
+pub fn altsia_to_html(String, language? : String) -> String
+
+pub fn altsia_to_html_diagnostics(String, language? : String) -> Result[String, Array[@core.RenderError]]
+
+pub fn altsia_to_html_raise(String) -> String raise
+
+pub fn altsia_to_html_result(String, language? : String) -> Result[String, Array[String]]
+
+pub fn altsia_to_html_with_extern_api(String, ExternApi, language? : String) -> String
+
+pub fn altsia_to_html_with_extern_api_diagnostics(String, ExternApi, language? : String) -> Result[String, Array[@core.RenderError]]
+
+pub fn altsia_to_html_with_extern_api_raise(String, ExternApi) -> String raise
+
+pub fn altsia_to_html_with_extern_api_result(String, ExternApi, language? : String) -> Result[String, Array[String]]
+
+// Errors
+
+// Types and methods
+pub type CommonMark
+pub fn CommonMark::desugar(@core.Html) -> @core.Html
+
+pub(all) struct ExternApi {
+  visit_text : (String) -> String
+}
+
+// Type aliases
+
+// Traits
+

@@ -1,41 +1,19 @@
-///|
-pub(all) enum Term {
-  Text(String)
-  App(Name, Array[Term])
-  TemplateDefinition(Name, Array[Name], Array[Term])
-  Splice(Array[Term]) // App("_", [...])
-  Comment(String) // App("%", [...])
-} derive(Eq, Show, Debug)
-
-///|
 pub(all) enum LocatedTerm {
-  TText(String, SourceLoc)
-  TApp(Name, Array[LocatedTerm], SourceLoc)
-  TTemplateDefinition(Name, Array[Name], Array[LocatedTerm], SourceLoc)
-  TSplice(Array[LocatedTerm], SourceLoc)
-  TComment(String, SourceLoc)
+  Text(String, SourceLoc)
+  App(Name, Array[LocatedTerm], SourceLoc)
+  TemplateDefinition(Name, Array[Name], Array[LocatedTerm], SourceLoc)
+  Splice(Array[LocatedTerm], SourceLoc)
+  Comment(String, SourceLoc)
 } derive(Eq, Show, Debug)
 
 ///|
 pub fn LocatedTerm::loc(node : LocatedTerm) -> SourceLoc {
   match node {
-    TText(_, loc) => loc
-    TApp(_, _, loc) => loc
-    TTemplateDefinition(_, _, _, loc) => loc
-    TSplice(_, loc) => loc
-    TComment(_, loc) => loc
-  }
-}
-
-///|
-pub fn LocatedTerm::to_term(node : LocatedTerm) -> Term {
-  match node {
-    TText(s, _) => Text(s)
-    TApp(name, args, _) => App(name, args.map(LocatedTerm::to_term))
-    TTemplateDefinition(name, params, body, _) =>
-      TemplateDefinition(name, params, body.map(LocatedTerm::to_term))
-    TSplice(terms, _) => Splice(terms.map(LocatedTerm::to_term))
-    TComment(c, _) => Comment(c)
+    Text(_, loc) => loc
+    App(_, _, loc) => loc
+    TemplateDefinition(_, _, _, loc) => loc
+    Splice(_, loc) => loc
+    Comment(_, loc) => loc
   }
 }
 
@@ -53,3 +31,138 @@ pub(all) suberror Stage2Error {
   TemplateParamApplicationMissingHead(found~ : S, loc~ : SourceLoc?)
   InternalInvariantViolation(context~ : String, loc~ : SourceLoc?)
 } derive(Eq, Show)
+
+///|
+fn erase_nodes(xs : ArrayView[S]) -> Array[S] {
+  let result = []
+  for x in xs {
+    result.push(x)
+  }
+  result
+}
+
+///|
+fn elaborate_name(node : S) -> Name raise {
+  match node {
+    Text(s, _) => s
+    _ =>
+      raise Stage2Error::FunctionNameMustBePlainText(
+        found=node,
+        loc=Some(node.loc()),
+      )
+  }
+}
+
+///|
+fn elaborate_comment(xs : ArrayView[S]) -> String {
+  match xs {
+    [] => ""
+    [Text(s, _)] => s
+    _ => xs.map(ToSource::to_source).join(" ")
+  }
+}
+
+///|
+fn elaborate_params_name(node : S) -> Name raise {
+  match node {
+    Text(s, _) => s
+    App(list, loc) =>
+      match list {
+        [head, ..] => elaborate_name(head)
+        [] =>
+          raise Stage2Error::TemplateParamApplicationMissingHead(
+            found=node,
+            loc=Some(loc),
+          )
+      }
+    _ =>
+      raise Stage2Error::FunctionNameMustBePlainText(
+        found=node,
+        loc=Some(node.loc()),
+      )
+  }
+}
+
+///|
+fn elaborate_nodes(
+  xs : ArrayView[S],
+) -> Array[LocatedTerm] raise {
+  let result = []
+  for x in xs {
+    result.push(Stage2::elaborate_node(x))
+  }
+  result
+}
+
+///|
+fn elaborate_template(
+  xs : ArrayView[S],
+  app_loc : SourceLoc,
+) -> LocatedTerm raise {
+  if xs.length() < 2 {
+    raise Stage2Error::TemplateRequiresNameAndParamList(
+      items=erase_nodes(xs),
+      loc=Some(app_loc),
+    )
+  }
+  let name = elaborate_name(xs[0])
+  let params = match xs[1] {
+    App(list, _) => list.map(elaborate_params_name)
+    _ =>
+      raise Stage2Error::TemplateParamsMustBeList(
+        found=xs[1],
+        loc=Some(xs[1].loc()),
+      )
+  }
+  let body = elaborate_nodes(xs[2:])
+  TemplateDefinition(name, params, body, app_loc)
+}
+
+///|
+fn elaborate_app(node : S) -> LocatedTerm raise {
+  match node {
+    App(view, app_loc) =>
+      match view {
+        [] => Text("", app_loc)
+        [f, .. xs] =>
+          match elaborate_name(f) {
+            "%" => Comment(elaborate_comment(xs), app_loc)
+            "_" => Splice(elaborate_nodes(xs), app_loc)
+            "~" => {
+              let body = elaborate_nodes(xs)
+              Splice(
+                [Text(" ", app_loc), ..body, Text(" ", app_loc)],
+                app_loc,
+              )
+            }
+            "λ" => elaborate_template(xs, app_loc)
+            s => App(s, elaborate_nodes(xs), app_loc)
+          }
+      }
+    _ =>
+      raise Stage2Error::InternalInvariantViolation(
+        context="elaborate_app expects an App node",
+        loc=Some(node.loc()),
+      )
+  }
+}
+
+///|
+pub fn Stage2::elaborate_node(node : S) -> LocatedTerm raise {
+  match node {
+    Text(s, loc) => Text(s, loc)
+    Quote(s, loc) => Text(s, loc) // raw block -> text
+    App(_, _) => elaborate_app(node)
+  }
+}
+
+///|
+pub fn Stage2::pass(
+  nodes : Array[S],
+) -> Array[LocatedTerm] raise {
+  let result = []
+  for node in nodes {
+    result.push(Stage2::elaborate_node(node))
+  }
+  result
+}

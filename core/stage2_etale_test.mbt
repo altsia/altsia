@@ -1,32 +1,11 @@
-///|
-test "Parsing Stage 2 etale" {
-  assert_eq(
-    (
-      #|(λ dup (x) (x) (x))
-      #|
-      #|(p (dup 声)慢 (~ ·) (dup 寻)(dup 觅))
-      #|
-      #|(p (dup 寻)(dup 觅)，(dup 冷)(dup 清)，(dup 凄)(dup 惨)(dup 戚)。乍暖还寒时候，最难将息。
-      #|   (_ 三杯两盏淡酒，怎敌他、晚来风急？雁过也，正伤心，却是旧时相识。))
-      #|
-      #|(p 满地黄花堆积。憔悴损，如今有谁堪摘？守著窗儿，独自怎生得黑？
-      #|   (_ 梧桐更兼细雨，到黄昏、(dup 点)(dup 滴)。这次第，怎一个愁字了得！))
-      #|
-    )
+﻿///|
+test "Stage2Etale expands templates into Stage3 doc" {
+  let source = "(λ dup2 (x) (x) (x)) (p (dup2 hello))"
+  let doc = source
     |> Stage1::parse
     |> Stage2::pass
     |> Stage2Etale::expand_program
     |> Stage3::pass
-    |> Mdx::from
-    |> Mdx::to_string,
-    (
-      #|
-      #|声声慢 · 寻寻觅觅
-      #|
-      #|寻寻觅觅，冷冷清清，凄凄惨惨戚戚。乍暖还寒时候，最难将息。三杯两盏淡酒，怎敌他、晚来风急？雁过也，正伤心，却是旧时相识。
-      #|
-      #|满地黄花堆积。憔悴损，如今有谁堪摘？守著窗儿，独自怎生得黑？梧桐更兼细雨，到黄昏、点点滴滴。这次第，怎一个愁字了得！
-      #|
-    ),
-  )
+  assert_eq(doc, [Block(Paragraph([Text("hello"), Text("hello")]))])
 }
+

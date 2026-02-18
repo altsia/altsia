@@ -1,57 +1,60 @@
+﻿///|
+fn dummy_loc() -> SourceLoc {
+  { start_offset: 0, end_offset: 0, line: 0, column: 0 }
+}
+
 ///|
-test "Parsing stage 2 per component" {
+fn erase_term_loc(term : LocatedTerm) -> LocatedTerm {
+  let loc = dummy_loc()
+  match term {
+    Text(s, _) => Text(s, loc)
+    App(name, args, _) => App(name, args.map(erase_term_loc), loc)
+    TemplateDefinition(name, params, body, _) =>
+      TemplateDefinition(name, params, body.map(erase_term_loc), loc)
+    Splice(terms, _) => Splice(terms.map(erase_term_loc), loc)
+    Comment(c, _) => Comment(c, loc)
+  }
+}
+
+///|
+fn erase_terms_locs(terms : Array[LocatedTerm]) -> Array[LocatedTerm] {
+  terms.map(erase_term_loc)
+}
+
+///|
+test "Stage2 per component" {
+  let loc = dummy_loc()
   assert_eq(
-    "(修我一颗凡心 (% 敛我半世癫狂之梦)) "
-    |> Stage1::parse
-    |> Stage2::pass,
-    [App("修我一颗凡心", [Comment("敛我半世癫狂之梦")])],
+    "(song (% dream))" |> Stage1::parse |> Stage2::pass |> erase_terms_locs,
+    [App("song", [Comment("dream", loc)], loc)],
   )
   assert_eq(
-    "(痴情的人) (心跳如春雨也纷纷)" |> Stage1::parse |> Stage2::pass,
-    [App("痴情的人", []), App("心跳如春雨也纷纷", [])],
+    "(a) (b)" |> Stage1::parse |> Stage2::pass |> erase_terms_locs,
+    [App("a", [], loc), App("b", [], loc)],
   )
   assert_eq(
     "(_ Epitaph (% The child was born underground.) (... and the name of the goddess of a rainbow...iris.))"
     |> Stage1::parse
-    |> Stage2::pass,
+    |> Stage2::pass
+    |> erase_terms_locs,
     [
       Splice([
-        Text("Epitaph"),
-        Comment("The child was born underground."),
-        App("...", [Text("and the name of the goddess of a rainbow...iris.")]),
-      ]),
+        Text("Epitaph", loc),
+        Comment("The child was born underground.", loc),
+        App("...", [Text("and the name of the goddess of a rainbow...iris.", loc)], loc),
+      ], loc),
     ],
   )
 }
 
 ///|
-test "Parsing stage 2" {
+test "Stage2 turns quote blocks into text nodes" {
+  let source = "(p hello)\n```\nline1\nline2\n```"
+  let loc = dummy_loc()
   assert_eq(
-    (
-      #|(p All of the answers you seek lie hidden in the sun (% 答えの潜む琥珀の太阳)
-      #|   If I hadn't met you, (% 出会わなければ)
-      #|   my life would've been in the darkness forever (% 不死なる瞬き持つ魂伤つかないで)
-      #|   In my wings are the powers of immortality (% 仆の羽根)
-      #|   But by meeting you my whole life has changed (% この持ち知るため生まれてきた)
-      #|   You give light to me hope to me strength into my life
-      #|)
-    )
-    |> Stage1::parse
-    |> Stage2::pass,
-    [
-      App("p", [
-        Text("All of the answers you seek lie hidden in the sun"),
-        Comment("答えの潜む琥珀の太阳"),
-        Text("If I hadn't met you,"),
-        Comment("出会わなければ"),
-        Text("my life would've been in the darkness forever"),
-        Comment("不死なる瞬き持つ魂伤つかないで"),
-        Text("In my wings are the powers of immortality"),
-        Comment("仆の羽根"),
-        Text("But by meeting you my whole life has changed"),
-        Comment("この持ち知るため生まれてきた"),
-        Text("You give light to me hope to me strength into my life"),
-      ]),
-    ],
+    source |> Stage1::parse |> Stage2::pass |> erase_terms_locs,
+    [App("p", [Text("hello", loc), Text("line1\nline2\n", loc)], loc)],
   )
 }
+
+

@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "altsia/altsia/bidirectional_graph"
+
+import {
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/hashset",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct BidirectionalGraph[Node] {
+  out_edges : @hashmap.HashMap[Node, @hashset.HashSet[Node]]
+  in_edges : @hashmap.HashMap[Node, @hashset.HashSet[Node]]
+  forward_cache : @hashmap.HashMap[(Node, Int), @hashset.HashSet[Node]]
+  backward_cache : @hashmap.HashMap[(Node, Int), @hashset.HashSet[Node]]
+  max_cache_n : Int
+}
+pub fn[Node : Hash + Eq] BidirectionalGraph::add_edge(Self[Node], Node, Node) -> Unit
+pub fn[Node] BidirectionalGraph::clear_caches(Self[Node]) -> Unit
+pub fn[Node : Hash + Eq] BidirectionalGraph::extend_edges(Self[Node], ArrayView[(Node, Node)]) -> Unit
+pub fn[Node : Hash + Eq] BidirectionalGraph::in_neighbors(Self[Node], Node) -> @hashset.HashSet[Node]
+pub fn[Node : Hash + Eq] BidirectionalGraph::n_links_backward(Self[Node], Node, Int) -> @hashset.HashSet[Node]
+pub fn[Node : Hash + Eq] BidirectionalGraph::n_links_forward(Self[Node], Node, Int) -> @hashset.HashSet[Node]
+pub fn[Node] BidirectionalGraph::new(max_cache_n? : Int) -> Self[Node]
+pub fn[Node : Hash + Eq] BidirectionalGraph::out_neighbors(Self[Node], Node) -> @hashset.HashSet[Node]
+pub fn[Node : Hash + Eq] BidirectionalGraph::remove_edge(Self[Node], Node, Node) -> Bool
+
+// Type aliases
+
+// Traits
+

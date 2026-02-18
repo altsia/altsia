@@ -1,32 +1,16 @@
-///|
+﻿///|
 pub(all) enum S {
-  Text(String)
-  Quote(String) // Multi-line text syntax sugar
-  App(@list.List[S])
-} derive(Eq, Debug, Show)
-
-///|
-pub(all) enum SpannedS {
   Text(String, SourceLoc)
   Quote(String, SourceLoc)
-  App(Array[SpannedS], SourceLoc)
+  App(Array[S], SourceLoc)
 } derive(Eq, Debug, Show)
 
 ///|
-pub fn SpannedS::loc(node : SpannedS) -> SourceLoc {
+pub fn S::loc(node : S) -> SourceLoc {
   match node {
     Text(_, loc) => loc
     Quote(_, loc) => loc
     App(_, loc) => loc
-  }
-}
-
-///|
-pub fn SpannedS::erase_span(node : SpannedS) -> S {
-  match node {
-    Text(s, _) => Text(s)
-    Quote(s, _) => Quote(s)
-    App(args, _) => App(@list.List::from_array(args.map(SpannedS::erase_span)))
   }
 }
 
@@ -219,7 +203,7 @@ fn trim_segment_bounds(
 
 ///|
 fn push_plain_argument(
-  args : Array[SpannedS],
+  args : Array[S],
   source : String,
   start : Int,
   end_index : Int,
@@ -243,7 +227,7 @@ fn push_plain_argument(
 }
 
 ///|
-fn parse_app(source : String, start : Int) -> (SpannedS, Int) raise {
+fn parse_app(source : String, start : Int) -> (S, Int) raise {
   // Phase 1: parse the outer opening `(` and read the first argument (head).
   let len = source.length()
   if start >= len {
@@ -256,7 +240,7 @@ fn parse_app(source : String, start : Int) -> (SpannedS, Int) raise {
     raise Stage1Error::InvalidApplicationStart(loc=one_char_loc(source, start))
   }
   let mut i = start + 1
-  let args : Array[SpannedS] = []
+  let args : Array[S] = []
   i = skip_stage1_spaces(source, i)
   if i >= len {
     raise Stage1Error::UnexpectedEof(
@@ -321,7 +305,7 @@ fn parse_app(source : String, start : Int) -> (SpannedS, Int) raise {
 
 ///|
 fn append_quote_to_last_app(
-  result : Array[SpannedS],
+  result : Array[S],
   quote_content : String,
   quote_loc : SourceLoc,
 ) -> Unit raise {
@@ -342,10 +326,10 @@ fn append_quote_to_last_app(
 }
 
 ///|
-pub fn Stage1::parse_spanned(source : String) -> Array[SpannedS] raise {
+pub fn Stage1::parse(source : String) -> Array[S] raise {
   let len = source.length()
   let mut i = 0
-  let result : Array[SpannedS] = []
+  let result : Array[S] = []
   while i < len {
     i = skip_stage1_spaces(source, i)
     if i >= len {
@@ -378,11 +362,6 @@ pub fn Stage1::parse_spanned(source : String) -> Array[SpannedS] raise {
 }
 
 ///|
-pub fn Stage1::parse(source : String) -> Array[S] raise {
-  Stage1::parse_spanned(source).map(SpannedS::erase_span)
-}
-
-///|
 fn escape_text(value : String) -> String {
   value.replace_all(old="(", new="\\(").replace_all(old=")", new="\\)")
 }
@@ -394,14 +373,14 @@ fn render_block(content : String) -> String {
 }
 
 ///|
-fn render_app(args : @list.List[S]) -> String {
+fn render_app(args : Array[S]) -> String {
   let inline_parts : Array[String] = []
   let blocks : Array[String] = []
   for arg in args {
     match arg {
-      Quote(content) => blocks.push(render_block(content))
-      Text(text) => inline_parts.push(escape_text(text))
-      App(nested) => inline_parts.push(render_app(nested))
+      Quote(content, _) => blocks.push(render_block(content))
+      Text(text, _) => inline_parts.push(escape_text(text))
+      App(nested, _) => inline_parts.push(render_app(nested))
     }
   }
   let app_line = "(" + inline_parts.join(" ") + ")"
@@ -415,9 +394,9 @@ fn render_app(args : @list.List[S]) -> String {
 ///|
 impl ToSource for S with to_source(node) {
   match node {
-    Text(value) => escape_text(value)
-    Quote(content) => render_block(content)
-    App(args) => render_app(args)
+    Text(value, _) => escape_text(value)
+    Quote(content, _) => render_block(content)
+    App(args, _) => render_app(args)
   }
 }
 
@@ -425,3 +404,5 @@ impl ToSource for S with to_source(node) {
 pub fn to_source(nodes : Array[S]) -> String {
   nodes.map(ToSource::to_source).join("\n\n")
 }
+
+

@@ -1,156 +1,79 @@
 ///|
+enum SExpr {
+  EText(String)
+  EQuote(String)
+  EApp(Array[SExpr])
+} derive(Eq, Show)
+
+///|
+fn strip_loc(node : S) -> SExpr {
+  match node {
+    Text(s, _) => EText(s)
+    Quote(s, _) => EQuote(s)
+    App(args, _) => EApp(args.map(strip_loc))
+  }
+}
+
+///|
+fn parse_semantics(source : String) -> Array[SExpr] raise {
+  Stage1::parse(source).map(strip_loc)
+}
+
+///|
 test "Parsing stage 1 per component" {
-  assert_eq("(canta per me ne addio)" |> Stage1::parse, [
-    App(@list.from_array([Text("canta"), Text("per me ne addio")])),
+  assert_eq("(canta per me ne addio)" |> parse_semantics, [
+    EApp([EText("canta"), EText("per me ne addio")]),
   ])
   assert_eq(
     (
       #|()
       #|```
-      #|羽を休めることを
-      #|雲雀は知らないの
+      #|line1
+      #|line2
       #|```
     )
-    |> Stage1::parse,
-    [
-      App(
-        @list.from_array([
-          Quote("羽を休めることを\n雲雀は知らないの\n"),
-        ]),
-      ),
-    ],
-  )
-  assert_eq(
-    (
-      #|(★ étoile et toi \(et toi et moi\))
-      #|
-      #|```
-      #|le monde est vous
-      #|(vous êtes le monde)
-      #|```
-    )
-    |> Stage1::parse,
-    [
-      App(
-        @list.from_array([
-          Text("★"),
-          Text("étoile et toi (et toi et moi)"),
-          Quote("le monde est vous\n(vous êtes le monde)\n"),
-        ]),
-      ),
-    ],
+    |> parse_semantics,
+    [EApp([EQuote("line1\nline2\n")])],
   )
 }
 
 ///|
-test "Parsing stage 1" {
+test "Parsing stage 1 nested app and escaped parens" {
+  let source = "(root a \\(b\\) (child c d))"
   assert_eq(
-    (
-      #|(∎ Everytime you kissed me
-      #|   I trembled like a child
-      #|   (∎ Gathering the roses
-      #|      We sang for the hope))
-      #|
-      #|```
-      #|Your very voice is in my heartbeat
-      #|Sweeter than my dream
-      #|We were there, in everlasting bloom
-      #|```
-      #|
-      #|```
-      #|Roses die
-      #|The secret is inside the pain
-      #|Winds are high up on the hill
-      #|I cannot hear you
-      #|```
-      #|
-      #|(- Come and hold me close)
-      #|(- I'm shivering cold in the heart of rain)
-      #|(- Darkness falls, I'm calling for the dawn (Ω))
-    )
-    |> Stage1::parse,
+    source |> parse_semantics,
     [
-      App(
-        @list.from_array([
-          Text("∎"),
-          Text("Everytime you kissed me\n   I trembled like a child"),
-          App(
-            @list.from_array([
-              Text("∎"),
-              Text("Gathering the roses\n      We sang for the hope"),
-            ]),
-          ),
-          Quote(
-            "Your very voice is in my heartbeat\nSweeter than my dream\nWe were there, in everlasting bloom\n",
-          ),
-          Quote(
-            "Roses die\nThe secret is inside the pain\nWinds are high up on the hill\nI cannot hear you\n",
-          ),
-        ]),
-      ),
-      App(@list.from_array([Text("-"), Text("Come and hold me close")])),
-      App(
-        @list.from_array([
-          Text("-"),
-          Text("I'm shivering cold in the heart of rain"),
-        ]),
-      ),
-      App(
-        @list.from_array([
-          Text("-"),
-          Text("Darkness falls, I'm calling for the dawn"),
-          App(@list.from_array([Text("Ω")])),
-        ]),
-      ),
+      EApp([
+        EText("root"),
+        EText("a (b)"),
+        EApp([EText("child"), EText("c d")]),
+      ]),
     ],
   )
 }
 
 ///|
 test "Reconstructing stage 1 per component" {
-  let source =
-    #|(p When the wind, the fire, and all is gone
-    #|   Caress me with your sweet lullaby...)
+  let source = "(p hello world)"
   assert_eq(source |> Stage1::parse |> to_source, source)
+
   let source =
-    #|(p 魅惑の扉 将来の展望だって
-    #|   揺らぎそうになる 青春時代で
-    #|   人生が変わる? 恋したいのに 臆病になる
-    #|   問題 山積みなんだ
-    #|
-    #|   答えを導く為には \(this feeling\)
-    #|   切り捨てられない \(all my love\)
-    #|
-    #|   ユメじゃないやいやいやいやい
-    #|   手が届きそうな gloria
-    #|   たまに見えなくなって
-    #|   Cry やいやいやいやい
-    #|   近道を探しても同じね
-    #|   また迷ってしまうでしょ?)
+    #|(p line-1
+    #|   line-2)
+    #|```
+    #|quote line
+    #|```
   assert_eq(source |> Stage1::parse |> to_source, source)
 }
 
 ///|
-test "Reconstructing stage 1" {
+test "Reconstructing stage 1 with mixed nodes" {
   let source =
-    #|(Rise 空には太陽が)
+    #|(p lead (a one two) tail)
     #|
-    #|(Force あなたには強さが 似合う (Days 涙は夢をみて) (Stage 未来を描いては 掴む))
-    #|```
-    #|世界中 風さえ在るのなら
-    #|// どこまでも ぼくらは飛ベると誓い合う
-    #|(絆が見えた)
-    #|```
+    #|(q x y z)
     #|
-    #|(_ ダイアモンドから 夢を放つ ペルセウス)
-    #|
-    #|(まだ見ぬチカラを その瞳 \(め\) に秘めて)
-    #|```
-    #|光の翼が 虹をかけてゆく Field of dreams
-    #|```
-    #|
-    #|(輝く あなたを信じてる)
-  let nodes = Stage1::parse(source)
-  let reconstructed = to_source(nodes)
+    #|(_ around (~ middle) end)
+  let reconstructed = source |> Stage1::parse |> to_source
   assert_eq(reconstructed, source)
 }

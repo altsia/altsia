@@ -1,16 +1,16 @@
-///|
+﻿///|
 fn normalize_legacy(source : String, max_width : Int) -> String raise {
   altsia_normalize_raise(source, max_width=max_width)
 }
 
 ///|
-fn parse_semantics(source : String) -> Array[S] raise {
-  Stage1::parse(source)
+fn parse_legacy_semantics(source : String) -> String raise {
+  to_source(Stage1::parse(source))
 }
 
 ///|
 fn assert_same_semantics(left : String, right : String) -> Unit raise {
-  assert_eq(parse_semantics(left), parse_semantics(right))
+  assert_eq(parse_legacy_semantics(left), parse_legacy_semantics(right))
 }
 
 ///|
@@ -73,7 +73,7 @@ test "legacy golden keeps fmt-off area raw while on area can normalize" {
 ///|
 test "legacy golden keeps bytes outside selected range unchanged" {
   let source = "(p   one)\n\n(q    two)\n\n(r   three)"
-  let nodes = Stage1::parse_spanned(source)
+  let nodes = Stage1::parse(source)
   let mid_loc = nodes[1].loc()
   let normalized = altsia_normalize_range_raise(
     source,
@@ -91,3 +91,4 @@ test "legacy golden keeps bytes outside selected range unchanged" {
   let normalized_suffix = normalized.unsafe_substring(start=suffix_start, end=normalized.length())
   assert_eq(normalized_suffix, suffix)
 }
+

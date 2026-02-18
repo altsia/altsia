@@ -1,4 +1,4 @@
-
+﻿
 ///|
 pub(all) suberror Stage1NormalizeError {
   InvalidRange(
@@ -10,7 +10,7 @@ pub(all) suberror Stage1NormalizeError {
 } derive(Eq, Show)
 
 ///|
-fn raw_term_source(source : String, node : SpannedS) -> String {
+fn raw_term_source(source : String, node : S) -> String {
   let loc = node.loc()
   source.unsafe_substring(start=loc.start_offset, end=loc.end_offset)
 }
@@ -55,7 +55,7 @@ fn validate_normalize_range(
 
 ///|
 fn range_intersects_node(
-  node : SpannedS,
+  node : S,
   range_start : Int,
   range_end : Int,
 ) -> Bool {
@@ -65,7 +65,7 @@ fn range_intersects_node(
 
 ///|
 fn selected_node_bounds(
-  nodes : Array[SpannedS],
+  nodes : Array[S],
   range_start : Int,
   range_end : Int,
 ) -> (Int, Int)? {
@@ -87,7 +87,7 @@ fn selected_node_bounds(
 }
 
 ///|
-fn state_before_index(nodes : Array[SpannedS], index : Int) -> (Bool, Bool) {
+fn state_before_index(nodes : Array[S], index : Int) -> (Bool, Bool) {
   let mut fmt_enabled = true
   let mut skip_next = false
   for i in 0..<index {
@@ -118,7 +118,7 @@ fn state_before_index(nodes : Array[SpannedS], index : Int) -> (Bool, Bool) {
 }
 
 ///|
-fn is_fmt_skip_directive(node : SpannedS) -> Bool {
+fn is_fmt_skip_directive(node : S) -> Bool {
   match node {
     App([Text("%", _), Text("altsia-fmt-skip", _)], _) => true
     _ => false
@@ -126,7 +126,7 @@ fn is_fmt_skip_directive(node : SpannedS) -> Bool {
 }
 
 ///|
-fn is_fmt_off_directive(node : SpannedS) -> Bool {
+fn is_fmt_off_directive(node : S) -> Bool {
   match node {
     App([Text("%", _), Text("altsia-fmt-off", _)], _) => true
     _ => false
@@ -134,7 +134,7 @@ fn is_fmt_off_directive(node : SpannedS) -> Bool {
 }
 
 ///|
-fn is_fmt_on_directive(node : SpannedS) -> Bool {
+fn is_fmt_on_directive(node : S) -> Bool {
   match node {
     App([Text("%", _), Text("altsia-fmt-on", _)], _) => true
     _ => false
@@ -142,7 +142,7 @@ fn is_fmt_on_directive(node : SpannedS) -> Bool {
 }
 
 ///|
-fn is_template_definition_app(args : Array[SpannedS]) -> Bool {
+fn is_template_definition_app(args : Array[S]) -> Bool {
   match args {
     [Text("λ", _), Text(_, _), App(_, _), ..] => true
     _ => false
@@ -150,7 +150,7 @@ fn is_template_definition_app(args : Array[SpannedS]) -> Bool {
 }
 
 ///|
-fn contains_fmt_toggle(node : SpannedS) -> Bool {
+fn contains_fmt_toggle(node : S) -> Bool {
   if is_fmt_on_directive(node) || is_fmt_off_directive(node) {
     return true
   }
@@ -171,7 +171,7 @@ fn indent_block(text : String, prefix : String) -> String {
 
 ///|
 fn normalize_node_canonical(
-  node : SpannedS,
+  node : S,
   source : String,
   max_width : Int,
   fmt_enabled : Bool,
@@ -197,8 +197,8 @@ fn normalize_node_canonical(
     }
   } else {
     match node {
-      Text(_, _) => SpannedS::erase_span(node).to_source()
-      Quote(_, _) => SpannedS::erase_span(node).to_source()
+      Text(_, _) => node.to_source()
+      Quote(_, _) => node.to_source()
       App(args, _) =>
         if is_template_definition_app(args) {
           normalize_template_app(args, source, max_width, fmt_enabled=true)
@@ -283,7 +283,7 @@ fn render_inline_app(
 
 ///|
 fn normalize_app_with_skip(
-  args : Array[SpannedS],
+  args : Array[S],
   source : String,
   max_width : Int,
   fmt_enabled_init? : Bool = true,
@@ -375,7 +375,7 @@ fn normalize_app_with_skip(
 
 ///|
 fn normalize_template_parts(
-  args : Array[SpannedS],
+  args : Array[S],
   source : String,
   max_width : Int,
   fmt_enabled_init? : Bool = true,
@@ -421,7 +421,7 @@ fn normalize_template_parts(
 
 ///|
 fn normalize_template_app(
-  args : Array[SpannedS],
+  args : Array[S],
   source : String,
   max_width : Int,
   fmt_enabled? : Bool = true,
@@ -451,7 +451,7 @@ fn normalize_template_app(
 
 ///|
 fn normalize_nodes_with_skip(
-  nodes : Array[SpannedS],
+  nodes : Array[S],
   source : String,
   max_width : Int,
   fmt_enabled_init? : Bool = true,
@@ -499,7 +499,7 @@ fn normalize_nodes_with_skip(
 ///|
 fn altsia_normalize_impl(source : String, max_width : Int) -> String raise {
   let max_width = sanitize_max_width(max_width)
-  let nodes = Stage1::parse_spanned(source)
+  let nodes = Stage1::parse(source)
   normalize_nodes_with_skip(
     nodes,
     source,
@@ -523,14 +523,14 @@ fn altsia_normalize_range_impl(
   if range_start == range_end {
     return source
   }
-  let nodes = Stage1::parse_spanned(source)
+  let nodes = Stage1::parse(source)
   match selected_node_bounds(nodes, range_start, range_end) {
     None => source
     Some((first_index, last_index)) => {
       let (fmt_enabled_init, skip_next_init) = state_before_index(
         nodes, first_index,
       )
-      let selected_nodes : Array[SpannedS] = []
+      let selected_nodes : Array[S] = []
       for i in first_index..<(last_index + 1) {
         selected_nodes.push(nodes[i])
       }
@@ -651,3 +651,4 @@ pub fn altsia_normalize_range_result(
     Err(errors) => Err(errors.map(render_error_to_string))
   }
 }
+

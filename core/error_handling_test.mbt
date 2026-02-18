@@ -1,62 +1,66 @@
-///|
+﻿///|
 test "Stage2 propagates structured function-name error" {
-  let bad_head : S = App(@list.from_array([Text("head")]))
-  let bad : S = App(@list.from_array([bad_head]))
-  let result : Result[Array[Term], Error] = try? Stage2::pass([bad])
+  let source = "((head))"
+  let result : Result[Array[LocatedTerm], Error] =
+    try? (source |> Stage1::parse |> Stage2::pass)
   guard result is Err(Stage2Error::FunctionNameMustBePlainText(found~, loc~)) else {
     fail("expected Stage2Error::FunctionNameMustBePlainText")
   }
-  assert_eq(found, bad_head)
-  assert_eq(loc, None)
+  guard found is App([Text("head", _)], _) else {
+    fail("expected found to be app(head)")
+  }
+  guard loc is Some(error_loc) else {
+    fail("expected loc for spanned function-name error")
+  }
+  assert_eq(error_loc.line, 1)
+  assert_eq(error_loc.column, 2)
 }
 
 ///|
 test "Stage2 propagates structured template header errors" {
-  let missing_params : S = App(@list.from_array([Text("λ"), Text("tpl")]))
-  let missing_params_result : Result[Array[Term], Error] = try? Stage2::pass([
-    missing_params,
-  ])
+  let missing_params_result : Result[Array[LocatedTerm], Error] =
+    try? ("(λ tpl)" |> Stage1::parse |> Stage2::pass)
   guard missing_params_result
     is Err(Stage2Error::TemplateRequiresNameAndParamList(items~, loc~)) else {
     fail("expected Stage2Error::TemplateRequiresNameAndParamList")
   }
-  assert_eq(items, [Text("tpl")])
-  assert_eq(loc, None)
+  guard items is [Text("tpl", _)] else {
+    fail("expected missing header items to contain tpl")
+  }
+  guard loc is Some(header_loc) else {
+    fail("expected loc for missing template params")
+  }
+  assert_eq(header_loc.line, 1)
+  assert_eq(header_loc.column, 1)
 
-  let non_list_params : S = App(
-    @list.from_array([Text("λ"), Text("tpl"), Text("not-a-list"), Text("body")]),
-  )
-  let non_list_params_result : Result[Array[Term], Error] = try? Stage2::pass([
-    non_list_params,
-  ])
+  let non_list_params_result : Result[Array[LocatedTerm], Error] =
+    try? ("(λ tpl)\n```\nnot-a-list\n```" |> Stage1::parse |> Stage2::pass)
   guard non_list_params_result
     is Err(Stage2Error::TemplateParamsMustBeList(found~, loc~)) else {
     fail("expected Stage2Error::TemplateParamsMustBeList")
   }
-  assert_eq(found, Text("not-a-list"))
-  assert_eq(loc, None)
+  guard found is Quote("not-a-list\n", _) else {
+    fail("expected non-list params found to be quote")
+  }
+  guard loc is Some(params_loc) else {
+    fail("expected loc for non-list template params")
+  }
+  assert_eq(params_loc.line, 2)
+  assert_eq(params_loc.column, 1)
 }
 
 ///|
-test "Stage2 propagates template-param missing-head and spanned loc" {
+test "Stage2 propagates template-param missing-head with loc" {
   let source = "(λ tpl (() x) (x))"
-
-  let plain_result : Result[Array[Term], Error] =
+  let result : Result[Array[LocatedTerm], Error] =
     try? (source |> Stage1::parse |> Stage2::pass)
-  guard plain_result
+  guard result
     is Err(Stage2Error::TemplateParamApplicationMissingHead(found~, loc~)) else {
-    fail("expected Stage2Error::TemplateParamApplicationMissingHead for plain pass")
+    fail("expected Stage2Error::TemplateParamApplicationMissingHead")
   }
-  assert_eq(found, App(@list.from_array([])))
-  assert_eq(loc, None)
-
-  let spanned_result : Result[Array[LocatedTerm], Error] =
-    try? (source |> Stage1::parse_spanned |> Stage2::pass_spanned)
-  guard spanned_result
-    is Err(Stage2Error::TemplateParamApplicationMissingHead(found=spanned_found, loc~)) else {
-    fail("expected Stage2Error::TemplateParamApplicationMissingHead for spanned pass")
+  guard found is App([], _) else {
+    fail("expected missing-head found to be empty app")
   }
-  assert_eq(spanned_found, App(@list.from_array([])))
   guard loc is Some(error_loc) else {
     fail("expected loc for spanned template param missing-head")
   }
@@ -66,12 +70,11 @@ test "Stage2 propagates template-param missing-head and spanned loc" {
 
 ///|
 test "Stage2Etale propagates structured arity mismatch error" {
-  let terms : Array[Term] = [
-    TemplateDefinition("dup2", ["x", "y"], [App("x", [])]),
-    App("dup2", [Text("only-one")]),
-  ]
-  let result : Result[Array[Term], Error] = try? Stage2Etale::expand_program(
-    terms,
+  let result : Result[Array[LocatedTerm], Error] = try? (
+    "(λ dup2 (x y) (x)) (dup2 only-one)"
+    |> Stage1::parse
+    |> Stage2::pass
+    |> Stage2Etale::expand_program
   )
   guard result
     is Err(
@@ -88,19 +91,21 @@ test "Stage2Etale propagates structured arity mismatch error" {
   assert_eq(template_name, "dup2")
   assert_eq(expected, 2)
   assert_eq(got, 1)
-  assert_eq(args, [Text("only-one")])
-  assert_eq(loc, None)
+  guard args is [Text("only-one", _)] else {
+    fail("expected mismatch args to contain the call argument")
+  }
+  guard loc is Some(_) else {
+    fail("expected loc for template arity mismatch")
+  }
 }
 
 ///|
 test "Stage2Etale propagates structured nested-template substitution error" {
-  let nested : Term = TemplateDefinition("inner", ["y"], [App("y", [])])
-  let terms : Array[Term] = [
-    TemplateDefinition("outer", ["x"], [nested, App("x", [])]),
-    App("outer", [Text("ok")]),
-  ]
-  let result : Result[Array[Term], Error] = try? Stage2Etale::expand_program(
-    terms,
+  let result : Result[Array[LocatedTerm], Error] = try? (
+    "(λ outer (x) (λ inner (y) (y)) (x)) (outer ok)"
+    |> Stage1::parse
+    |> Stage2::pass
+    |> Stage2Etale::expand_program
   )
   guard result
     is Err(
@@ -108,40 +113,59 @@ test "Stage2Etale propagates structured nested-template substitution error" {
     ) else {
     fail("expected Stage2EtaleError::NestedTemplateDefinitionInSubstitution")
   }
-  assert_eq(term, nested)
-  assert_eq(loc, None)
+  guard term is TemplateDefinition("inner", _, _, _) else {
+    fail("expected nested template name to be inner")
+  }
+  guard loc is Some(_) else {
+    fail("expected loc for nested template definition")
+  }
 }
 
 ///|
 test "Stage3 propagates structured attribute value arity error" {
-  let terms : Array[Term] = [
-    App("div", [App(":class", [App("a", []), App("b", [])]), Text("hello")]),
-  ]
-  let result : Result[Doc, Error] = try? Stage3::pass(terms)
+  let result : Result[Doc, Error] = try? (
+    "(div (:class (a) (b)) hello)"
+    |> Stage1::parse
+    |> Stage2::pass
+    |> Stage2Etale::expand_program
+    |> Stage3::pass
+  )
   guard result
     is Err(Stage3Error::AttributeExpectsAtMostOneValue(values~, loc~)) else {
     fail("expected Stage3Error::AttributeExpectsAtMostOneValue")
   }
-  assert_eq(values, [App("a", []), App("b", [])])
-  assert_eq(loc, None)
+  guard values is [App("a", [], _), App("b", [], _)] else {
+    fail("expected attribute values to keep both terms")
+  }
+  guard loc is Some(_) else {
+    fail("expected loc for attribute value arity error")
+  }
 }
 
 ///|
 test "Stage3 returns structured unexpected template-definition error" {
-  let terms : Array[Term] = [TemplateDefinition("t", ["x"], [App("x", [])])]
-  let result : Result[Doc, Error] = try? Stage3::pass(terms)
+  let result : Result[Doc, Error] = try? (
+    "(λ t (x) (x))" |> Stage1::parse |> Stage2::pass |> Stage3::pass
+  )
   guard result is Err(Stage3Error::UnexpectedTemplateDefinition(term~, loc~)) else {
     fail("expected Stage3Error::UnexpectedTemplateDefinition")
   }
-  assert_eq(term, TemplateDefinition("t", ["x"], [App("x", [])]))
-  assert_eq(loc, None)
+  guard term is TemplateDefinition("t", _, _, _) else {
+    fail("expected template definition term")
+  }
+  guard loc is Some(_) else {
+    fail("expected loc for unexpected template definition")
+  }
 }
 
 ///|
 test "Stage2Etale returns structured unexpected template-definition error" {
-  let env : Env = @hashmap.HashMap::new()
-  let input_term : Term = TemplateDefinition("t", ["x"], [App("x", [])])
-  let result : Result[Array[Term], Error] = try? expand(env, input_term)
+  let result : Result[Array[LocatedTerm], Error] = try? (
+    "(p (λ t (x) (x)))"
+    |> Stage1::parse
+    |> Stage2::pass
+    |> Stage2Etale::expand_program
+  )
   guard result
     is Err(
       Stage2EtaleError::UnexpectedTemplateDefinitionInExpand(
@@ -151,8 +175,12 @@ test "Stage2Etale returns structured unexpected template-definition error" {
     ) else {
     fail("expected Stage2EtaleError::UnexpectedTemplateDefinitionInExpand")
   }
-  assert_eq(found_term, input_term)
-  assert_eq(loc, None)
+  guard found_term is TemplateDefinition("t", _, _, _) else {
+    fail("expected nested template definition in expansion error")
+  }
+  guard loc is Some(_) else {
+    fail("expected loc for unexpected template definition in expansion")
+  }
 }
 
 ///|
@@ -180,3 +208,5 @@ test "Stage1 propagates structured unclosed application error" {
   assert_eq(loc.line, 1)
   assert_eq(loc.column, 1)
 }
+
+

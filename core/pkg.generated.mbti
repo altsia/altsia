@@ -1,0 +1,231 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "altsia/altsia/core"
+
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/list",
+}
+
+// Values
+pub fn altsia_normalize_diagnostics(String, language? : String, max_width? : Int) -> Result[String, Array[RenderError]]
+
+pub fn altsia_normalize_raise(String, max_width? : Int) -> String raise
+
+pub fn altsia_normalize_range_diagnostics(String, Int, Int, language? : String, max_width? : Int) -> Result[String, Array[RenderError]]
+
+pub fn altsia_normalize_range_raise(String, Int, Int, max_width? : Int) -> String raise
+
+pub fn altsia_normalize_range_result(String, Int, Int, language? : String, max_width? : Int) -> Result[String, Array[String]]
+
+pub fn altsia_normalize_result(String, language? : String, max_width? : Int) -> Result[String, Array[String]]
+
+pub fn char_display_width(Char) -> Int
+
+pub let default_language : String
+
+pub let default_max_width : Int
+
+pub fn is_wide_east_asian(Char) -> Bool
+
+pub fn[E : Show] join_list(@list.List[E], separator? : String) -> String
+
+pub fn render_error(Error, String, String) -> RenderError
+
+pub fn render_error_supported_languages() -> Array[String]
+
+pub fn render_error_to_string(RenderError) -> String
+
+pub fn source_loc_from_offsets(String, Int, Int) -> SourceLoc
+
+pub fn string_display_width(String) -> Int
+
+pub fn to_source(Array[S]) -> String
+
+// Errors
+pub(all) suberror Stage1Error {
+  InvalidQuoteBlockStart(loc~ : SourceLoc)
+  InvalidApplicationStart(loc~ : SourceLoc)
+  UnexpectedEof(context~ : String, loc~ : SourceLoc)
+  EmptyApplicationHead(loc~ : SourceLoc)
+  UnclosedApplication(loc~ : SourceLoc)
+  UnclosedQuoteBlock(loc~ : SourceLoc)
+  QuoteBlockRequiresPrecedingApp(loc~ : SourceLoc)
+  QuoteBlockMustFollowApp(loc~ : SourceLoc)
+  UnexpectedTopLevelToken(token~ : String, loc~ : SourceLoc)
+}
+pub impl Eq for Stage1Error
+pub impl Show for Stage1Error
+
+pub(all) suberror Stage1NormalizeError {
+  InvalidRange(start_offset~ : Int, end_offset~ : Int, source_length~ : Int, loc~ : SourceLoc)
+}
+pub impl Eq for Stage1NormalizeError
+pub impl Show for Stage1NormalizeError
+
+pub(all) suberror Stage2Error {
+  FunctionNameMustBePlainText(found~ : S, loc~ : SourceLoc?)
+  TemplateRequiresNameAndParamList(items~ : Array[S], loc~ : SourceLoc?)
+  TemplateParamsMustBeList(found~ : S, loc~ : SourceLoc?)
+  TemplateParamApplicationMissingHead(found~ : S, loc~ : SourceLoc?)
+  InternalInvariantViolation(context~ : String, loc~ : SourceLoc?)
+}
+pub impl Eq for Stage2Error
+pub impl Show for Stage2Error
+
+pub(all) suberror Stage2EtaleError {
+  TemplateArityMismatch(template_name~ : String, expected~ : Int, got~ : Int, args~ : Array[LocatedTerm], loc~ : SourceLoc?)
+  NestedTemplateDefinitionInSubstitution(term~ : LocatedTerm, loc~ : SourceLoc?)
+  UnexpectedTemplateDefinitionInExpand(term~ : LocatedTerm, loc~ : SourceLoc?)
+}
+pub impl Eq for Stage2EtaleError
+pub impl Show for Stage2EtaleError
+
+pub(all) suberror Stage3Error {
+  AttributeExpectsAtMostOneValue(values~ : Array[LocatedTerm], loc~ : SourceLoc?)
+  UnexpectedTemplateDefinition(term~ : LocatedTerm, loc~ : SourceLoc?)
+}
+pub impl Eq for Stage3Error
+pub impl Show for Stage3Error
+
+// Types and methods
+pub(all) enum BlockNode {
+  Paragraph(Array[InlineNode])
+  Container(Element[InlineNode])
+}
+pub impl Eq for BlockNode
+pub impl Show for BlockNode
+pub impl @debug.Debug for BlockNode
+
+pub(all) struct Element[T] {
+  name : String
+  attrs : @hashmap.HashMap[String, String]
+  children : Array[T]
+}
+pub impl[T : Eq] Eq for Element[T]
+pub impl[T : Show] Show for Element[T]
+pub impl[T : @debug.Debug] @debug.Debug for Element[T]
+
+pub(all) enum Html {
+  Text(String)
+  Comment(String)
+  Element(Element[Html])
+}
+pub fn Html::elaborate_block(BlockNode) -> Self
+pub fn Html::elaborate_inline(InlineNode) -> Self
+pub fn Html::elaborate_node(Piece) -> Self
+pub fn Html::from(Array[Piece], f? : (Array[Self]) -> Array[Self]) -> Self
+pub fn Html::to_string(Self) -> String
+pub fn Html::visit_element(Self, (Element[Self]) -> Element[Self]) -> Self
+pub fn Html::visit_text(Self, (String) -> String) -> Self
+pub impl Show for Html
+
+pub(all) enum InlineNode {
+  Text(String)
+  Span(Element[InlineNode])
+}
+pub impl Eq for InlineNode
+pub impl Show for InlineNode
+pub impl @debug.Debug for InlineNode
+
+pub struct LocatedTemplate {
+  params : Array[String]
+  body : Array[LocatedTerm]
+}
+
+pub(all) enum LocatedTerm {
+  Text(String, SourceLoc)
+  App(String, Array[LocatedTerm], SourceLoc)
+  TemplateDefinition(String, Array[String], Array[LocatedTerm], SourceLoc)
+  Splice(Array[LocatedTerm], SourceLoc)
+  Comment(String, SourceLoc)
+}
+pub fn LocatedTerm::loc(Self) -> SourceLoc
+pub impl Eq for LocatedTerm
+pub impl Show for LocatedTerm
+pub impl @debug.Debug for LocatedTerm
+
+pub(all) enum Mdx {
+  Text(String)
+  Comment(String)
+  Group(Array[Mdx])
+  Element(Element[Mdx])
+}
+pub fn Mdx::elaborate_block(BlockNode) -> Self
+pub fn Mdx::elaborate_inline(InlineNode) -> Self
+pub fn Mdx::elaborate_node(Piece) -> Self
+pub fn Mdx::from(Array[Piece], f? : (Array[Self]) -> Array[Self]) -> Self
+pub fn Mdx::to_string(Self) -> String
+pub impl Show for Mdx
+
+pub(all) enum Piece {
+  Inline(InlineNode)
+  Block(BlockNode)
+  Comment(String)
+}
+pub impl Eq for Piece
+pub impl Show for Piece
+pub impl @debug.Debug for Piece
+
+pub(all) struct RenderError {
+  code : String
+  phase : String
+  message : String
+  loc : SourceLoc?
+  source_excerpt : String?
+}
+pub impl Eq for RenderError
+pub impl Show for RenderError
+pub impl @debug.Debug for RenderError
+
+pub(all) enum S {
+  Text(String, SourceLoc)
+  Quote(String, SourceLoc)
+  App(Array[S], SourceLoc)
+}
+pub fn S::loc(Self) -> SourceLoc
+pub impl Eq for S
+pub impl Show for S
+pub impl @debug.Debug for S
+
+pub(all) struct SourceLoc {
+  start_offset : Int
+  end_offset : Int
+  line : Int
+  column : Int
+}
+pub impl Eq for SourceLoc
+pub impl Show for SourceLoc
+pub impl @debug.Debug for SourceLoc
+
+pub type Stage1
+pub fn Stage1::normalize(String, max_width? : Int) -> String raise
+pub fn Stage1::normalize_range(String, Int, Int, max_width? : Int) -> String raise
+pub fn Stage1::parse(String) -> Array[S] raise
+
+pub type Stage2
+pub fn Stage2::elaborate_node(S) -> LocatedTerm raise
+pub fn Stage2::pass(Array[S]) -> Array[LocatedTerm] raise
+
+pub type Stage2Etale
+pub fn Stage2Etale::expand_program(Array[LocatedTerm]) -> Array[LocatedTerm] raise
+
+pub type Stage3
+pub fn Stage3::pass(Array[LocatedTerm]) -> Array[Piece] raise
+
+// Type aliases
+pub type Doc = Array[Piece]
+
+pub type LocatedEnv = @hashmap.HashMap[String, LocatedTemplate]
+
+pub type LocatedParamsEnv = @hashmap.HashMap[String, Array[LocatedTerm]]
+
+pub type Name = String
+
+pub type Visitor[X] = (X) -> X
+
+// Traits
+pub trait ToSource {
+  to_source(Self) -> String
+}
+

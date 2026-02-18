@@ -1,4 +1,4 @@
-///|
+﻿///|
 fn first_collected_error(
   result : Result[String, Array[String]],
 ) -> String raise {
@@ -27,7 +27,9 @@ test "bindings expose stage3 error as structured and displayable" {
     is Err(@core.Stage3Error::AttributeExpectsAtMostOneValue(values~, loc~)) else {
     fail("expected Stage3Error::AttributeExpectsAtMostOneValue")
   }
-  assert_eq(values, [App("a", []), App("b", [])])
+  guard values is [App("a", [], _), App("b", [], _)] else {
+    fail("expected two app terms in attribute value error")
+  }
   assert_true(loc is Some(_))
 
   let first = first_collected_error(altsia_to_html_result(source))
@@ -164,3 +166,4 @@ test "render_error localizes message with language parameter" {
   assert_true(langs.contains("zh-CN"))
   assert_true(langs.contains("ms"))
 }
+

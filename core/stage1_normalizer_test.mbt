@@ -1,4 +1,4 @@
-///|
+﻿///|
 test "Stage1 normalizer canonicalizes top-level spacing" {
   let source =
     #|  (p hello)   
@@ -211,7 +211,7 @@ test "Stage1 normalizer exposes structured diagnostics" {
 ///|
 test "Stage1 range normalize only rewrites selected top-level node" {
   let source = "(p   one)\n\n(q    two)\n\n(r   three)"
-  let nodes = Stage1::parse_spanned(source)
+  let nodes = Stage1::parse(source)
   let loc = nodes[1].loc()
   let normalized = altsia_normalize_range_raise(
     source,
@@ -225,7 +225,7 @@ test "Stage1 range normalize only rewrites selected top-level node" {
 ///|
 test "Stage1 range normalize selects node on partial overlap" {
   let source = "(p   one)\n\n(q    two)\n\n(r   three)"
-  let nodes = Stage1::parse_spanned(source)
+  let nodes = Stage1::parse(source)
   let loc = nodes[1].loc()
   let normalized = altsia_normalize_range_raise(
     source,
@@ -246,7 +246,7 @@ test "Stage1 range normalize inherits fmt state before range" {
     #|(% altsia-fmt-on)
     #|
     #|(r    normalize this)
-  let nodes = Stage1::parse_spanned(source)
+  let nodes = Stage1::parse(source)
   let loc = nodes[1].loc()
   let normalized = altsia_normalize_range_raise(
     source,
@@ -260,7 +260,7 @@ test "Stage1 range normalize inherits fmt state before range" {
 ///|
 test "Stage1 range normalize leaves source unchanged for empty range" {
   let source = "(p   one)\n\n(q    two)"
-  let nodes = Stage1::parse_spanned(source)
+  let nodes = Stage1::parse(source)
   let empty_offset = nodes[0].loc().end_offset
   let normalized = altsia_normalize_range_raise(
     source, empty_offset, empty_offset,
@@ -292,3 +292,4 @@ test "Stage1 range normalize exposes structured invalid-range diagnostics" {
   }
   assert_true(excerpt.contains("(p hi)"))
 }
+

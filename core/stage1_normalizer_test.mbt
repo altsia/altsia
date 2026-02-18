@@ -1,4 +1,17 @@
-﻿///|
+///|
+fn parse_normalizer_semantics(source : String) -> String raise {
+  to_source(Stage1::parse(source))
+}
+
+///|
+fn assert_same_normalizer_semantics(
+  left : String,
+  right : String,
+) -> Unit raise {
+  assert_eq(parse_normalizer_semantics(left), parse_normalizer_semantics(right))
+}
+
+///|
 test "Stage1 normalizer canonicalizes top-level spacing" {
   let source =
     #|  (p hello)   
@@ -120,6 +133,22 @@ test "Stage1 normalizer smart-wraps template definition by max_width" {
 }
 
 ///|
+test "Stage1 normalizer smart-wraps template definition by max_width II" {
+  let source = "(λ inline-section ((taxon) (title) (content)) (section (details (:open) (:class kira) (summary (header (h1 (span (:taxon) (taxon)) (title)) ) ) (content) ) ) )"
+  let normalized = altsia_normalize_raise(source, max_width=42)
+  let expected =
+    #|(λ inline-section ((taxon) (title) (content))
+    #|  (section
+    #|    (details
+    #|      (:open) (:class kira)
+    #|      (summary
+    #|        (header
+    #|          (h1 (span (:taxon) (taxon)) (title)) ) )
+    #|      (content) ) ) )
+  assert_eq(normalized, expected)
+}
+
+///|
 test "Stage1 normalizer smart-wraps apply definition by max_width" {
   let source = "(p (dup a)(dup b),(dup c)(dup d),(dup e)(dup f)(dup g))"
   let normalized = altsia_normalize_raise(source, max_width=40)
@@ -151,7 +180,7 @@ test "Stage1 normalizer smart-wraps general app before nested apps" {
 }
 
 ///|
-test "Stage1 normalizer packs nested app groups by width" {
+test "Stage1 normalizer packs nested app groups by width with AST indent" {
   let source = "(p (_ a)(_ b),(_ c)(_ d),(_ e)(_ f)(_ g))"
   let normalized = altsia_normalize_raise(source, max_width=40)
   let expected =
@@ -182,6 +211,48 @@ test "Stage1 normalizer counts CJK display width as double" {
     #|  (_ 寻) (_ 觅) (_ 冷)
     #|  (_ 清) )
   assert_eq(cjk, expected)
+}
+
+///|
+test "Stage1 normalizer keeps semantic equivalence on representative inputs" {
+  let source1 =
+    #|(% altsia-fmt-off)
+    #|
+    #|(p   keep   this)
+    #|
+    #|(% altsia-fmt-on)
+    #|
+    #|(q   normalize   this)
+  let normalized1 = altsia_normalize_raise(source1, max_width=80)
+  assert_same_normalizer_semantics(source1, normalized1)
+
+  let source2 = "(λ card (title subtitle) (div class card-body) (p title) (p subtitle) (footer note))"
+  let normalized2 = altsia_normalize_raise(source2, max_width=42)
+  assert_same_normalizer_semantics(source2, normalized2)
+
+  let source3 = "(p (_ 寻)(_ 觅)(_ 冷)(_ 清))"
+  let normalized3 = altsia_normalize_raise(source3, max_width=28)
+  assert_same_normalizer_semantics(source3, normalized3)
+}
+
+///|
+test "Stage1 normalizer is idempotent" {
+  let source1 = "(p lead (a one two) middle text (b x y) tail)"
+  let once1 = altsia_normalize_raise(source1, max_width=26)
+  let twice1 = altsia_normalize_raise(once1, max_width=26)
+  assert_eq(once1, twice1)
+
+  let source2 =
+    #|(% altsia-fmt-off)
+    #|
+    #|(p    keep   this)
+    #|
+    #|(% altsia-fmt-on)
+    #|
+    #|(q    normalize this)
+  let once2 = altsia_normalize_raise(source2, max_width=80)
+  let twice2 = altsia_normalize_raise(once2, max_width=80)
+  assert_eq(once2, twice2)
 }
 
 ///|
@@ -292,4 +363,3 @@ test "Stage1 range normalize exposes structured invalid-range diagnostics" {
   }
   assert_true(excerpt.contains("(p hi)"))
 }
-

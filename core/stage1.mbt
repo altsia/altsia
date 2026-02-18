@@ -1,4 +1,4 @@
-﻿///|
+///|
 pub(all) enum S {
   Text(String, SourceLoc)
   Quote(String, SourceLoc)
@@ -404,5 +404,3 @@ impl ToSource for S with to_source(node) {
 pub fn to_source(nodes : Array[S]) -> String {
   nodes.map(ToSource::to_source).join("\n\n")
 }
-
-

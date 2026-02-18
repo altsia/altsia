@@ -1,4 +1,4 @@
-﻿///|
+///|
 fn first_collected_error(
   result : Result[String, Array[String]],
 ) -> String raise {
@@ -166,4 +166,3 @@ test "render_error localizes message with language parameter" {
   assert_true(langs.contains("zh-CN"))
   assert_true(langs.contains("ms"))
 }
-

@@ -1,10 +1,10 @@
-﻿///|
+///|
 fn dummy_loc() -> SourceLoc {
   { start_offset: 0, end_offset: 0, line: 0, column: 0 }
 }
 
 ///|
-fn erase_term_loc(term : LocatedTerm) -> LocatedTerm {
+fn erase_term_loc(term : Term) -> Term {
   let loc = dummy_loc()
   match term {
     Text(s, _) => Text(s, loc)
@@ -17,7 +17,7 @@ fn erase_term_loc(term : LocatedTerm) -> LocatedTerm {
 }
 
 ///|
-fn erase_terms_locs(terms : Array[LocatedTerm]) -> Array[LocatedTerm] {
+fn erase_terms_locs(terms : Array[Term]) -> Array[Term] {
   terms.map(erase_term_loc)
 }
 
@@ -28,21 +28,28 @@ test "Stage2 per component" {
     "(song (% dream))" |> Stage1::parse |> Stage2::pass |> erase_terms_locs,
     [App("song", [Comment("dream", loc)], loc)],
   )
-  assert_eq(
-    "(a) (b)" |> Stage1::parse |> Stage2::pass |> erase_terms_locs,
-    [App("a", [], loc), App("b", [], loc)],
-  )
+  assert_eq("(a) (b)" |> Stage1::parse |> Stage2::pass |> erase_terms_locs, [
+    App("a", [], loc),
+    App("b", [], loc),
+  ])
   assert_eq(
     "(_ Epitaph (% The child was born underground.) (... and the name of the goddess of a rainbow...iris.))"
     |> Stage1::parse
     |> Stage2::pass
     |> erase_terms_locs,
     [
-      Splice([
-        Text("Epitaph", loc),
-        Comment("The child was born underground.", loc),
-        App("...", [Text("and the name of the goddess of a rainbow...iris.", loc)], loc),
-      ], loc),
+      Splice(
+        [
+          Text("Epitaph", loc),
+          Comment("The child was born underground.", loc),
+          App(
+            "...",
+            [Text("and the name of the goddess of a rainbow...iris.", loc)],
+            loc,
+          ),
+        ],
+        loc,
+      ),
     ],
   )
 }
@@ -51,10 +58,7 @@ test "Stage2 per component" {
 test "Stage2 turns quote blocks into text nodes" {
   let source = "(p hello)\n```\nline1\nline2\n```"
   let loc = dummy_loc()
-  assert_eq(
-    source |> Stage1::parse |> Stage2::pass |> erase_terms_locs,
-    [App("p", [Text("hello", loc), Text("line1\nline2\n", loc)], loc)],
-  )
+  assert_eq(source |> Stage1::parse |> Stage2::pass |> erase_terms_locs, [
+    App("p", [Text("hello", loc), Text("line1\nline2\n", loc)], loc),
+  ])
 }
-
-

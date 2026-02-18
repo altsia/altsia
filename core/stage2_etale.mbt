@@ -7,35 +7,36 @@ pub(all) suberror Stage2EtaleError {
     template_name~ : Name,
     expected~ : Int,
     got~ : Int,
-    args~ : Array[LocatedTerm],
+    args~ : Array[Term],
     loc~ : SourceLoc?
   )
-  NestedTemplateDefinitionInSubstitution(term~ : LocatedTerm, loc~ : SourceLoc?)
-  UnexpectedTemplateDefinitionInExpand(term~ : LocatedTerm, loc~ : SourceLoc?)
+  NestedTemplateDefinitionInSubstitution(term~ : Term, loc~ : SourceLoc?)
+  UnexpectedTemplateDefinitionInExpand(term~ : Term, loc~ : SourceLoc?)
 } derive(Eq, Show)
 
 ///|
-pub struct LocatedTemplate {
+pub struct Template {
   params : Array[Name]
-  body : Array[LocatedTerm]
+  body : Array[Term]
 }
 
 ///|
-pub type LocatedEnv = @hashmap.HashMap[Name, LocatedTemplate]
+pub type Env = @hashmap.HashMap[Name, Template]
 
 ///|
-pub type LocatedParamsEnv = @hashmap.HashMap[Name, Array[LocatedTerm]]
+pub type ParamsEnv = @hashmap.HashMap[Name, Array[Term]]
 
 ///|
-pub fn Stage2Etale::expand_program(
-  terms : Array[LocatedTerm],
-) -> Array[LocatedTerm] raise {
+pub type AppRewriter = (Name, Array[Term], SourceLoc) -> Array[Term]
+
+///|
+pub fn Stage2Etale::expand_program(terms : Array[Term]) -> Array[Term] raise {
   let env = @hashmap.HashMap::new()
   let program = []
   for term in terms {
     match term {
       TemplateDefinition(name, params, body, _) =>
-        env[name] = LocatedTemplate::{ params, body }
+        env[name] = Template::{ params, body }
       _ => program.push(term)
     }
   }
@@ -43,18 +44,44 @@ pub fn Stage2Etale::expand_program(
 }
 
 ///|
-fn expand_args(
-  env : LocatedEnv,
-  args : Array[LocatedTerm],
-) -> Array[LocatedTerm] raise {
+fn rewrite_apps_in_term(term : Term, rewriter : AppRewriter) -> Array[Term] {
+  match term {
+    App(name, args, loc) => {
+      let rewritten_args = args
+        .map(t => rewrite_apps_in_term(t, rewriter))
+        .flatten()
+      rewriter(name, rewritten_args, loc)
+    }
+    Splice(terms, loc) =>
+      [Splice(terms.map(t => rewrite_apps_in_term(t, rewriter)).flatten(), loc)]
+    TemplateDefinition(name, params, body, loc) =>
+      [
+        TemplateDefinition(
+          name,
+          params,
+          body.map(t => rewrite_apps_in_term(t, rewriter)).flatten(),
+          loc,
+        ),
+      ]
+    Text(_, _) | Comment(_, _) => [term]
+  }
+}
+
+///|
+pub fn Stage2Etale::rewrite_apps(
+  terms : Array[Term],
+  rewriter : AppRewriter,
+) -> Array[Term] {
+  terms.map(t => rewrite_apps_in_term(t, rewriter)).flatten()
+}
+
+///|
+fn expand_args(env : Env, args : Array[Term]) -> Array[Term] raise {
   args.map(a => expand(env, a)).flatten()
 }
 
 ///|
-fn expand(
-  env : LocatedEnv,
-  term : LocatedTerm,
-) -> Array[LocatedTerm] raise {
+fn expand(env : Env, term : Term) -> Array[Term] raise {
   match term {
     App(name, args, call_loc) if env.get(name) is Some(template) =>
       return expand_template_call(env, name, call_loc, template, args)
@@ -71,12 +98,12 @@ fn expand(
 
 ///|
 fn expand_template_call(
-  env : LocatedEnv,
+  env : Env,
   template_name : Name,
   call_loc : SourceLoc,
-  template : LocatedTemplate,
-  args : Array[LocatedTerm],
-) -> Array[LocatedTerm] raise {
+  template : Template,
+  args : Array[Term],
+) -> Array[Term] raise {
   let args_length = args.length()
   let params_length = template.params.length()
 
@@ -98,17 +125,12 @@ fn expand_template_call(
   for i in 0..<template.params.length() {
     params_env[template.params[i]] = expand_args[i]
   }
-  let substituted = template.body
-    .map(t => substitute(params_env, t))
-    .flatten()
+  let substituted = template.body.map(t => substitute(params_env, t)).flatten()
   substituted.map(t => expand(env, t)).flatten()
 }
 
 ///|
-fn substitute(
-  env : LocatedParamsEnv,
-  term : LocatedTerm,
-) -> Array[LocatedTerm] raise {
+fn substitute(env : ParamsEnv, term : Term) -> Array[Term] raise {
   match term {
     Splice(terms, loc) =>
       [Splice(terms.map(t => substitute(env, t)).flatten(), loc)]

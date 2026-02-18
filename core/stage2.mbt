@@ -1,13 +1,14 @@
-pub(all) enum LocatedTerm {
+///|
+pub(all) enum Term {
   Text(String, SourceLoc)
-  App(Name, Array[LocatedTerm], SourceLoc)
-  TemplateDefinition(Name, Array[Name], Array[LocatedTerm], SourceLoc)
-  Splice(Array[LocatedTerm], SourceLoc)
+  App(Name, Array[Term], SourceLoc)
+  TemplateDefinition(Name, Array[Name], Array[Term], SourceLoc)
+  Splice(Array[Term], SourceLoc)
   Comment(String, SourceLoc)
 } derive(Eq, Show, Debug)
 
 ///|
-pub fn LocatedTerm::loc(node : LocatedTerm) -> SourceLoc {
+pub fn Term::loc(node : Term) -> SourceLoc {
   match node {
     Text(_, loc) => loc
     App(_, _, loc) => loc
@@ -84,9 +85,7 @@ fn elaborate_params_name(node : S) -> Name raise {
 }
 
 ///|
-fn elaborate_nodes(
-  xs : ArrayView[S],
-) -> Array[LocatedTerm] raise {
+fn elaborate_nodes(xs : ArrayView[S]) -> Array[Term] raise {
   let result = []
   for x in xs {
     result.push(Stage2::elaborate_node(x))
@@ -95,10 +94,7 @@ fn elaborate_nodes(
 }
 
 ///|
-fn elaborate_template(
-  xs : ArrayView[S],
-  app_loc : SourceLoc,
-) -> LocatedTerm raise {
+fn elaborate_template(xs : ArrayView[S], app_loc : SourceLoc) -> Term raise {
   if xs.length() < 2 {
     raise Stage2Error::TemplateRequiresNameAndParamList(
       items=erase_nodes(xs),
@@ -119,7 +115,7 @@ fn elaborate_template(
 }
 
 ///|
-fn elaborate_app(node : S) -> LocatedTerm raise {
+fn elaborate_app(node : S) -> Term raise {
   match node {
     App(view, app_loc) =>
       match view {
@@ -130,10 +126,7 @@ fn elaborate_app(node : S) -> LocatedTerm raise {
             "_" => Splice(elaborate_nodes(xs), app_loc)
             "~" => {
               let body = elaborate_nodes(xs)
-              Splice(
-                [Text(" ", app_loc), ..body, Text(" ", app_loc)],
-                app_loc,
-              )
+              Splice([Text(" ", app_loc), ..body, Text(" ", app_loc)], app_loc)
             }
             "λ" => elaborate_template(xs, app_loc)
             s => App(s, elaborate_nodes(xs), app_loc)
@@ -148,7 +141,7 @@ fn elaborate_app(node : S) -> LocatedTerm raise {
 }
 
 ///|
-pub fn Stage2::elaborate_node(node : S) -> LocatedTerm raise {
+pub fn Stage2::elaborate_node(node : S) -> Term raise {
   match node {
     Text(s, loc) => Text(s, loc)
     Quote(s, loc) => Text(s, loc) // raw block -> text
@@ -157,9 +150,7 @@ pub fn Stage2::elaborate_node(node : S) -> LocatedTerm raise {
 }
 
 ///|
-pub fn Stage2::pass(
-  nodes : Array[S],
-) -> Array[LocatedTerm] raise {
+pub fn Stage2::pass(nodes : Array[S]) -> Array[Term] raise {
   let result = []
   for node in nodes {
     result.push(Stage2::elaborate_node(node))

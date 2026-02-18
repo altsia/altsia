@@ -40,16 +40,9 @@ test "Parsing stage 1 per component" {
 ///|
 test "Parsing stage 1 nested app and escaped parens" {
   let source = "(root a \\(b\\) (child c d))"
-  assert_eq(
-    source |> parse_semantics,
-    [
-      EApp([
-        EText("root"),
-        EText("a (b)"),
-        EApp([EText("child"), EText("c d")]),
-      ]),
-    ],
-  )
+  assert_eq(source |> parse_semantics, [
+    EApp([EText("root"), EText("a (b)"), EApp([EText("child"), EText("c d")])]),
+  ])
 }
 
 ///|

@@ -74,16 +74,16 @@ pub impl Eq for Stage2Error
 pub impl Show for Stage2Error
 
 pub(all) suberror Stage2EtaleError {
-  TemplateArityMismatch(template_name~ : String, expected~ : Int, got~ : Int, args~ : Array[LocatedTerm], loc~ : SourceLoc?)
-  NestedTemplateDefinitionInSubstitution(term~ : LocatedTerm, loc~ : SourceLoc?)
-  UnexpectedTemplateDefinitionInExpand(term~ : LocatedTerm, loc~ : SourceLoc?)
+  TemplateArityMismatch(template_name~ : String, expected~ : Int, got~ : Int, args~ : Array[Term], loc~ : SourceLoc?)
+  NestedTemplateDefinitionInSubstitution(term~ : Term, loc~ : SourceLoc?)
+  UnexpectedTemplateDefinitionInExpand(term~ : Term, loc~ : SourceLoc?)
 }
 pub impl Eq for Stage2EtaleError
 pub impl Show for Stage2EtaleError
 
 pub(all) suberror Stage3Error {
-  AttributeExpectsAtMostOneValue(values~ : Array[LocatedTerm], loc~ : SourceLoc?)
-  UnexpectedTemplateDefinition(term~ : LocatedTerm, loc~ : SourceLoc?)
+  AttributeExpectsAtMostOneValue(values~ : Array[Term], loc~ : SourceLoc?)
+  UnexpectedTemplateDefinition(term~ : Term, loc~ : SourceLoc?)
 }
 pub impl Eq for Stage3Error
 pub impl Show for Stage3Error
@@ -128,22 +128,22 @@ pub impl Eq for InlineNode
 pub impl Show for InlineNode
 pub impl @debug.Debug for InlineNode
 
-pub struct LocatedTemplate {
+pub struct Template {
   params : Array[String]
-  body : Array[LocatedTerm]
+  body : Array[Term]
 }
 
-pub(all) enum LocatedTerm {
+pub(all) enum Term {
   Text(String, SourceLoc)
-  App(String, Array[LocatedTerm], SourceLoc)
-  TemplateDefinition(String, Array[String], Array[LocatedTerm], SourceLoc)
-  Splice(Array[LocatedTerm], SourceLoc)
+  App(String, Array[Term], SourceLoc)
+  TemplateDefinition(String, Array[String], Array[Term], SourceLoc)
+  Splice(Array[Term], SourceLoc)
   Comment(String, SourceLoc)
 }
-pub fn LocatedTerm::loc(Self) -> SourceLoc
-pub impl Eq for LocatedTerm
-pub impl Show for LocatedTerm
-pub impl @debug.Debug for LocatedTerm
+pub fn Term::loc(Self) -> SourceLoc
+pub impl Eq for Term
+pub impl Show for Term
+pub impl @debug.Debug for Term
 
 pub(all) enum Mdx {
   Text(String)
@@ -204,21 +204,24 @@ pub fn Stage1::normalize_range(String, Int, Int, max_width? : Int) -> String rai
 pub fn Stage1::parse(String) -> Array[S] raise
 
 pub type Stage2
-pub fn Stage2::elaborate_node(S) -> LocatedTerm raise
-pub fn Stage2::pass(Array[S]) -> Array[LocatedTerm] raise
+pub fn Stage2::elaborate_node(S) -> Term raise
+pub fn Stage2::pass(Array[S]) -> Array[Term] raise
 
 pub type Stage2Etale
-pub fn Stage2Etale::expand_program(Array[LocatedTerm]) -> Array[LocatedTerm] raise
+pub fn Stage2Etale::expand_program(Array[Term]) -> Array[Term] raise
+pub fn Stage2Etale::rewrite_apps(Array[Term], (String, Array[Term], SourceLoc) -> Array[Term]) -> Array[Term]
 
 pub type Stage3
-pub fn Stage3::pass(Array[LocatedTerm]) -> Array[Piece] raise
+pub fn Stage3::pass(Array[Term]) -> Array[Piece] raise
 
 // Type aliases
 pub type Doc = Array[Piece]
 
-pub type LocatedEnv = @hashmap.HashMap[String, LocatedTemplate]
+pub type AppRewriter = (String, Array[Term], SourceLoc) -> Array[Term]
 
-pub type LocatedParamsEnv = @hashmap.HashMap[String, Array[LocatedTerm]]
+pub type Env = @hashmap.HashMap[String, Template]
+
+pub type ParamsEnv = @hashmap.HashMap[String, Array[Term]]
 
 pub type Name = String
 

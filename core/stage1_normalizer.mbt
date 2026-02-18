@@ -1,4 +1,3 @@
-﻿
 ///|
 pub(all) suberror Stage1NormalizeError {
   InvalidRange(
@@ -54,11 +53,7 @@ fn validate_normalize_range(
 }
 
 ///|
-fn range_intersects_node(
-  node : S,
-  range_start : Int,
-  range_end : Int,
-) -> Bool {
+fn range_intersects_node(node : S, range_start : Int, range_end : Int) -> Bool {
   let loc = node.loc()
   loc.end_offset > range_start && loc.start_offset < range_end
 }
@@ -170,6 +165,59 @@ fn indent_block(text : String, prefix : String) -> String {
 }
 
 ///|
+priv struct RenderPart {
+  text : String
+  is_nested : Bool
+  is_multiline : Bool
+  display_width : Int
+}
+
+///|
+fn make_render_part(text : String, is_nested : Bool) -> RenderPart {
+  RenderPart::{
+    text,
+    is_nested,
+    is_multiline: text.contains("\n"),
+    display_width: string_display_width(text),
+  }
+}
+
+///|
+fn render_parts_line(parts : ArrayView[RenderPart]) -> String {
+  let mut line = ""
+  for part in parts {
+    if line == "" {
+      line = part.text
+      continue
+    }
+    line = line + " " + part.text
+  }
+  line
+}
+
+///|
+fn render_parts_display_width(parts : ArrayView[RenderPart]) -> Int {
+  let mut width = 0
+  for i in 0..<parts.length() {
+    if i > 0 {
+      width += 1
+    }
+    width += parts[i].display_width
+  }
+  width
+}
+
+///|
+fn append_render_parts(
+  target : Array[RenderPart],
+  source : ArrayView[RenderPart],
+) -> Unit {
+  for part in source {
+    target.push(part)
+  }
+}
+
+///|
 fn normalize_node_canonical(
   node : S,
   source : String,
@@ -215,21 +263,18 @@ fn normalize_node_canonical(
 }
 
 ///|
-fn render_inline_app(
-  parts : Array[String],
-  nested_flags : Array[Bool],
-  max_width : Int,
-) -> String {
-  let single_line = "(" + parts.join(" ") + ")"
-  if string_display_width(single_line) <= max_width {
+fn render_inline_app(parts : Array[RenderPart], max_width : Int) -> String {
+  let single_line_content = render_parts_line(parts)
+  let single_line = "(" + single_line_content + ")"
+  if render_parts_display_width(parts) + 2 <= max_width {
     return single_line
   }
-  if !nested_flags.contains(true) {
+  if !parts.iter().any(fn(part) { part.is_nested }) {
     return single_line
   }
   let mut first_nested = -1
-  for i in 0..<nested_flags.length() {
-    if nested_flags[i] {
+  for i in 0..<parts.length() {
+    if parts[i].is_nested {
       first_nested = i
       break
     }
@@ -240,44 +285,56 @@ fn render_inline_app(
   let header = if first_nested == 0 {
     "("
   } else {
-    "(" + parts[:first_nested].join(" ")
+    "(" + render_parts_line(parts[:first_nested])
   }
-  // Build groups at nested-app boundaries; then pack multiple groups per line
-  // as long as line width allows.
-  let groups : Array[String] = []
-  let mut current_group = parts[first_nested]
+  let groups : Array[Array[RenderPart]] = []
+  let mut current_group : Array[RenderPart] = [parts[first_nested]]
   for i in (first_nested + 1)..<parts.length() {
-    if nested_flags[i] {
+    if parts[i].is_nested {
       groups.push(current_group)
-      current_group = parts[i]
+      current_group = [parts[i]]
     } else {
-      current_group = current_group + " " + parts[i]
+      current_group.push(parts[i])
     }
   }
   groups.push(current_group)
 
   let content_max = max_width - 2 // reserve 2 spaces indentation
   let packed_lines : Array[String] = []
-  let mut current_line = ""
+  let mut current_line_parts : Array[RenderPart] = []
+  let mut current_line_width = 0
   for group in groups {
-    if current_line == "" {
-      current_line = group
+    if group.iter().any(fn(part) { part.is_multiline }) {
+      if !current_line_parts.is_empty() {
+        packed_lines.push(render_parts_line(current_line_parts))
+        current_line_parts = []
+        current_line_width = 0
+      }
+      packed_lines.push(render_parts_line(group))
       continue
     }
-    let candidate = current_line + " " + group
-    if string_display_width(candidate) <= content_max {
-      current_line = candidate
+    let group_width = render_parts_display_width(group)
+    if current_line_parts.is_empty() {
+      current_line_parts = group
+      current_line_width = group_width
+      continue
+    }
+    let candidate_width = current_line_width + 1 + group_width
+    if candidate_width <= content_max {
+      append_render_parts(current_line_parts, group)
+      current_line_width = candidate_width
     } else {
-      packed_lines.push(current_line)
-      current_line = group
+      packed_lines.push(render_parts_line(current_line_parts))
+      current_line_parts = group
+      current_line_width = group_width
     }
   }
-  if current_line != "" {
-    packed_lines.push(current_line)
+  if !current_line_parts.is_empty() {
+    packed_lines.push(render_parts_line(current_line_parts))
   }
   let last_line_index = packed_lines.length() - 1
   packed_lines[last_line_index] = packed_lines[last_line_index] + " )"
-  let indented_lines = packed_lines.map(fn(line) { "  " + line })
+  let indented_lines = packed_lines.map(fn(line) { indent_block(line, "  ") })
   header + "\n" + indented_lines.join("\n")
 }
 
@@ -288,22 +345,29 @@ fn normalize_app_with_skip(
   max_width : Int,
   fmt_enabled_init? : Bool = true,
 ) -> String {
-  let inline_parts : Array[String] = []
-  let inline_nested : Array[Bool] = []
+  let inline_parts : Array[RenderPart] = []
   let blocks : Array[String] = []
   let mut skip_next = false
   let mut fmt_enabled = fmt_enabled_init
   for arg in args {
     if is_fmt_on_directive(arg) {
-      inline_parts.push(normalize_node_canonical(arg, source, max_width, true))
-      inline_nested.push(false)
+      inline_parts.push(
+        make_render_part(
+          normalize_node_canonical(arg, source, max_width, true),
+          false,
+        ),
+      )
       fmt_enabled = true
       skip_next = false
       continue
     }
     if is_fmt_off_directive(arg) {
-      inline_parts.push(normalize_node_canonical(arg, source, max_width, true))
-      inline_nested.push(false)
+      inline_parts.push(
+        make_render_part(
+          normalize_node_canonical(arg, source, max_width, true),
+          false,
+        ),
+      )
       fmt_enabled = false
       skip_next = false
       continue
@@ -316,56 +380,56 @@ fn normalize_app_with_skip(
       }
       match arg {
         Quote(_, _) => blocks.push(rendered)
-        App(_, _) => {
-          inline_parts.push(rendered)
-          inline_nested.push(true)
-        }
-        _ => {
-          inline_parts.push(rendered)
-          inline_nested.push(false)
-        }
+        App(_, _) => inline_parts.push(make_render_part(rendered, true))
+        _ => inline_parts.push(make_render_part(rendered, false))
       }
       continue
     }
     if skip_next {
       match arg {
         Quote(_, _) => blocks.push(raw_term_source(source, arg))
-        App(_, _) => {
-          inline_parts.push(raw_term_source(source, arg))
-          inline_nested.push(true)
-        }
-        _ => {
-          inline_parts.push(raw_term_source(source, arg))
-          inline_nested.push(false)
-        }
+        App(_, _) =>
+          inline_parts.push(
+            make_render_part(raw_term_source(source, arg), true),
+          )
+        _ =>
+          inline_parts.push(
+            make_render_part(raw_term_source(source, arg), false),
+          )
       }
       skip_next = false
       continue
     }
     if is_fmt_skip_directive(arg) {
-      inline_parts.push(normalize_node_canonical(arg, source, max_width, true))
-      inline_nested.push(false)
+      inline_parts.push(
+        make_render_part(
+          normalize_node_canonical(arg, source, max_width, true),
+          false,
+        ),
+      )
       skip_next = true
       continue
     }
     match arg {
       Quote(_, _) =>
         blocks.push(normalize_node_canonical(arg, source, max_width, true))
-      App(_, _) => {
+      App(_, _) =>
         inline_parts.push(
-          normalize_node_canonical(arg, source, max_width, true),
+          make_render_part(
+            normalize_node_canonical(arg, source, max_width, true),
+            true,
+          ),
         )
-        inline_nested.push(true)
-      }
-      _ => {
+      _ =>
         inline_parts.push(
-          normalize_node_canonical(arg, source, max_width, true),
+          make_render_part(
+            normalize_node_canonical(arg, source, max_width, true),
+            false,
+          ),
         )
-        inline_nested.push(false)
-      }
     }
   }
-  let app_line = render_inline_app(inline_parts, inline_nested, max_width)
+  let app_line = render_inline_app(inline_parts, max_width)
   if blocks.is_empty() {
     app_line
   } else {
@@ -651,4 +715,3 @@ pub fn altsia_normalize_range_result(
     Err(errors) => Err(errors.map(render_error_to_string))
   }
 }
-

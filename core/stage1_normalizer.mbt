@@ -230,7 +230,8 @@ fn make_render_part(
 fn contains_multiline_quote_inline(node : S) -> Bool {
   match node {
     QuoteInline(content, _) => content.contains("\n")
-    App(args, _, _) => args.iter().any(fn(child) { contains_multiline_quote_inline(child) })
+    App(args, _, _) =>
+      args.iter().any(fn(child) { contains_multiline_quote_inline(child) })
     _ => false
   }
 }
@@ -296,7 +297,9 @@ fn canonical_gap_before(
 fn normalize_quote_sugar_app(args : Array[S]) -> String? {
   match args {
     [Text(head, _), QuoteInline(content, _)] =>
-      Some(escape_text(trim_stage1_text_edges(head)) + render_inline_quote(content))
+      Some(
+        escape_text(trim_stage1_text_edges(head)) + render_inline_quote(content),
+      )
     [Text(head, _), QuoteBlock(content, _)] =>
       Some(escape_text(trim_stage1_text_edges(head)) + render_block(content))
     _ => None
@@ -388,9 +391,7 @@ fn render_inline_app(parts : Array[RenderPart], max_width : Int) -> String {
   for part in parts {
     if part.is_display_math {
       push_render_line_from_parts(
-        lines,
-        current_line_parts,
-        current_line_preserve,
+        lines, current_line_parts, current_line_preserve,
       )
       current_line_parts = []
       current_line_width = 0
@@ -410,9 +411,7 @@ fn render_inline_app(parts : Array[RenderPart], max_width : Int) -> String {
     }
     if part.is_multiline {
       push_render_line_from_parts(
-        lines,
-        current_line_parts,
-        current_line_preserve,
+        lines, current_line_parts, current_line_preserve,
       )
       current_line_parts = []
       current_line_width = 0
@@ -420,7 +419,11 @@ fn render_inline_app(parts : Array[RenderPart], max_width : Int) -> String {
       lines.push((part.text, part.preserve_internal_newlines))
       continue
     }
-    let line_limit = if lines.is_empty() { max_width - 1 } else { max_width - 2 }
+    let line_limit = if lines.is_empty() {
+      max_width - 1
+    } else {
+      max_width - 2
+    }
     if current_line_parts.is_empty() {
       current_line_parts.push(part)
       current_line_width = part.display_width
@@ -436,9 +439,7 @@ fn render_inline_app(parts : Array[RenderPart], max_width : Int) -> String {
         part.preserve_internal_newlines
     } else {
       push_render_line_from_parts(
-        lines,
-        current_line_parts,
-        current_line_preserve,
+        lines, current_line_parts, current_line_preserve,
       )
       current_line_parts = [part]
       current_line_width = part.display_width

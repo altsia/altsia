@@ -89,7 +89,10 @@ fn stage2_etale_gap_separator_loc(next : Term) -> SourceLoc {
 }
 
 ///|
-fn stage2_etale_box_as_splice(args : ArrayView[Term], call_loc : SourceLoc) -> Term {
+fn stage2_etale_box_as_splice(
+  args : ArrayView[Term],
+  call_loc : SourceLoc,
+) -> Term {
   let boxed = []
   for i in 0..<args.length() {
     if i > 0 {
@@ -153,7 +156,11 @@ fn expand_template_call(
   let params_length = template.params.length()
   let has_variadic_tail = params_length > 0 &&
     stage2_etale_has_variadic_suffix(template.params[params_length - 1])
-  let fixed_count = if has_variadic_tail { params_length - 1 } else { params_length }
+  let fixed_count = if has_variadic_tail {
+    params_length - 1
+  } else {
+    params_length
+  }
 
   let call_args = if has_variadic_tail {
     if args_length < params_length {
@@ -169,7 +176,9 @@ fn expand_template_call(
     for i in 0..<fixed_count {
       result.push(semantic_args[i])
     }
-    result.push(stage2_etale_box_as_splice(semantic_args[fixed_count:], call_loc))
+    result.push(
+      stage2_etale_box_as_splice(semantic_args[fixed_count:], call_loc),
+    )
     result
   } else if params_length != args_length {
     raise Stage2EtaleError::TemplateArityMismatch(

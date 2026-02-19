@@ -101,8 +101,7 @@ test "Stage2Etale propagates structured arity mismatch error" {
 
 ///|
 test "Stage2Etale reports arity mismatch when variadic tail has no bound arg" {
-  let result : Result[Array[Term], Error] = try? (
-    "(λ card (title content...) (p (title) (content))) (card (hello))"
+  let result : Result[Array[Term], Error] = try? ("(λ card (title content...) (p (title) (content))) (card (hello))"
   |> Stage1::parse
   |> Stage2::pass
   |> Stage2Etale::expand_program)

@@ -71,7 +71,10 @@ test "Reconstructing stage 1 per component" {
   assert_eq(source |> Stage1::parse |> to_source, source)
   let inline_source = "(p head `inline value` tail)"
   assert_eq(inline_source |> Stage1::parse |> to_source, inline_source)
-  assert_eq("f`inline value`" |> Stage1::parse |> to_source, "(f `inline value`)")
+  assert_eq(
+    "f`inline value`" |> Stage1::parse |> to_source,
+    "(f `inline value`)",
+  )
   assert_eq(
     "(p f`inline value` tail)" |> Stage1::parse |> to_source,
     "(p (f `inline value`) tail)",

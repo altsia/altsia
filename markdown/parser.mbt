@@ -66,7 +66,11 @@ fn md_is_html_name_char(ch : Char) -> Bool {
 }
 
 ///|
-fn md_skip_spaces_in_range(source : String, start : Int, end_exclusive : Int) -> Int {
+fn md_skip_spaces_in_range(
+  source : String,
+  start : Int,
+  end_exclusive : Int,
+) -> Int {
   let mut i = start
   while i < end_exclusive && md_is_space(md_char_at(source, i)) {
     i += 1
@@ -96,7 +100,9 @@ fn md_parse_html_open_line(
 ) -> (String, Array[(String, String)], Bool)? {
   let source = md_trim_edges(line)
   let len = source.length()
-  if len < 3 || md_char_at(source, 0) != '<' || md_char_at(source, len - 1) != '>' {
+  if len < 3 ||
+    md_char_at(source, 0) != '<' ||
+    md_char_at(source, len - 1) != '>' {
     return None
   }
   let last = len - 1
@@ -170,7 +176,9 @@ fn md_parse_html_open_line(
 fn md_parse_html_close_line(line : String) -> String? {
   let source = md_trim_edges(line)
   let len = source.length()
-  if len < 4 || !md_has_prefix_at(source, 0, "</") || md_char_at(source, len - 1) != '>' {
+  if len < 4 ||
+    !md_has_prefix_at(source, 0, "</") ||
+    md_char_at(source, len - 1) != '>' {
     return None
   }
   let last = len - 1
@@ -377,7 +385,8 @@ fn md_parse_single_line_math_block_content(line : String) -> String? {
 
 ///|
 fn md_is_math_block_start(line : String) -> Bool {
-  md_is_math_fence_delimiter(line) || md_parse_single_line_math_block_content(line) is Some(_)
+  md_is_math_fence_delimiter(line) ||
+  md_parse_single_line_math_block_content(line) is Some(_)
 }
 
 ///|
@@ -517,7 +526,12 @@ fn md_is_special_block_start(line : String) -> Bool {
   let is_blockquote = md_strip_blockquote_prefix(line) is Some(_)
   let is_bullet = md_parse_bullet_item(line) is Some(_)
   let is_ordered = md_parse_ordered_item(line) is Some(_)
-  is_heading || is_fence || is_math_fence || is_blockquote || is_bullet || is_ordered
+  is_heading ||
+  is_fence ||
+  is_math_fence ||
+  is_blockquote ||
+  is_bullet ||
+  is_ordered
 }
 
 ///|
@@ -713,7 +727,8 @@ fn parse_ordered_list_block(state : BlockState, line : Int) -> Int? {
 
 ///|
 fn parse_html_block(state : BlockState, line : Int) -> Int? {
-  guard md_parse_html_open_line(state.lines[line]) is Some((tag, attrs, self_close)) else {
+  guard md_parse_html_open_line(state.lines[line])
+    is Some((tag, attrs, self_close)) else {
     return None
   }
   if self_close {
@@ -745,8 +760,8 @@ fn parse_html_block(state : BlockState, line : Int) -> Int? {
       _ => ()
     }
     match md_parse_html_open_line(state.lines[i]) {
-      Some((open_tag, _, nested_self_close)) if open_tag == tag && !nested_self_close =>
-        depth += 1
+      Some((open_tag, _, nested_self_close)) if open_tag == tag &&
+        !nested_self_close => depth += 1
       _ => ()
     }
     body_lines.push(state.lines[i])
@@ -788,8 +803,7 @@ fn parse_paragraph_block(state : BlockState, line : Int) -> Int? {
 fn block_rules() -> Array[BlockRule] {
   [
     parse_fence_block, parse_math_block, parse_heading_block, parse_table_block,
-    parse_html_block,
-    parse_blockquote_block, parse_unordered_list_block, parse_ordered_list_block,
+    parse_html_block, parse_blockquote_block, parse_unordered_list_block, parse_ordered_list_block,
     parse_paragraph_block,
   ]
 }
@@ -956,7 +970,11 @@ fn md_math_is_digit(ch : Char) -> Bool {
 }
 
 ///|
-fn md_math_valid_open(source : String, index : Int, delimiter_length : Int) -> Bool {
+fn md_math_valid_open(
+  source : String,
+  index : Int,
+  delimiter_length : Int,
+) -> Bool {
   if md_math_is_escaped_at(source, index) {
     return false
   }
@@ -968,7 +986,11 @@ fn md_math_valid_open(source : String, index : Int, delimiter_length : Int) -> B
 }
 
 ///|
-fn md_math_valid_close(source : String, index : Int, delimiter_length : Int) -> Bool {
+fn md_math_valid_close(
+  source : String,
+  index : Int,
+  delimiter_length : Int,
+) -> Bool {
   if md_math_is_escaped_at(source, index) {
     return false
   }
@@ -1027,16 +1049,14 @@ fn inline_rule_math(state : InlineState, pos : Int) -> (MdToken, Int)? {
     return Some((make_token("text", "", content="$"), pos + 1))
   }
 
-  let close = match md_find_end_of_math(delimiter, source, pos + delimiter_length) {
+  let close = match
+    md_find_end_of_math(delimiter, source, pos + delimiter_length) {
     Some(found) if md_math_valid_close(source, found, delimiter_length) => found
     _ => -1
   }
   if close < 0 {
     return Some(
-      (
-        make_token("text", "", content=delimiter),
-        pos + delimiter_length,
-      ),
+      (make_token("text", "", content=delimiter), pos + delimiter_length),
     )
   }
 
@@ -1163,8 +1183,7 @@ fn inline_rule_text(state : InlineState, pos : Int) -> (MdToken, Int)? {
 fn inline_rules() -> Array[InlineRule] {
   [
     inline_rule_code, inline_rule_link, inline_rule_strong, inline_rule_em, inline_rule_html,
-    inline_rule_math,
-    inline_rule_text,
+    inline_rule_math, inline_rule_text,
   ]
 }
 

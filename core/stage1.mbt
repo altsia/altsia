@@ -234,10 +234,7 @@ fn parse_quote_block_app_from_head(
     [Space],
     source_loc_from_offsets(source, head_start, next),
   )
-  (
-    app_node,
-    next,
-  )
+  (app_node, next)
 }
 
 ///|
@@ -358,10 +355,7 @@ fn parse_quote_inline_app_from_head(
     [Space],
     source_loc_from_offsets(source, head_start, next),
   )
-  (
-    app_node,
-    next,
-  )
+  (app_node, next)
 }
 
 ///|
@@ -532,7 +526,7 @@ fn parse_app(source : String, start : Int) -> (S, Int) raise {
       if segment_start != -1 {
         let mut head_start = i
         while head_start > segment_start &&
-          !is_stage1_space(char_at(source, head_start - 1)) {
+              !is_stage1_space(char_at(source, head_start - 1)) {
           head_start -= 1
         }
         if head_start < i {
@@ -541,9 +535,7 @@ fn parse_app(source : String, start : Int) -> (S, Int) raise {
             None => ()
           }
           let (quote_app, next) = parse_quote_inline_app_from_head(
-            source,
-            head_start,
-            i,
+            source, head_start, i,
           )
           push_app_arg(args, gaps, source, quote_app)
           segment_start = -1

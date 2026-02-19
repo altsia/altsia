@@ -12,7 +12,7 @@ fn strip_loc(node : S) -> ES {
     Text(s, _) => EText(s)
     QuoteBlock(s, _) => EQuote(s)
     QuoteInline(s, _) => EQuoteInline(s)
-    App(args, _) => EApp(args.map(strip_loc))
+    App(args, _, _) => EApp(args.map(strip_loc))
   }
 }
 
@@ -51,6 +51,18 @@ test "Parsing stage 1 nested app and escaped parens" {
   assert_eq(source |> parse_semantics, [
     EApp([EText("root"), EText("a (b)"), EApp([EText("child"), EText("c d")])]),
   ])
+}
+
+///|
+test "Stage1 to_source preserves tight and space boundaries between app args" {
+  let source = "(a b (c) d)"
+  assert_eq(source |> Stage1::parse |> to_source, source)
+  let comma_source = "(a (b) ,(c) ,(d))"
+  assert_eq(comma_source |> Stage1::parse |> to_source, comma_source)
+  assert_eq("(a b(c))" |> Stage1::parse |> to_source, "(a b(c))")
+  assert_eq("(x (a) (b),(c))" |> Stage1::parse |> to_source, "(x (a) (b),(c))")
+  let cjk_tight = "(p (_ 寻)(_ 觅)(_ 冷)(_ 清))"
+  assert_eq(cjk_tight |> Stage1::parse |> to_source, cjk_tight)
 }
 
 ///|

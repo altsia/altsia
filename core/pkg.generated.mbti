@@ -26,6 +26,9 @@ pub let default_language : String
 
 pub let default_max_width : Int
 
+#alias(elaborate_string_literal)
+pub fn elaborate_name(S) -> String raise
+
 pub fn is_wide_east_asian(Char) -> Bool
 
 pub fn[E : Show] join_list(@list.List[E], separator? : String) -> String
@@ -50,6 +53,7 @@ pub(all) suberror Stage1Error {
   EmptyApplicationHead(loc~ : SourceLoc)
   UnclosedApplication(loc~ : SourceLoc)
   UnclosedQuoteBlock(loc~ : SourceLoc)
+  UnclosedQuoteInline(loc~ : SourceLoc)
   QuoteBlockRequiresPrecedingApp(loc~ : SourceLoc)
   QuoteBlockMustFollowApp(loc~ : SourceLoc)
   UnexpectedTopLevelToken(token~ : String, loc~ : SourceLoc)
@@ -89,6 +93,14 @@ pub impl Eq for Stage3Error
 pub impl Show for Stage3Error
 
 // Types and methods
+pub(all) enum AppGap {
+  Tight
+  Space
+}
+pub impl Eq for AppGap
+pub impl Show for AppGap
+pub impl @debug.Debug for AppGap
+
 pub(all) enum BlockNode {
   Paragraph(Array[InlineNode])
   Container(Element[InlineNode])
@@ -163,8 +175,9 @@ pub impl @debug.Debug for RenderError
 
 pub(all) enum S {
   Text(String, SourceLoc)
-  Quote(String, SourceLoc)
-  App(Array[S], SourceLoc)
+  QuoteInline(String, SourceLoc)
+  QuoteBlock(String, SourceLoc)
+  App(Array[S], Array[AppGap], SourceLoc)
 }
 pub fn S::loc(Self) -> SourceLoc
 pub impl Eq for S
@@ -192,7 +205,9 @@ pub fn Stage2::pass(Array[S]) -> Array[Term] raise
 
 pub type Stage2Etale
 pub fn Stage2Etale::expand_program(Array[Term]) -> Array[Term] raise
-pub fn Stage2Etale::rewrite_apps(Array[Term], (String, Array[Term], SourceLoc) -> Array[Term]) -> Array[Term]
+
+pub type Stage2Extern
+pub fn Stage2Extern::rewrite_apps(Array[Term], (String, Array[Term], SourceLoc) -> Array[Term]) -> Array[Term]
 
 pub type Stage3
 pub fn Stage3::pass(Array[Term]) -> Array[Piece] raise

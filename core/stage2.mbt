@@ -68,7 +68,7 @@ fn elaborate_comment(xs : ArrayView[S]) -> String {
 fn elaborate_params_name(node : S) -> Name raise {
   match node {
     Text(s, _) => s
-    App(list, loc) =>
+    App(list, _, loc) =>
       match list {
         [head, ..] => elaborate_name(head)
         [] =>
@@ -104,7 +104,7 @@ fn elaborate_template(xs : ArrayView[S], app_loc : SourceLoc) -> Term raise {
   }
   let name = elaborate_name(xs[0])
   let params = match xs[1] {
-    App(list, _) => list.map(elaborate_params_name)
+    App(list, _, _) => list.map(elaborate_params_name)
     _ =>
       raise Stage2Error::TemplateParamsMustBeList(
         found=xs[1],
@@ -118,7 +118,7 @@ fn elaborate_template(xs : ArrayView[S], app_loc : SourceLoc) -> Term raise {
 ///|
 fn elaborate_app(node : S) -> Term raise {
   match node {
-    App(view, app_loc) =>
+    App(view, _, app_loc) =>
       match view {
         [] => Text("", app_loc)
         [f, .. xs] =>
@@ -147,7 +147,7 @@ pub fn Stage2::elaborate_node(node : S) -> Term raise {
     Text(s, loc) => Text(s, loc)
     QuoteBlock(s, loc) => Text(s, loc) // raw block -> text
     QuoteInline(s, loc) => Text(s, loc) // inline raw -> text
-    App(_, _) => elaborate_app(node)
+    App(_, _, _) => elaborate_app(node)
   }
 }
 

@@ -24,6 +24,22 @@ fn sanitize_max_width(max_width : Int) -> Int {
 }
 
 ///|
+fn trim_stage1_text_edges(value : String) -> String {
+  let (left, right) = trim_segment_bounds(
+    value,
+    0,
+    value.length(),
+    trim_left=true,
+    trim_right=true,
+  )
+  if left >= right {
+    ""
+  } else {
+    value.unsafe_substring(start=left, end=right)
+  }
+}
+
+///|
 fn validate_normalize_range(
   source : String,
   start_offset : Int,
@@ -115,7 +131,7 @@ fn state_before_index(nodes : Array[S], index : Int) -> (Bool, Bool) {
 ///|
 fn is_fmt_skip_directive(node : S) -> Bool {
   match node {
-    App([Text("%", _), Text("altsia-fmt-skip", _)], _) => true
+    App([Text("%", _), Text("altsia-fmt-skip", _)], _, _) => true
     _ => false
   }
 }
@@ -123,7 +139,7 @@ fn is_fmt_skip_directive(node : S) -> Bool {
 ///|
 fn is_fmt_off_directive(node : S) -> Bool {
   match node {
-    App([Text("%", _), Text("altsia-fmt-off", _)], _) => true
+    App([Text("%", _), Text("altsia-fmt-off", _)], _, _) => true
     _ => false
   }
 }
@@ -131,7 +147,7 @@ fn is_fmt_off_directive(node : S) -> Bool {
 ///|
 fn is_fmt_on_directive(node : S) -> Bool {
   match node {
-    App([Text("%", _), Text("altsia-fmt-on", _)], _) => true
+    App([Text("%", _), Text("altsia-fmt-on", _)], _, _) => true
     _ => false
   }
 }
@@ -139,7 +155,7 @@ fn is_fmt_on_directive(node : S) -> Bool {
 ///|
 fn is_template_definition_app(args : Array[S]) -> Bool {
   match args {
-    [Text("λ", _), Text(_, _), App(_, _), ..] => true
+    [Text("λ", _), Text(_, _), App(_, _, _), ..] => true
     _ => false
   }
 }
@@ -150,7 +166,7 @@ fn contains_fmt_toggle(node : S) -> Bool {
     return true
   }
   match node {
-    App(args, _) => args.iter().any(fn(child) { contains_fmt_toggle(child) })
+    App(args, _, _) => args.iter().any(fn(child) { contains_fmt_toggle(child) })
     _ => false
   }
 }
@@ -167,15 +183,21 @@ fn indent_block(text : String, prefix : String) -> String {
 ///|
 priv struct RenderPart {
   text : String
+  gap_before : AppGap
   is_nested : Bool
   is_multiline : Bool
   display_width : Int
 }
 
 ///|
-fn make_render_part(text : String, is_nested : Bool) -> RenderPart {
+fn make_render_part(
+  text : String,
+  is_nested : Bool,
+  gap_before? : AppGap = Tight,
+) -> RenderPart {
   RenderPart::{
     text,
+    gap_before,
     is_nested,
     is_multiline: text.contains("\n"),
     display_width: string_display_width(text),
@@ -185,12 +207,13 @@ fn make_render_part(text : String, is_nested : Bool) -> RenderPart {
 ///|
 fn render_parts_line(parts : ArrayView[RenderPart]) -> String {
   let mut line = ""
-  for part in parts {
-    if line == "" {
-      line = part.text
-      continue
+  for i in 0..<parts.length() {
+    let part = parts[i]
+    if i > 0 && part.gap_before == Space {
+      line = line + " " + part.text
+    } else {
+      line = line + part.text
     }
-    line = line + " " + part.text
   }
   line
 }
@@ -199,7 +222,7 @@ fn render_parts_line(parts : ArrayView[RenderPart]) -> String {
 fn render_parts_display_width(parts : ArrayView[RenderPart]) -> Int {
   let mut width = 0
   for i in 0..<parts.length() {
-    if i > 0 {
+    if i > 0 && parts[i].gap_before == Space {
       width += 1
     }
     width += parts[i].display_width
@@ -218,6 +241,21 @@ fn append_render_parts(
 }
 
 ///|
+fn canonical_gap_before(args : Array[S], gaps : Array[AppGap], index : Int) -> AppGap {
+  if index == 0 {
+    return Tight
+  }
+  let raw_gap = gaps[index - 1]
+  if raw_gap == Space {
+    return Space
+  }
+  match (args[index - 1], args[index]) {
+    (App(_, _, _), App(_, _, _)) => Space
+    _ => Tight
+  }
+}
+
+///|
 fn normalize_node_canonical(
   node : S,
   source : String,
@@ -228,13 +266,20 @@ fn normalize_node_canonical(
     match node {
       Text(_, _) | QuoteBlock(_, _) | QuoteInline(_, _) =>
         raw_term_source(source, node)
-      App(args, _) =>
+      App(args, gaps, _) =>
         if contains_fmt_toggle(node) {
           if is_template_definition_app(args) {
-            normalize_template_app(args, source, max_width, fmt_enabled=false)
+            normalize_template_app(
+              args,
+              gaps,
+              source,
+              max_width,
+              fmt_enabled=false,
+            )
           } else {
             normalize_app_with_skip(
               args,
+              gaps,
               source,
               max_width,
               fmt_enabled_init=false,
@@ -246,15 +291,22 @@ fn normalize_node_canonical(
     }
   } else {
     match node {
-      Text(_, _) => node.to_source()
+      Text(text, _) => escape_text(trim_stage1_text_edges(text))
       QuoteBlock(_, _) => node.to_source()
       QuoteInline(_, _) => node.to_source()
-      App(args, _) =>
+      App(args, gaps, _) =>
         if is_template_definition_app(args) {
-          normalize_template_app(args, source, max_width, fmt_enabled=true)
+          normalize_template_app(
+            args,
+            gaps,
+            source,
+            max_width,
+            fmt_enabled=true,
+          )
         } else {
           normalize_app_with_skip(
             args,
+            gaps,
             source,
             max_width,
             fmt_enabled_init=true,
@@ -321,7 +373,8 @@ fn render_inline_app(parts : Array[RenderPart], max_width : Int) -> String {
       current_line_width = group_width
       continue
     }
-    let candidate_width = current_line_width + 1 + group_width
+    let gap_width = if group[0].gap_before == Space { 1 } else { 0 }
+    let candidate_width = current_line_width + gap_width + group_width
     if candidate_width <= content_max {
       append_render_parts(current_line_parts, group)
       current_line_width = candidate_width
@@ -343,6 +396,7 @@ fn render_inline_app(parts : Array[RenderPart], max_width : Int) -> String {
 ///|
 fn normalize_app_with_skip(
   args : Array[S],
+  gaps : Array[AppGap],
   source : String,
   max_width : Int,
   fmt_enabled_init? : Bool = true,
@@ -351,12 +405,15 @@ fn normalize_app_with_skip(
   let blocks : Array[String] = []
   let mut skip_next = false
   let mut fmt_enabled = fmt_enabled_init
-  for arg in args {
+  for i in 0..<args.length() {
+    let arg = args[i]
+    let gap_before = canonical_gap_before(args, gaps, i)
     if is_fmt_on_directive(arg) {
       inline_parts.push(
         make_render_part(
           normalize_node_canonical(arg, source, max_width, true),
           false,
+          gap_before~,
         ),
       )
       fmt_enabled = true
@@ -368,6 +425,7 @@ fn normalize_app_with_skip(
         make_render_part(
           normalize_node_canonical(arg, source, max_width, true),
           false,
+          gap_before~,
         ),
       )
       fmt_enabled = false
@@ -382,21 +440,21 @@ fn normalize_app_with_skip(
       }
       match arg {
         QuoteBlock(_, _) => blocks.push(rendered)
-        App(_, _) => inline_parts.push(make_render_part(rendered, true))
-        _ => inline_parts.push(make_render_part(rendered, false))
+        App(_, _, _) => inline_parts.push(make_render_part(rendered, true, gap_before~))
+        _ => inline_parts.push(make_render_part(rendered, false, gap_before~))
       }
       continue
     }
     if skip_next {
       match arg {
         QuoteBlock(_, _) => blocks.push(raw_term_source(source, arg))
-        App(_, _) =>
+        App(_, _, _) =>
           inline_parts.push(
-            make_render_part(raw_term_source(source, arg), true),
+            make_render_part(raw_term_source(source, arg), true, gap_before~),
           )
         _ =>
           inline_parts.push(
-            make_render_part(raw_term_source(source, arg), false),
+            make_render_part(raw_term_source(source, arg), false, gap_before~),
           )
       }
       skip_next = false
@@ -407,6 +465,7 @@ fn normalize_app_with_skip(
         make_render_part(
           normalize_node_canonical(arg, source, max_width, true),
           false,
+          gap_before~,
         ),
       )
       skip_next = true
@@ -415,11 +474,12 @@ fn normalize_app_with_skip(
     match arg {
       QuoteBlock(_, _) =>
         blocks.push(normalize_node_canonical(arg, source, max_width, true))
-      App(_, _) =>
+      App(_, _, _) =>
         inline_parts.push(
           make_render_part(
             normalize_node_canonical(arg, source, max_width, true),
             true,
+            gap_before~,
           ),
         )
       _ =>
@@ -427,6 +487,7 @@ fn normalize_app_with_skip(
           make_render_part(
             normalize_node_canonical(arg, source, max_width, true),
             false,
+            gap_before~,
           ),
         )
     }
@@ -442,72 +503,106 @@ fn normalize_app_with_skip(
 ///|
 fn normalize_template_parts(
   args : Array[S],
+  gaps : Array[AppGap],
   source : String,
   max_width : Int,
   fmt_enabled_init? : Bool = true,
-) -> Array[String] {
-  let parts : Array[String] = []
+) -> Array[(String, AppGap)] {
+  let parts : Array[(String, AppGap)] = []
   let mut skip_next = false
   let mut fmt_enabled = fmt_enabled_init
-  for arg in args {
+  for i in 0..<args.length() {
+    let arg = args[i]
+    let gap_before = canonical_gap_before(args, gaps, i)
     if is_fmt_on_directive(arg) {
-      parts.push(normalize_node_canonical(arg, source, max_width, true))
+      parts.push((normalize_node_canonical(arg, source, max_width, true), gap_before))
       fmt_enabled = true
       skip_next = false
       continue
     }
     if is_fmt_off_directive(arg) {
-      parts.push(normalize_node_canonical(arg, source, max_width, true))
+      parts.push((normalize_node_canonical(arg, source, max_width, true), gap_before))
       fmt_enabled = false
       skip_next = false
       continue
     }
     if !fmt_enabled {
       if contains_fmt_toggle(arg) {
-        parts.push(normalize_node_canonical(arg, source, max_width, false))
+        parts.push((normalize_node_canonical(arg, source, max_width, false), gap_before))
       } else {
-        parts.push(raw_term_source(source, arg))
+        parts.push((raw_term_source(source, arg), gap_before))
       }
       continue
     }
     if skip_next {
-      parts.push(raw_term_source(source, arg))
+      parts.push((raw_term_source(source, arg), gap_before))
       skip_next = false
       continue
     }
     if is_fmt_skip_directive(arg) {
-      parts.push(normalize_node_canonical(arg, source, max_width, true))
+      parts.push((normalize_node_canonical(arg, source, max_width, true), gap_before))
       skip_next = true
       continue
     }
-    parts.push(normalize_node_canonical(arg, source, max_width, true))
+    parts.push((normalize_node_canonical(arg, source, max_width, true), gap_before))
   }
   parts
 }
 
 ///|
+fn render_template_parts_line(parts : ArrayView[(String, AppGap)]) -> String {
+  let mut line = ""
+  for i in 0..<parts.length() {
+    let (part, gap_before) = parts[i]
+    if i > 0 && gap_before == Space {
+      line = line + " " + part
+    } else {
+      line = line + part
+    }
+  }
+  line
+}
+
+///|
+fn template_parts_display_width(parts : ArrayView[(String, AppGap)]) -> Int {
+  let mut width = 0
+  for i in 0..<parts.length() {
+    let (part, gap_before) = parts[i]
+    if i > 0 && gap_before == Space {
+      width += 1
+    }
+    width += string_display_width(part)
+  }
+  width
+}
+
+///|
 fn normalize_template_app(
   args : Array[S],
+  gaps : Array[AppGap],
   source : String,
   max_width : Int,
   fmt_enabled? : Bool = true,
 ) -> String {
   let parts = normalize_template_parts(
     args,
+    gaps,
     source,
     max_width,
     fmt_enabled_init=fmt_enabled,
   )
-  let single_line = "(" + parts.join(" ") + ")"
-  if string_display_width(single_line) <= max_width {
+  let single_line_content = render_template_parts_line(parts)
+  let single_line = "(" + single_line_content + ")"
+  if template_parts_display_width(parts) + 2 <= max_width {
     return single_line
   }
   if parts.length() <= 3 {
     return single_line
   }
-  let header = "(" + parts[0] + " " + parts[1] + " " + parts[2]
+  let header = "(" + render_template_parts_line(parts[:3])
   let body_lines : Array[String] = []
-  for body in parts[3:] {
+  for body_part in parts[3:] {
+    let (body, _) = body_part
     body_lines.push(indent_block(body, "  "))
   }
   let last_line_index = body_lines.length() - 1

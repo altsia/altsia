@@ -7,7 +7,7 @@ test "Stage2 propagates structured function-name error" {
   guard result is Err(Stage2Error::FunctionNameMustBePlainText(found~, loc~)) else {
     fail("expected Stage2Error::FunctionNameMustBePlainText")
   }
-  guard found is App([Text("head", _)], _) else {
+  guard found is App([Text("head", _)], _, _) else {
     fail("expected found to be app(head)")
   }
   guard loc is Some(error_loc) else {
@@ -62,7 +62,7 @@ test "Stage2 propagates template-param missing-head with loc" {
     is Err(Stage2Error::TemplateParamApplicationMissingHead(found~, loc~)) else {
     fail("expected Stage2Error::TemplateParamApplicationMissingHead")
   }
-  guard found is App([], _) else {
+  guard found is App([], _, _) else {
     fail("expected missing-head found to be empty app")
   }
   guard loc is Some(error_loc) else {

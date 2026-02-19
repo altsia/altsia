@@ -1,0 +1,85 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "altsia/altsia/markdown"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn normalized_shape_to_source(NormalizedShape) -> String
+
+pub fn normalized_shapes_to_source(Array[NormalizedShape]) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct BlockState {
+  lines : Array[String]
+  tokens : Array[MdToken]
+}
+
+pub(all) enum Gap {
+  Tight
+  Space
+}
+pub impl Eq for Gap
+pub impl Show for Gap
+pub impl @debug.Debug for Gap
+
+pub(all) struct InlineState {
+  source : String
+  tokens : Array[MdToken]
+}
+
+pub type MarkdownIt
+pub fn MarkdownIt::parse(String) -> Array[MdToken]
+pub fn MarkdownIt::parse_document(String) -> MdDocument
+pub fn MarkdownIt::to_altsia(String, normalize? : Bool, max_width? : Int) -> String raise
+pub fn MarkdownIt::to_shapes(String) -> Array[NormalizedShape]
+
+type MathTextItem
+pub impl Eq for MathTextItem
+pub impl Show for MathTextItem
+pub impl @debug.Debug for MathTextItem
+
+pub(all) struct MdDocument {
+  metadata : Array[MdMetadataItem]
+  tokens : Array[MdToken]
+}
+pub impl Eq for MdDocument
+pub impl Show for MdDocument
+pub impl @debug.Debug for MdDocument
+
+pub(all) struct MdMetadataItem {
+  key : String
+  value : String
+  value_tokens : Array[MdToken]
+}
+pub impl Eq for MdMetadataItem
+pub impl Show for MdMetadataItem
+pub impl @debug.Debug for MdMetadataItem
+
+pub(all) struct MdToken {
+  typ : String
+  tag : String
+  content : String
+  attrs : Array[(String, String)]
+  children : Array[MdToken]
+}
+pub impl Eq for MdToken
+pub impl Show for MdToken
+pub impl @debug.Debug for MdToken
+
+pub(all) enum NormalizedShape {
+  Text(String)
+  QuoteInline(String)
+  App(Array[NormalizedShape], Array[Gap])
+}
+pub impl Eq for NormalizedShape
+pub impl Show for NormalizedShape
+pub impl @debug.Debug for NormalizedShape
+
+// Type aliases
+
+// Traits
+

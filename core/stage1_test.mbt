@@ -1,29 +1,6 @@
 ///|
-enum ES {
-  EText(String)
-  EQuote(String)
-  EQuoteInline(String)
-  EApp(Array[ES])
-} derive(Eq, Show)
-
-///|
-fn strip_loc(node : S) -> ES {
-  match node {
-    Text(s, _) => EText(s)
-    QuoteBlock(s, _) => EQuote(s)
-    QuoteInline(s, _) => EQuoteInline(s)
-    App(args, _, _) => EApp(args.map(strip_loc))
-  }
-}
-
-///|
-fn parse_semantics(source : String) -> Array[ES] raise {
-  Stage1::parse(source).map(strip_loc)
-}
-
-///|
 test "Parsing stage 1 per component" {
-  assert_eq("(canta per me ne addio)" |> parse_semantics, [
+  assert_eq("(canta per me ne addio)" |> Stage1::parse_semantics, [
     EApp([EText("canta"), EText("per me ne addio")]),
   ])
   assert_eq(
@@ -34,13 +11,13 @@ test "Parsing stage 1 per component" {
       #|line2
       #|```
     )
-    |> parse_semantics,
+    |> Stage1::parse_semantics,
     [EApp([EQuote("line1\nline2\n")])],
   )
-  assert_eq("(p `inline value` tail)" |> parse_semantics, [
+  assert_eq("(p `inline value` tail)" |> Stage1::parse_semantics, [
     EApp([EText("p"), EQuoteInline("inline value"), EText("tail")]),
   ])
-  assert_eq("(p `line1\nline2` tail)" |> parse_semantics, [
+  assert_eq("(p `line1\nline2` tail)" |> Stage1::parse_semantics, [
     EApp([EText("p"), EQuoteInline("line1\nline2"), EText("tail")]),
   ])
 }
@@ -48,7 +25,7 @@ test "Parsing stage 1 per component" {
 ///|
 test "Parsing stage 1 nested app and escaped parens" {
   let source = "(root a \\(b\\) (child c d))"
-  assert_eq(source |> parse_semantics, [
+  assert_eq(source |> Stage1::parse_semantics, [
     EApp([EText("root"), EText("a (b)"), EApp([EText("child"), EText("c d")])]),
   ])
 }

@@ -95,6 +95,36 @@ fn elaborate_nodes(xs : ArrayView[S]) -> Array[Term] raise {
 }
 
 ///|
+fn gap_separator_loc(next : S) -> SourceLoc {
+  let loc = next.loc()
+  {
+    start_offset: loc.start_offset,
+    end_offset: loc.start_offset,
+    line: loc.line,
+    column: loc.column,
+  }
+}
+
+///|
+fn elaborate_nodes_with_gaps(
+  xs : ArrayView[S],
+  gaps : Array[AppGap],
+  start_gap_index : Int,
+) -> Array[Term] raise {
+  let result = []
+  for i in 0..<xs.length() {
+    if i > 0 {
+      let gap_index = start_gap_index + i - 1
+      if gap_index < gaps.length() && gaps[gap_index] == Space {
+        result.push(Term::Text(" ", gap_separator_loc(xs[i])))
+      }
+    }
+    result.push(Stage2::elaborate_node(xs[i]))
+  }
+  result
+}
+
+///|
 fn elaborate_template(xs : ArrayView[S], app_loc : SourceLoc) -> Term raise {
   if xs.length() < 2 {
     raise Stage2Error::TemplateRequiresNameAndParamList(
@@ -118,19 +148,19 @@ fn elaborate_template(xs : ArrayView[S], app_loc : SourceLoc) -> Term raise {
 ///|
 fn elaborate_app(node : S) -> Term raise {
   match node {
-    App(view, _, app_loc) =>
+    App(view, gaps, app_loc) =>
       match view {
         [] => Text("", app_loc)
         [f, .. xs] =>
           match elaborate_name(f) {
             "%" => Comment(elaborate_comment(xs), app_loc)
-            "_" => Splice(elaborate_nodes(xs), app_loc)
+            "_" => Splice(elaborate_nodes_with_gaps(xs, gaps, 1), app_loc)
             "~" => {
-              let body = elaborate_nodes(xs)
+              let body = elaborate_nodes_with_gaps(xs, gaps, 1)
               Splice([Text(" ", app_loc), ..body, Text(" ", app_loc)], app_loc)
             }
             "λ" => elaborate_template(xs, app_loc)
-            s => App(s, elaborate_nodes(xs), app_loc)
+            s => App(s, elaborate_nodes_with_gaps(xs, gaps, 1), app_loc)
           }
       }
     _ =>

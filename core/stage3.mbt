@@ -70,14 +70,34 @@ fn lower_container_block(name : Name, args : Array[Term]) -> Array[Piece] raise 
 }
 
 ///|
-fn attr_value(term : Array[Term], loc : SourceLoc) -> String raise {
+fn stage3_is_layout_gap_space(term : Term) -> Bool {
   match term {
+    Text(" ", loc) => loc.start_offset == loc.end_offset
+    _ => false
+  }
+}
+
+///|
+fn stage3_strip_layout_gap_spaces(values : Array[Term]) -> Array[Term] {
+  let result = []
+  for value in values {
+    if !stage3_is_layout_gap_space(value) {
+      result.push(value)
+    }
+  }
+  result
+}
+
+///|
+fn attr_value(term : Array[Term], loc : SourceLoc) -> String raise {
+  let values = stage3_strip_layout_gap_spaces(term)
+  match values {
     [] => ""
     [Text(s, _)] => s
     [t] => t.to_string()
     _ =>
       raise Stage3Error::AttributeExpectsAtMostOneValue(
-        values=term,
+        values~,
         loc=Some(loc),
       )
   }

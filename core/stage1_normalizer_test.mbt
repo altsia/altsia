@@ -1,32 +1,9 @@
 ///|
-enum NormalizedShape {
-  NText(String)
-  NQuote(String)
-  NQuoteInline(String)
-  NApp(Array[NormalizedShape])
-} derive(Eq, Show)
-
-///|
-fn erase_stage1_gap(node : S) -> NormalizedShape {
-  match node {
-    Text(s, _) => NText(s)
-    QuoteBlock(s, _) => NQuote(s)
-    QuoteInline(s, _) => NQuoteInline(s)
-    App(args, _, _) => NApp(args.map(erase_stage1_gap))
-  }
-}
-
-///|
-fn parse_normalizer_semantics(source : String) -> Array[NormalizedShape] raise {
-  Stage1::parse(source).map(erase_stage1_gap)
-}
-
-///|
 fn assert_same_normalizer_semantics(
   left : String,
   right : String,
 ) -> Unit raise {
-  assert_eq(parse_normalizer_semantics(left), parse_normalizer_semantics(right))
+  assert_eq(Stage1::parse_semantics(left), Stage1::parse_semantics(right))
 }
 
 ///|
@@ -172,8 +149,8 @@ test "Stage1 normalizer smart-wraps apply definition by max_width" {
   let normalized = altsia_normalize_raise(source, max_width=40)
   let expected =
     #|(p
-    #|  (dup a)(dup b),(dup c)(dup d),(dup e)
-    #|  (dup f)(dup g) )
+    #|  (dup a) (dup b),(dup c) (dup d),
+    #|  (dup e) (dup f) (dup g) )
   assert_eq(normalized, expected)
 }
 
@@ -203,7 +180,8 @@ test "Stage1 normalizer packs nested app groups by width with AST indent" {
   let normalized = altsia_normalize_raise(source, max_width=40)
   let expected =
     #|(p
-    #|  (_ a)(_ b),(_ c)(_ d),(_ e)(_ f)(_ g) )
+    #|  (_ a) (_ b),(_ c) (_ d),(_ e) (_ f)
+    #|  (_ g) )
   assert_eq(normalized, expected)
 }
 
@@ -217,13 +195,17 @@ test "Stage1 normalizer does not force-wrap long plain-text app" {
 ///|
 test "Stage1 normalizer counts CJK display width as double" {
   let latin = altsia_normalize_raise("(p (_ a)(_ b)(_ c)(_ d))", max_width=28)
-  assert_eq(latin, "(p (_ a)(_ b)(_ c)(_ d))")
+  assert_eq(latin, "(p (_ a) (_ b) (_ c) (_ d))")
 
   let cjk = altsia_normalize_raise(
     "(p (_ 寻)(_ 觅)(_ 冷)(_ 清))",
     max_width=28,
   )
-  assert_eq(cjk, "(p (_ 寻)(_ 觅)(_ 冷)(_ 清))")
+  let expected =
+    #|(p
+    #|  (_ 寻) (_ 觅) (_ 冷)
+    #|  (_ 清) )
+  assert_eq(cjk, expected)
 }
 
 ///|

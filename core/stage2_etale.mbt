@@ -44,6 +44,25 @@ pub fn Stage2Etale::expand_program(terms : Array[Term]) -> Array[Term] raise {
 }
 
 ///|
+fn stage2_etale_is_layout_gap_space(term : Term) -> Bool {
+  match term {
+    Text(" ", loc) => loc.start_offset == loc.end_offset
+    _ => false
+  }
+}
+
+///|
+fn stage2_etale_strip_layout_gap_spaces(args : Array[Term]) -> Array[Term] {
+  let result = []
+  for arg in args {
+    if !stage2_etale_is_layout_gap_space(arg) {
+      result.push(arg)
+    }
+  }
+  result
+}
+
+///|
 fn expand_args(env : Env, args : Array[Term]) -> Array[Term] raise {
   args.map(a => expand(env, a)).flatten()
 }
@@ -72,23 +91,24 @@ fn expand_template_call(
   template : Template,
   args : Array[Term],
 ) -> Array[Term] raise {
-  let args_length = args.length()
+  let semantic_args = stage2_etale_strip_layout_gap_spaces(args)
+  let args_length = semantic_args.length()
   let params_length = template.params.length()
 
-  let mut args = args
+  let mut call_args = semantic_args
   if params_length == 1 && args_length > 1 {
-    args = [Splice(args, call_loc)] // ad-hoc rule
+    call_args = [Splice(call_args, call_loc)] // ad-hoc rule
   } else if params_length != args_length {
     raise Stage2EtaleError::TemplateArityMismatch(
       template_name~,
       expected=params_length,
       got=args_length,
-      args~,
+      args=semantic_args,
       loc=Some(call_loc),
     )
   }
 
-  let expand_args = args.map(a => expand(env, a))
+  let expand_args = call_args.map(a => expand(env, a))
   let params_env = @hashmap.HashMap::new()
   for i in 0..<template.params.length() {
     params_env[template.params[i]] = expand_args[i]

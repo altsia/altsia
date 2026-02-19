@@ -33,6 +33,8 @@ pub fn is_wide_east_asian(Char) -> Bool
 
 pub fn[E : Show] join_list(@list.List[E], separator? : String) -> String
 
+pub fn parse_semantics(String) -> Array[ES] raise
+
 pub fn render_error(Error, String, String) -> RenderError
 
 pub fn render_error_supported_languages() -> Array[String]
@@ -40,6 +42,8 @@ pub fn render_error_supported_languages() -> Array[String]
 pub fn render_error_to_string(RenderError) -> String
 
 pub fn source_loc_from_offsets(String, Int, Int) -> SourceLoc
+
+pub fn stage1_to_es(S) -> ES
 
 pub fn string_display_width(String) -> Int
 
@@ -108,6 +112,15 @@ pub(all) enum BlockNode {
 pub impl Eq for BlockNode
 pub impl Show for BlockNode
 pub impl @debug.Debug for BlockNode
+
+pub(all) enum ES {
+  EText(String)
+  EQuote(String)
+  EQuoteInline(String)
+  EApp(Array[ES])
+}
+pub impl Eq for ES
+pub impl Show for ES
 
 pub(all) struct Element[T] {
   name : String

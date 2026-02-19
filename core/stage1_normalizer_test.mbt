@@ -17,6 +17,94 @@ test "Stage1 normalizer canonicalizes top-level spacing" {
 }
 
 ///|
+test "Stage1 normalizer keeps top-level display math with boundary blank lines" {
+  let source = "kd`x^2`"
+  let normalized = altsia_normalize_raise(source)
+  assert_eq(normalized, "\n\nkd`x^2`\n\n")
+}
+
+///|
+test "Stage1 normalizer keeps inline math in normal inline flow" {
+  let source = "(p alpha k`x^2` omega)"
+  let normalized = altsia_normalize_raise(source)
+  assert_eq(normalized, source)
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer treats generic app quote-inline sugar as inline" {
+  let source = "(p alpha f`verylong` omega)"
+  let normalized = altsia_normalize_raise(source, max_width=14)
+  assert_eq(normalized, source)
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer places display math with blank lines inside app" {
+  let source = "(proof intro kd`x^2` outro)"
+  let normalized = altsia_normalize_raise(source)
+  let expected =
+    #|(proof intro
+    #|
+    #|  kd`x^2`
+    #|
+    #|  outro )
+  assert_eq(normalized, expected)
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer keeps multiline kd content unchanged inside app" {
+  let source = "(proof intro kd`line1\nline2` outro)"
+  let normalized = altsia_normalize_raise(source)
+  assert_true(normalized.contains("kd`line1\nline2`"))
+  assert_true(!normalized.contains("kd`line1\n  line2`"))
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer keeps multiline kd content with inner indentation" {
+  let source = "(proof intro kd`  a+b\n    c+d\n  e` outro)"
+  let normalized = altsia_normalize_raise(source)
+  assert_true(normalized.contains("kd`  a+b\n    c+d\n  e`"))
+  assert_true(!normalized.contains("kd`  a+b\n      c+d\n  e`"))
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer keeps multiline kd content unchanged in template wrap" {
+  let source = "(λ t (x) (proof intro kd`line1\n  line2` outro) (footer x))"
+  let normalized = altsia_normalize_raise(source, max_width=34)
+  assert_true(normalized.contains("kd`line1\n  line2`"))
+  assert_true(!normalized.contains("kd`line1\n    line2`"))
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer canonical app uses quote-inline sugar" {
+  let source = "(k `x^2`)"
+  let normalized = altsia_normalize_raise(source)
+  assert_eq(normalized, "k`x^2`")
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer canonical app uses quote-block sugar" {
+  let source =
+    #|(kd)
+    #|```
+    #|AA
+    #|```
+  let normalized = altsia_normalize_raise(source)
+  let expected =
+    #|kd```
+    #|AA
+    #|```
+  assert_eq(normalized, expected)
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
 test "Stage1 normalizer canonicalizes quote indentation" {
   let source =
     #|(p)
@@ -26,12 +114,47 @@ test "Stage1 normalizer canonicalizes quote indentation" {
     #|```
   let normalized = altsia_normalize_raise(source)
   let expected =
-    #|(p)
-    #|```
+    #|p```
     #|alpha
     #|  beta
     #|```
   assert_eq(normalized, expected)
+}
+
+///|
+test "Stage1 normalizer keeps multiline inline quote content unchanged" {
+  let source = "(p (left) `aa\nbb` (right))"
+  let normalized = altsia_normalize_raise(source, max_width=12)
+  assert_true(normalized.contains("`aa\nbb`"))
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer keeps multiline inline quote content in template wrap" {
+  let source = "(λ t (x) (p `aa\nbb` (x)) (footer x))"
+  let normalized = altsia_normalize_raise(source, max_width=20)
+  assert_true(normalized.contains("`aa\nbb`"))
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer still wraps app with multiline inline quote by width" {
+  let source = "(p (left long text) `aa\nbb` (right long text))"
+  let normalized = altsia_normalize_raise(source, max_width=22)
+  assert_true(normalized.contains("\n"))
+  assert_true(normalized.contains("`aa\nbb`"))
+  assert_true(!normalized.contains("`aa\n  bb`"))
+  assert_same_normalizer_semantics(source, normalized)
+}
+
+///|
+test "Stage1 normalizer still wraps template with multiline inline quote by width" {
+  let source = "(λ t (x) (p (left long text) `aa\nbb` (x)) (footer x) (tail x))"
+  let normalized = altsia_normalize_raise(source, max_width=24)
+  assert_true(normalized.contains("\n"))
+  assert_true(normalized.contains("`aa\nbb`"))
+  assert_true(!normalized.contains("`aa\n  bb`"))
+  assert_same_normalizer_semantics(source, normalized)
 }
 
 ///|
@@ -134,8 +257,7 @@ test "Stage1 normalizer smart-wraps template definition by max_width II" {
   let expected =
     #|(λ inline-section ((taxon) (title) (content))
     #|  (section
-    #|    (details
-    #|      (:open) (:class kira)
+    #|    (details (:open) (:class kira)
     #|      (summary
     #|        (header
     #|          (h1 (span (:taxon) (taxon)) (title)) ) )
@@ -148,8 +270,7 @@ test "Stage1 normalizer smart-wraps apply definition by max_width" {
   let source = "(p (dup a)(dup b),(dup c)(dup d),(dup e)(dup f)(dup g))"
   let normalized = altsia_normalize_raise(source, max_width=40)
   let expected =
-    #|(p
-    #|  (dup a) (dup b),(dup c) (dup d),
+    #|(p (dup a) (dup b),(dup c) (dup d),
     #|  (dup e) (dup f) (dup g) )
   assert_eq(normalized, expected)
 }
@@ -168,9 +289,8 @@ test "Stage1 normalizer smart-wraps general app before nested apps" {
   let source = "(p lead (a one two) middle text (b x y) tail)"
   let normalized = altsia_normalize_raise(source, max_width=26)
   let expected =
-    #|(p lead
-    #|  (a one two) middle text
-    #|  (b x y) tail )
+    #|(p lead (a one two)
+    #|  middle text (b x y) tail )
   assert_eq(normalized, expected)
 }
 
@@ -179,8 +299,7 @@ test "Stage1 normalizer packs nested app groups by width with AST indent" {
   let source = "(p (_ a)(_ b),(_ c)(_ d),(_ e)(_ f)(_ g))"
   let normalized = altsia_normalize_raise(source, max_width=40)
   let expected =
-    #|(p
-    #|  (_ a) (_ b),(_ c) (_ d),(_ e) (_ f)
+    #|(p (_ a) (_ b),(_ c) (_ d),(_ e) (_ f)
     #|  (_ g) )
   assert_eq(normalized, expected)
 }
@@ -202,8 +321,7 @@ test "Stage1 normalizer counts CJK display width as double" {
     max_width=28,
   )
   let expected =
-    #|(p
-    #|  (_ 寻) (_ 觅) (_ 冷)
+    #|(p (_ 寻) (_ 觅) (_ 冷)
     #|  (_ 清) )
   assert_eq(cjk, expected)
 }

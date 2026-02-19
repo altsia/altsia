@@ -20,6 +20,29 @@ test "Parsing stage 1 per component" {
   assert_eq("(p `line1\nline2` tail)" |> Stage1::parse_semantics, [
     EApp([EText("p"), EQuoteInline("line1\nline2"), EText("tail")]),
   ])
+  assert_eq(
+    (
+      #|kd```
+      #|line1
+      #|line2
+      #|```
+    )
+    |> Stage1::parse_semantics,
+    [EApp([EText("kd"), EQuote("line1\nline2\n")])],
+  )
+  assert_eq("f`inline value`" |> Stage1::parse_semantics, [
+    EApp([EText("f"), EQuoteInline("inline value")]),
+  ])
+  assert_eq("(f`inline value`)" |> Stage1::parse_semantics, [
+    EApp([EText("f"), EQuoteInline("inline value")]),
+  ])
+  assert_eq("(p f`inline value` tail)" |> Stage1::parse_semantics, [
+    EApp([
+      EText("p"),
+      EApp([EText("f"), EQuoteInline("inline value")]),
+      EText("tail"),
+    ]),
+  ])
 }
 
 ///|
@@ -48,6 +71,21 @@ test "Reconstructing stage 1 per component" {
   assert_eq(source |> Stage1::parse |> to_source, source)
   let inline_source = "(p head `inline value` tail)"
   assert_eq(inline_source |> Stage1::parse |> to_source, inline_source)
+  assert_eq("f`inline value`" |> Stage1::parse |> to_source, "(f `inline value`)")
+  assert_eq(
+    "(p f`inline value` tail)" |> Stage1::parse |> to_source,
+    "(p (f `inline value`) tail)",
+  )
+  let block_sugar_source =
+    #|kd```
+    #|quote line
+    #|```
+  let block_canonical =
+    #|(kd)
+    #|```
+    #|quote line
+    #|```
+  assert_eq(block_sugar_source |> Stage1::parse |> to_source, block_canonical)
 
   let source =
     #|(p line-1

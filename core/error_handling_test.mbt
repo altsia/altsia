@@ -100,6 +100,65 @@ test "Stage2Etale propagates structured arity mismatch error" {
 }
 
 ///|
+test "Stage2Etale reports arity mismatch when variadic tail has no bound arg" {
+  let result : Result[Array[Term], Error] = try? (
+    "(λ card (title content...) (p (title) (content))) (card (hello))"
+  |> Stage1::parse
+  |> Stage2::pass
+  |> Stage2Etale::expand_program)
+  guard result
+    is Err(
+      Stage2EtaleError::TemplateArityMismatch(
+        template_name~,
+        expected~,
+        got~,
+        args~,
+        loc~
+      )
+    ) else {
+    fail("expected Stage2EtaleError::TemplateArityMismatch")
+  }
+  assert_eq(template_name, "card")
+  assert_eq(expected, 2)
+  assert_eq(got, 1)
+  guard args is [App("hello", [], _)] else {
+    fail("expected mismatch args to contain the non-variadic argument")
+  }
+  guard loc is Some(_) else {
+    fail("expected loc for variadic-tail arity mismatch")
+  }
+}
+
+///|
+test "Stage2Etale does not auto-merge extra args without variadic suffix" {
+  let result : Result[Array[Term], Error] = try? ("(λ one (x) (x)) (one (a) (b))"
+  |> Stage1::parse
+  |> Stage2::pass
+  |> Stage2Etale::expand_program)
+  guard result
+    is Err(
+      Stage2EtaleError::TemplateArityMismatch(
+        template_name~,
+        expected~,
+        got~,
+        args~,
+        loc~
+      )
+    ) else {
+    fail("expected Stage2EtaleError::TemplateArityMismatch")
+  }
+  assert_eq(template_name, "one")
+  assert_eq(expected, 1)
+  assert_eq(got, 2)
+  guard args is [App("a", [], _), App("b", [], _)] else {
+    fail("expected mismatch args to keep both explicit arguments")
+  }
+  guard loc is Some(_) else {
+    fail("expected loc for non-variadic arity mismatch")
+  }
+}
+
+///|
 test "Stage2Etale propagates structured nested-template substitution error" {
   let result : Result[Array[Term], Error] = try? ("(λ outer (x) (λ inner (y) (y)) (x)) (outer ok)"
   |> Stage1::parse

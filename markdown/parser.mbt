@@ -52,6 +52,140 @@ fn md_find_substring_from(
 }
 
 ///|
+fn md_is_ascii_letter(ch : Char) -> Bool {
+  (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+///|
+fn md_is_html_name_char(ch : Char) -> Bool {
+  md_is_ascii_letter(ch) ||
+  (ch >= '0' && ch <= '9') ||
+  ch == '-' ||
+  ch == '_' ||
+  ch == ':'
+}
+
+///|
+fn md_skip_spaces_in_range(source : String, start : Int, end_exclusive : Int) -> Int {
+  let mut i = start
+  while i < end_exclusive && md_is_space(md_char_at(source, i)) {
+    i += 1
+  }
+  i
+}
+
+///|
+fn md_read_html_name(
+  source : String,
+  start : Int,
+  end_exclusive : Int,
+) -> (String, Int)? {
+  if start >= end_exclusive || !md_is_ascii_letter(md_char_at(source, start)) {
+    return None
+  }
+  let mut i = start + 1
+  while i < end_exclusive && md_is_html_name_char(md_char_at(source, i)) {
+    i += 1
+  }
+  Some((source.unsafe_substring(start~, end=i), i))
+}
+
+///|
+fn md_parse_html_open_line(
+  line : String,
+) -> (String, Array[(String, String)], Bool)? {
+  let source = md_trim_edges(line)
+  let len = source.length()
+  if len < 3 || md_char_at(source, 0) != '<' || md_char_at(source, len - 1) != '>' {
+    return None
+  }
+  let last = len - 1
+  let mut i = 1
+  let first = md_char_at(source, i)
+  if first == '/' || first == '!' || first == '?' {
+    return None
+  }
+  guard md_read_html_name(source, i, last) is Some((tag, next_i)) else {
+    return None
+  }
+  i = next_i
+  let attrs : Array[(String, String)] = []
+  let mut self_close = false
+  while i < last {
+    i = md_skip_spaces_in_range(source, i, last)
+    if i >= last {
+      break
+    }
+    if md_char_at(source, i) == '/' {
+      if i + 1 == last {
+        self_close = true
+        i += 1
+        break
+      }
+      return None
+    }
+    guard md_read_html_name(source, i, last) is Some((attr_name, attr_end)) else {
+      return None
+    }
+    i = md_skip_spaces_in_range(source, attr_end, last)
+    let mut attr_value = "true"
+    if i < last && md_char_at(source, i) == '=' {
+      i += 1
+      i = md_skip_spaces_in_range(source, i, last)
+      if i >= last {
+        attr_value = ""
+      } else {
+        let ch = md_char_at(source, i)
+        if ch == '"' || ch == '\'' {
+          let quote = ch
+          let value_start = i + 1
+          i += 1
+          while i < last && md_char_at(source, i) != quote {
+            i += 1
+          }
+          if i >= last {
+            return None
+          }
+          attr_value = source.unsafe_substring(start=value_start, end=i)
+          i += 1
+        } else {
+          let value_start = i
+          while i < last {
+            let current = md_char_at(source, i)
+            if md_is_space(current) || (current == '/' && i + 1 == last) {
+              break
+            }
+            i += 1
+          }
+          attr_value = source.unsafe_substring(start=value_start, end=i)
+        }
+      }
+    }
+    attrs.push((attr_name, attr_value))
+  }
+  Some((tag, attrs, self_close))
+}
+
+///|
+fn md_parse_html_close_line(line : String) -> String? {
+  let source = md_trim_edges(line)
+  let len = source.length()
+  if len < 4 || !md_has_prefix_at(source, 0, "</") || md_char_at(source, len - 1) != '>' {
+    return None
+  }
+  let last = len - 1
+  let mut i = md_skip_spaces_in_range(source, 2, last)
+  guard md_read_html_name(source, i, last) is Some((tag, next_i)) else {
+    return None
+  }
+  i = md_skip_spaces_in_range(source, next_i, last)
+  if i != last {
+    return None
+  }
+  Some(tag)
+}
+
+///|
 fn md_strip_trailing_cr(line : String) -> String {
   if line.is_empty() {
     return line
@@ -101,12 +235,25 @@ fn md_is_front_matter_close(line : String) -> Bool {
 }
 
 ///|
+fn md_skip_leading_blank_lines(lines : Array[String]) -> Int {
+  let mut i = 0
+  while i < lines.length() && md_is_blank_line(lines[i]) {
+    i += 1
+  }
+  i
+}
+
+///|
 fn try_consume_front_matter(lines : Array[String]) -> (MdToken, Int)? {
-  if lines.is_empty() || !md_is_front_matter_open(lines[0]) {
+  if lines.is_empty() {
+    return None
+  }
+  let start = md_skip_leading_blank_lines(lines)
+  if start >= lines.length() || !md_is_front_matter_open(lines[start]) {
     return None
   }
   let body_lines : Array[String] = []
-  let mut i = 1
+  let mut i = start + 1
   while i < lines.length() {
     if md_is_front_matter_close(lines[i]) {
       return Some(
@@ -124,9 +271,7 @@ fn try_consume_front_matter(lines : Array[String]) -> (MdToken, Int)? {
 
 ///|
 fn md_split_first_colon(line : String) -> (String, String)? {
-  guard md_find_char_from(line, ':', 0) is Some(split_at) else {
-    return None
-  }
+  guard md_find_char_from(line, ':', 0) is Some(split_at) else { return None }
   let key = md_trim_edges(line.unsafe_substring(start=0, end=split_at))
   if key.is_empty() {
     return None
@@ -138,7 +283,9 @@ fn md_split_first_colon(line : String) -> (String, String)? {
 }
 
 ///|
-fn parse_metadata_from_front_matter_content(content : String) -> Array[MdMetadataItem] {
+fn parse_metadata_from_front_matter_content(
+  content : String,
+) -> Array[MdMetadataItem] {
   let items : Array[MdMetadataItem] = []
   for line_view in content.split("\n") {
     let line = line_view.to_string()
@@ -146,15 +293,12 @@ fn parse_metadata_from_front_matter_content(content : String) -> Array[MdMetadat
       continue
     }
     match md_split_first_colon(line) {
-      Some((key, value)) => {
-        items.push(
-          MdMetadataItem::{
-            key,
-            value,
-            value_tokens: parse_inline_tokens(value),
-          },
-        )
-      }
+      Some((key, value)) =>
+        items.push(MdMetadataItem::{
+          key,
+          value,
+          value_tokens: parse_inline_tokens(value),
+        })
       None => ()
     }
   }
@@ -209,6 +353,34 @@ fn md_is_fence_delimiter(line : String) -> Bool {
 }
 
 ///|
+fn md_is_math_fence_delimiter(line : String) -> Bool {
+  md_trim_edges(line) == "$$"
+}
+
+///|
+fn md_parse_single_line_math_block_content(line : String) -> String? {
+  let trimmed = md_trim_edges(line)
+  let len = trimmed.length()
+  if len < 4 || !md_has_prefix_at(trimmed, 0, "$$") {
+    return None
+  }
+  let tail_start = len - 2
+  if !md_has_prefix_at(trimmed, tail_start, "$$") {
+    return None
+  }
+  let inner = md_trim_edges(trimmed.unsafe_substring(start=2, end=tail_start))
+  if inner.is_empty() {
+    return None
+  }
+  Some(inner)
+}
+
+///|
+fn md_is_math_block_start(line : String) -> Bool {
+  md_is_math_fence_delimiter(line) || md_parse_single_line_math_block_content(line) is Some(_)
+}
+
+///|
 fn md_strip_blockquote_prefix(line : String) -> String? {
   let indent = md_leading_spaces_upto(line, 3)
   if indent >= line.length() || md_char_at(line, indent) != '>' {
@@ -235,9 +407,7 @@ fn md_parse_bullet_item(line : String) -> String? {
     return None
   }
   Some(
-    md_trim_edges(
-      line.unsafe_substring(start=indent + 2, end=line.length()),
-    ),
+    md_trim_edges(line.unsafe_substring(start=indent + 2, end=line.length())),
   )
 }
 
@@ -257,7 +427,9 @@ fn md_parse_ordered_item(line : String) -> (String, String)? {
   if i == indent {
     return None
   }
-  if i + 1 >= len || md_char_at(line, i) != '.' || !md_is_space(md_char_at(line, i + 1)) {
+  if i + 1 >= len ||
+    md_char_at(line, i) != '.' ||
+    !md_is_space(md_char_at(line, i + 1)) {
     return None
   }
   let start_text = line.unsafe_substring(start=indent, end=i)
@@ -311,9 +483,7 @@ fn md_is_table_delim_cell(cell : String) -> Bool {
 
 ///|
 fn md_parse_table_delimiter_line(line : String) -> Int? {
-  guard md_parse_table_cells(line) is Some(cells) else {
-    return None
-  }
+  guard md_parse_table_cells(line) is Some(cells) else { return None }
   if cells.is_empty() {
     return None
   }
@@ -343,10 +513,11 @@ fn md_is_table_start_with_next(lines : Array[String], line : Int) -> Bool {
 fn md_is_special_block_start(line : String) -> Bool {
   let is_heading = md_parse_heading_line(line) is Some(_)
   let is_fence = md_parse_fence_info(line) is Some(_)
+  let is_math_fence = md_is_math_block_start(line)
   let is_blockquote = md_strip_blockquote_prefix(line) is Some(_)
   let is_bullet = md_parse_bullet_item(line) is Some(_)
   let is_ordered = md_parse_ordered_item(line) is Some(_)
-  is_heading || is_fence || is_blockquote || is_bullet || is_ordered
+  is_heading || is_fence || is_math_fence || is_blockquote || is_bullet || is_ordered
 }
 
 ///|
@@ -380,12 +551,35 @@ fn parse_fence_block(state : BlockState, line : Int) -> Int? {
     attrs.push(("info", info))
   }
   state.tokens.push(
-    make_token(
-      "fence",
-      "code",
-      content=code_lines.join("\n"),
-      attrs~,
-    ),
+    make_token("fence", "code", content=code_lines.join("\n"), attrs~),
+  )
+  Some(i)
+}
+
+///|
+fn parse_math_block(state : BlockState, line : Int) -> Int? {
+  match md_parse_single_line_math_block_content(state.lines[line]) {
+    Some(content) => {
+      state.tokens.push(make_token("math_block", "kd", content~))
+      return Some(line + 1)
+    }
+    None => ()
+  }
+  if !md_is_math_fence_delimiter(state.lines[line]) {
+    return None
+  }
+  let tex_lines : Array[String] = []
+  let mut i = line + 1
+  while i < state.lines.length() {
+    if md_is_math_fence_delimiter(state.lines[i]) {
+      i += 1
+      break
+    }
+    tex_lines.push(state.lines[i])
+    i += 1
+  }
+  state.tokens.push(
+    make_token("math_block", "kd", content=tex_lines.join("\n")),
   )
   Some(i)
 }
@@ -396,11 +590,7 @@ fn parse_heading_block(state : BlockState, line : Int) -> Int? {
     return None
   }
   state.tokens.push(
-    make_token(
-      "heading",
-      tag,
-      children=parse_inline_tokens(body),
-    ),
+    make_token("heading", tag, children=parse_inline_tokens(body)),
   )
   Some(line + 1)
 }
@@ -411,13 +601,7 @@ fn make_table_row_token(cells : Array[String], header : Bool) -> MdToken {
   for cell in cells {
     let typ = if header { "table_head_cell" } else { "table_cell" }
     let tag = if header { "th" } else { "td" }
-    children.push(
-      make_token(
-        typ,
-        tag,
-        children=parse_inline_tokens(cell),
-      ),
-    )
+    children.push(make_token(typ, tag, children=parse_inline_tokens(cell)))
   }
   let row_typ = if header { "table_head_row" } else { "table_row" }
   make_token(row_typ, "tr", children~)
@@ -443,9 +627,7 @@ fn parse_table_block(state : BlockState, line : Int) -> Int? {
     if md_is_blank_line(state.lines[i]) {
       break
     }
-    guard md_parse_table_cells(state.lines[i]) is Some(cells) else {
-      break
-    }
+    guard md_parse_table_cells(state.lines[i]) is Some(cells) else { break }
     if cells.length() != columns {
       break
     }
@@ -488,20 +670,14 @@ fn parse_unordered_list_block(state : BlockState, line : Int) -> Int? {
   let items = [first]
   let mut i = line + 1
   while i < state.lines.length() {
-    guard md_parse_bullet_item(state.lines[i]) is Some(content) else {
-      break
-    }
+    guard md_parse_bullet_item(state.lines[i]) is Some(content) else { break }
     items.push(content)
     i += 1
   }
   let children = []
   for item in items {
     children.push(
-      make_token(
-        "list_item",
-        "li",
-        children=parse_inline_tokens(item),
-      ),
+      make_token("list_item", "li", children=parse_inline_tokens(item)),
     )
   }
   state.tokens.push(make_token("bullet_list", "ul", children~))
@@ -525,23 +701,58 @@ fn parse_ordered_list_block(state : BlockState, line : Int) -> Int? {
   let item_tokens = []
   for item in items {
     item_tokens.push(
-      make_token(
-        "list_item",
-        "li",
-        children=parse_inline_tokens(item),
-      ),
+      make_token("list_item", "li", children=parse_inline_tokens(item)),
     )
   }
   let attrs = [("start", start_text)]
   state.tokens.push(
-    make_token(
-      "ordered_list",
-      "ol",
-      attrs~,
-      children=item_tokens,
-    ),
+    make_token("ordered_list", "ol", attrs~, children=item_tokens),
   )
   Some(i)
+}
+
+///|
+fn parse_html_block(state : BlockState, line : Int) -> Int? {
+  guard md_parse_html_open_line(state.lines[line]) is Some((tag, attrs, self_close)) else {
+    return None
+  }
+  if self_close {
+    state.tokens.push(make_token("html_block", tag, attrs~, children=[]))
+    return Some(line + 1)
+  }
+  let body_lines : Array[String] = []
+  let mut i = line + 1
+  let mut depth = 0
+  while i < state.lines.length() {
+    match md_parse_html_close_line(state.lines[i]) {
+      Some(close_tag) if close_tag == tag => {
+        if depth == 0 {
+          state.tokens.push(
+            make_token(
+              "html_block",
+              tag,
+              attrs~,
+              children=parse_blocks_from_lines(body_lines, 0),
+            ),
+          )
+          return Some(i + 1)
+        }
+        depth -= 1
+        body_lines.push(state.lines[i])
+        i += 1
+        continue
+      }
+      _ => ()
+    }
+    match md_parse_html_open_line(state.lines[i]) {
+      Some((open_tag, _, nested_self_close)) if open_tag == tag && !nested_self_close =>
+        depth += 1
+      _ => ()
+    }
+    body_lines.push(state.lines[i])
+    i += 1
+  }
+  None
 }
 
 ///|
@@ -568,11 +779,7 @@ fn parse_paragraph_block(state : BlockState, line : Int) -> Int? {
   }
   let body = parts.join(" ")
   state.tokens.push(
-    make_token(
-      "paragraph",
-      "p",
-      children=parse_inline_tokens(body),
-    ),
+    make_token("paragraph", "p", children=parse_inline_tokens(body)),
   )
   Some(i)
 }
@@ -580,18 +787,18 @@ fn parse_paragraph_block(state : BlockState, line : Int) -> Int? {
 ///|
 fn block_rules() -> Array[BlockRule] {
   [
-    parse_fence_block,
-    parse_heading_block,
-    parse_table_block,
-    parse_blockquote_block,
-    parse_unordered_list_block,
-    parse_ordered_list_block,
+    parse_fence_block, parse_math_block, parse_heading_block, parse_table_block,
+    parse_html_block,
+    parse_blockquote_block, parse_unordered_list_block, parse_ordered_list_block,
     parse_paragraph_block,
   ]
 }
 
 ///|
-fn parse_blocks_from_lines(lines : Array[String], start_line : Int) -> Array[MdToken] {
+fn parse_blocks_from_lines(
+  lines : Array[String],
+  start_line : Int,
+) -> Array[MdToken] {
   let state = BlockState::{ lines, tokens: [] }
   let rules = block_rules()
   let mut line = start_line
@@ -646,10 +853,7 @@ fn parse_document_from_lines(lines : Array[String]) -> MdDocument {
     }
     None => ()
   }
-  MdDocument::{
-    metadata,
-    tokens: parse_blocks_from_lines(lines, start_line),
-  }
+  MdDocument::{ metadata, tokens: parse_blocks_from_lines(lines, start_line) }
 }
 
 ///|
@@ -673,25 +877,23 @@ fn inline_rule_link(state : InlineState, pos : Int) -> (MdToken, Int)? {
     return None
   }
   let open_paren = close_bracket + 1
-  if open_paren >= state.source.length() || md_char_at(state.source, open_paren) != '(' {
+  if open_paren >= state.source.length() ||
+    md_char_at(state.source, open_paren) != '(' {
     return None
   }
-  guard
-    md_find_char_from(state.source, ')', open_paren + 1) is Some(close_paren)
-  else {
+  guard md_find_char_from(state.source, ')', open_paren + 1)
+    is Some(close_paren) else {
     return None
   }
   let label = state.source.unsafe_substring(start=pos + 1, end=close_bracket)
-  let href = state.source.unsafe_substring(start=open_paren + 1, end=close_paren)
+  let href = state.source.unsafe_substring(
+    start=open_paren + 1,
+    end=close_paren,
+  )
   let attrs = [("href", href)]
   Some(
     (
-      make_token(
-        "link",
-        "a",
-        attrs~,
-        children=parse_inline_tokens(label),
-      ),
+      make_token("link", "a", attrs~, children=parse_inline_tokens(label)),
       close_paren + 1,
     ),
   )
@@ -708,11 +910,7 @@ fn inline_rule_strong(state : InlineState, pos : Int) -> (MdToken, Int)? {
   let inner = state.source.unsafe_substring(start=pos + 2, end=end_index)
   Some(
     (
-      make_token(
-        "strong",
-        "strong",
-        children=parse_inline_tokens(inner),
-      ),
+      make_token("strong", "strong", children=parse_inline_tokens(inner)),
       end_index + 2,
     ),
   )
@@ -731,13 +929,203 @@ fn inline_rule_em(state : InlineState, pos : Int) -> (MdToken, Int)? {
   }
   let inner = state.source.unsafe_substring(start=pos + 1, end=end_index)
   Some(
+    (make_token("em", "em", children=parse_inline_tokens(inner)), end_index + 1),
+  )
+}
+
+///|
+fn md_math_is_escaped_at(source : String, index : Int) -> Bool {
+  if index <= 0 {
+    return false
+  }
+  let mut backslashes = 0
+  let mut i = index - 1
+  while i >= 0 && md_char_at(source, i) == '\\' {
+    backslashes += 1
+    if i == 0 {
+      break
+    }
+    i -= 1
+  }
+  backslashes % 2 == 1
+}
+
+///|
+fn md_math_is_digit(ch : Char) -> Bool {
+  ch >= '0' && ch <= '9'
+}
+
+///|
+fn md_math_valid_open(source : String, index : Int, delimiter_length : Int) -> Bool {
+  if md_math_is_escaped_at(source, index) {
+    return false
+  }
+  let right_index = index + delimiter_length
+  if right_index >= source.length() {
+    return false
+  }
+  !md_is_space(md_char_at(source, right_index))
+}
+
+///|
+fn md_math_valid_close(source : String, index : Int, delimiter_length : Int) -> Bool {
+  if md_math_is_escaped_at(source, index) {
+    return false
+  }
+  if index <= 0 || md_is_space(md_char_at(source, index - 1)) {
+    return false
+  }
+  let right_index = index + delimiter_length
+  if right_index < source.length() &&
+    md_math_is_digit(md_char_at(source, right_index)) {
+    return false
+  }
+  true
+}
+
+///|
+fn md_find_end_of_math(
+  delimiter : String,
+  source : String,
+  start_index : Int,
+) -> Int? {
+  let mut index = start_index
+  let mut brace_level = 0
+  while index < source.length() {
+    let ch = md_char_at(source, index)
+    if brace_level <= 0 && md_has_prefix_at(source, index, delimiter) {
+      return Some(index)
+    } else if ch == '\\' {
+      index += 1
+    } else if ch == '{' {
+      brace_level += 1
+    } else if ch == '}' {
+      brace_level -= 1
+    }
+    index += 1
+  }
+  None
+}
+
+///|
+fn inline_rule_math(state : InlineState, pos : Int) -> (MdToken, Int)? {
+  let source = state.source
+  if pos >= source.length() || md_char_at(source, pos) != '$' {
+    return None
+  }
+
+  let mut delimiter = "$"
+  let mut delimiter_length = 1
+  let mut is_display = false
+  let can_open_display = md_has_prefix_at(source, pos, "$$") &&
+    md_math_valid_open(source, pos, 2)
+  if can_open_display {
+    delimiter = "$$"
+    delimiter_length = 2
+    is_display = true
+  } else if !md_math_valid_open(source, pos, 1) {
+    return Some((make_token("text", "", content="$"), pos + 1))
+  }
+
+  let close = match md_find_end_of_math(delimiter, source, pos + delimiter_length) {
+    Some(found) if md_math_valid_close(source, found, delimiter_length) => found
+    _ => -1
+  }
+  if close < 0 {
+    return Some(
+      (
+        make_token("text", "", content=delimiter),
+        pos + delimiter_length,
+      ),
+    )
+  }
+
+  let tex = source.unsafe_substring(start=pos + delimiter_length, end=close)
+  let typ = if is_display { "math_display_inline" } else { "math_inline" }
+  Some((make_token(typ, "", content=tex), close + delimiter_length))
+}
+
+///|
+fn scan_inline_html_tag_end(source : String, pos : Int) -> Int? {
+  let len = source.length()
+  if pos + 1 >= len || md_char_at(source, pos) != '<' {
+    return None
+  }
+  let first = md_char_at(source, pos + 1)
+  if first == '!' {
+    if md_has_prefix_at(source, pos, "<!--") {
+      guard md_find_substring_from(source, "-->", pos + 4) is Some(close) else {
+        return None
+      }
+      return Some(close + 3)
+    }
+    guard md_find_char_from(source, '>', pos + 2) is Some(close) else {
+      return None
+    }
+    return Some(close + 1)
+  }
+  if first == '?' {
+    guard md_find_char_from(source, '>', pos + 2) is Some(close) else {
+      return None
+    }
+    return Some(close + 1)
+  }
+  if first == '/' {
+    let mut i = pos + 2
+    if i >= len || !md_is_ascii_letter(md_char_at(source, i)) {
+      return None
+    }
+    while i < len && md_is_html_name_char(md_char_at(source, i)) {
+      i += 1
+    }
+    while i < len && md_is_space(md_char_at(source, i)) {
+      i += 1
+    }
+    if i < len && md_char_at(source, i) == '>' {
+      return Some(i + 1)
+    }
+    return None
+  }
+  if !md_is_ascii_letter(first) {
+    return None
+  }
+  let mut i = pos + 2
+  while i < len && md_is_html_name_char(md_char_at(source, i)) {
+    i += 1
+  }
+  let mut quote : Char? = None
+  while i < len {
+    let ch = md_char_at(source, i)
+    match quote {
+      Some(current) => if ch == current { quote = None }
+      None =>
+        if ch == '"' || ch == '\'' {
+          quote = Some(ch)
+        } else if ch == '>' {
+          return Some(i + 1)
+        }
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+fn inline_rule_html(state : InlineState, pos : Int) -> (MdToken, Int)? {
+  if pos >= state.source.length() || md_char_at(state.source, pos) != '<' {
+    return None
+  }
+  guard scan_inline_html_tag_end(state.source, pos) is Some(end) else {
+    return None
+  }
+  Some(
     (
       make_token(
-        "em",
-        "em",
-        children=parse_inline_tokens(inner),
+        "html_inline",
+        "",
+        content=state.source.unsafe_substring(start=pos, end~),
       ),
-      end_index + 1,
+      end,
     ),
   )
 }
@@ -751,7 +1139,7 @@ fn inline_rule_text(state : InlineState, pos : Int) -> (MdToken, Int)? {
   let mut i = pos
   while i < len {
     let ch = md_char_at(state.source, i)
-    if ch == '`' || ch == '[' || ch == '*' {
+    if ch == '`' || ch == '[' || ch == '*' || ch == '<' || ch == '$' {
       break
     }
     i += 1
@@ -759,19 +1147,25 @@ fn inline_rule_text(state : InlineState, pos : Int) -> (MdToken, Int)? {
   if i == pos {
     i += 1
   }
-  Some((
-    make_token(
-      "text",
-      "",
-      content=state.source.unsafe_substring(start=pos, end=i),
+  Some(
+    (
+      make_token(
+        "text",
+        "",
+        content=state.source.unsafe_substring(start=pos, end=i),
+      ),
+      i,
     ),
-    i,
-  ))
+  )
 }
 
 ///|
 fn inline_rules() -> Array[InlineRule] {
-  [inline_rule_code, inline_rule_link, inline_rule_strong, inline_rule_em, inline_rule_text]
+  [
+    inline_rule_code, inline_rule_link, inline_rule_strong, inline_rule_em, inline_rule_html,
+    inline_rule_math,
+    inline_rule_text,
+  ]
 }
 
 ///|

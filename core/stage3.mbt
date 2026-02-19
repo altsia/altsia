@@ -96,10 +96,7 @@ fn attr_value(term : Array[Term], loc : SourceLoc) -> String raise {
     [Text(s, _)] => s
     [t] => t.to_string()
     _ =>
-      raise Stage3Error::AttributeExpectsAtMostOneValue(
-        values~,
-        loc=Some(loc),
-      )
+      raise Stage3Error::AttributeExpectsAtMostOneValue(values~, loc=Some(loc))
   }
 }
 

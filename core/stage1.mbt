@@ -211,6 +211,36 @@ fn parse_quote_inline(source : String, start : Int) -> (String, Int) raise {
 }
 
 ///|
+fn parse_quote_block_app_from_head(
+  source : String,
+  head_start : Int,
+  quote_start : Int,
+) -> (S, Int) raise {
+  let head_raw = source.unsafe_substring(start=head_start, end=quote_start)
+  let head = head_raw
+    .replace_all(old="\\(", new="(")
+    .replace_all(old="\\)", new=")")
+  let (quote_content, next) = parse_quote_block(source, quote_start)
+  let head_node : S = Text(
+    head,
+    source_loc_from_offsets(source, head_start, quote_start),
+  )
+  let quote_node : S = QuoteBlock(
+    quote_content,
+    source_loc_from_offsets(source, quote_start, next),
+  )
+  let app_node : S = App(
+    [head_node, quote_node],
+    [Space],
+    source_loc_from_offsets(source, head_start, next),
+  )
+  (
+    app_node,
+    next,
+  )
+}
+
+///|
 fn trim_segment_bounds(
   source : String,
   start : Int,
@@ -282,7 +312,11 @@ fn infer_app_gap(source : String, left_end : Int, right_start : Int) -> AppGap {
     }
     i += 1
   }
-  if has_space { Space } else { Tight }
+  if has_space {
+    Space
+  } else {
+    Tight
+  }
 }
 
 ///|
@@ -298,6 +332,100 @@ fn push_app_arg(
     gaps.push(infer_app_gap(source, prev_end, next_start))
   }
   args.push(node)
+}
+
+///|
+fn parse_quote_inline_app_from_head(
+  source : String,
+  head_start : Int,
+  quote_start : Int,
+) -> (S, Int) raise {
+  let head_raw = source.unsafe_substring(start=head_start, end=quote_start)
+  let head = head_raw
+    .replace_all(old="\\(", new="(")
+    .replace_all(old="\\)", new=")")
+  let (quote_content, next) = parse_quote_inline(source, quote_start)
+  let head_node : S = Text(
+    head,
+    source_loc_from_offsets(source, head_start, quote_start),
+  )
+  let quote_node : S = QuoteInline(
+    quote_content,
+    source_loc_from_offsets(source, quote_start, next),
+  )
+  let app_node : S = App(
+    [head_node, quote_node],
+    [Space],
+    source_loc_from_offsets(source, head_start, next),
+  )
+  (
+    app_node,
+    next,
+  )
+}
+
+///|
+fn try_parse_quote_inline_app_token(
+  source : String,
+  start : Int,
+) -> (S, Int)? raise {
+  let len = source.length()
+  if start >= len {
+    return None
+  }
+  let first = char_at(source, start)
+  if first == '`' || first == '(' || first == ')' {
+    return None
+  }
+  let mut i = start
+  while i < len {
+    let ch = char_at(source, i)
+    if ch == '`' && !(i > 0 && char_at(source, i - 1) == '\\') {
+      if has_prefix_at(source, i, "```") {
+        return None
+      }
+      break
+    }
+    if is_stage1_space(ch) || ch == '(' || ch == ')' {
+      return None
+    }
+    i += 1
+  }
+  if i <= start || i >= len {
+    return None
+  }
+  Some(parse_quote_inline_app_from_head(source, start, i))
+}
+
+///|
+fn try_parse_quote_block_app_token(
+  source : String,
+  start : Int,
+) -> (S, Int)? raise {
+  let len = source.length()
+  if start >= len {
+    return None
+  }
+  let first = char_at(source, start)
+  if first == '`' || first == '(' || first == ')' {
+    return None
+  }
+  let mut i = start
+  while i < len {
+    let ch = char_at(source, i)
+    if has_prefix_at(source, i, "```") &&
+      !(i > 0 && char_at(source, i - 1) == '\\') {
+      break
+    }
+    if is_stage1_space(ch) || ch == '(' || ch == ')' {
+      return None
+    }
+    i += 1
+  }
+  if i <= start || i >= len || !has_prefix_at(source, i, "```") {
+    return None
+  }
+  Some(parse_quote_block_app_from_head(source, start, i))
 }
 
 ///|
@@ -350,7 +478,9 @@ fn parse_app(source : String, start : Int) -> (S, Int) raise {
     let head_start = i
     while i < len {
       let ch = char_at(source, i)
-      if is_stage1_space(ch) || ch == ')' {
+      if is_stage1_space(ch) ||
+        ch == ')' ||
+        (ch == '`' && !(i > 0 && char_at(source, i - 1) == '\\')) {
         break
       }
       i += 1
@@ -362,7 +492,12 @@ fn parse_app(source : String, start : Int) -> (S, Int) raise {
       .unsafe_substring(start=head_start, end=i)
       .replace_all(old="\\(", new="(")
       .replace_all(old="\\)", new=")")
-    push_app_arg(args, gaps, source, Text(head, source_loc_from_offsets(source, head_start, i)))
+    push_app_arg(
+      args,
+      gaps,
+      source,
+      Text(head, source_loc_from_offsets(source, head_start, i)),
+    )
   }
 
   // Phase 2: scan remaining content inside this app.
@@ -394,6 +529,28 @@ fn parse_app(source : String, start : Int) -> (S, Int) raise {
       continue
     }
     if ch == '`' && !(i > 0 && char_at(source, i - 1) == '\\') {
+      if segment_start != -1 {
+        let mut head_start = i
+        while head_start > segment_start &&
+          !is_stage1_space(char_at(source, head_start - 1)) {
+          head_start -= 1
+        }
+        if head_start < i {
+          match parse_plain_argument(source, segment_start, head_start) {
+            Some(plain) => push_app_arg(args, gaps, source, plain)
+            None => ()
+          }
+          let (quote_app, next) = parse_quote_inline_app_from_head(
+            source,
+            head_start,
+            i,
+          )
+          push_app_arg(args, gaps, source, quote_app)
+          segment_start = -1
+          i = next
+          continue
+        }
+      }
       match parse_plain_argument(source, segment_start, i) {
         Some(plain) => push_app_arg(args, gaps, source, plain)
         None => ()
@@ -477,6 +634,22 @@ pub fn Stage1::parse(source : String) -> Array[S] raise {
       i = next
       continue
     }
+    match try_parse_quote_block_app_token(source, i) {
+      Some((node, next)) => {
+        result.push(node)
+        i = next
+        continue
+      }
+      None => ()
+    }
+    match try_parse_quote_inline_app_token(source, i) {
+      Some((node, next)) => {
+        result.push(node)
+        i = next
+        continue
+      }
+      None => ()
+    }
     let token = source.unsafe_substring(start=i, end=i + 1)
     raise Stage1Error::UnexpectedTopLevelToken(
       token~,
@@ -511,7 +684,8 @@ fn render_app(args : Array[S], gaps : Array[AppGap]) -> String {
     let gap = if i == 0 { Tight } else { gaps[i - 1] }
     match arg {
       QuoteBlock(content, _) => blocks.push(render_block(content))
-      QuoteInline(content, _) => inline_parts.push((render_inline_quote(content), gap))
+      QuoteInline(content, _) =>
+        inline_parts.push((render_inline_quote(content), gap))
       Text(text, _) => inline_parts.push((escape_text(text), gap))
       App(nested, nested_gaps, _) =>
         inline_parts.push((render_app(nested, nested_gaps), gap))

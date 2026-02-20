@@ -1,4 +1,4 @@
-﻿///|
+///|
 fn inline_rule_code(state : InlineState, pos : Int) -> (MdToken, Int)? {
   if pos >= state.source.length() || md_char_at(state.source, pos) != '`' {
     return None
@@ -40,7 +40,10 @@ fn inline_rule_footnote_ref(state : InlineState, pos : Int) -> (MdToken, Int)? {
   guard md_find_char_from(state.source, ']', pos + 2) is Some(close_bracket) else {
     return None
   }
-  let raw_label = state.source.unsafe_substring(start=pos + 2, end=close_bracket)
+  let raw_label = state.source.unsafe_substring(
+    start=pos + 2,
+    end=close_bracket,
+  )
   if !md_has_footnote(state.footnotes, raw_label) {
     return None
   }
@@ -93,16 +96,16 @@ fn inline_rule_link(state : InlineState, pos : Int) -> (MdToken, Int)? {
       is Some(close_ref) else {
       return None
     }
-    let raw_ref = state.source.unsafe_substring(start=open_paren + 1, end=close_ref)
+    let raw_ref = state.source.unsafe_substring(
+      start=open_paren + 1,
+      end=close_ref,
+    )
     let lookup_label = if raw_ref.is_empty() { label } else { raw_ref }
     guard md_lookup_link_reference(state.link_references, lookup_label)
       is Some(link_ref) else {
       return None
     }
-    let attrs = [
-      ("ref", link_ref.label),
-      ("href", link_ref.href),
-    ]
+    let attrs = [("ref", link_ref.label), ("href", link_ref.href)]
     return Some(
       (
         make_token(
@@ -428,8 +431,8 @@ fn inline_rule_text(state : InlineState, pos : Int) -> (MdToken, Int)? {
 ///|
 fn inline_rules() -> Array[InlineRule] {
   [
-    inline_rule_code, inline_rule_footnote_ref, inline_rule_link, inline_rule_strong, inline_rule_em, inline_rule_html,
-    inline_rule_math, inline_rule_text,
+    inline_rule_code, inline_rule_footnote_ref, inline_rule_link, inline_rule_strong,
+    inline_rule_em, inline_rule_html, inline_rule_math, inline_rule_text,
   ]
 }
 
@@ -466,4 +469,3 @@ fn parse_inline_tokens_with_context(
 fn parse_inline_tokens(source : String) -> Array[MdToken] {
   parse_inline_tokens_with_context(source, Map::new(), [])
 }
-

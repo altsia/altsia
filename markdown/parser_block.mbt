@@ -1,4 +1,4 @@
-﻿///|
+///|
 fn md_parse_heading_line(line : String) -> (String, String)? {
   let indent = md_leading_spaces_upto(line, 3)
   let len = line.length()
@@ -308,9 +308,7 @@ fn make_table_row_token_with_context(
         typ,
         tag,
         children=parse_inline_tokens_with_context(
-          cell,
-          link_references,
-          footnotes,
+          cell, link_references, footnotes,
         ),
       ),
     )
@@ -586,4 +584,3 @@ fn parse_blocks_from_lines(
   }
   state.tokens
 }
-

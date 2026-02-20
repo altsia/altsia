@@ -1,4 +1,5 @@
-﻿enum InlineHtmlTag {
+///|
+enum InlineHtmlTag {
   Open(String, Array[(String, String)], Bool)
   Close(String)
   Other
@@ -39,7 +40,10 @@ fn inline_container_token_to_shape(
   token : MdToken,
   ctx : ConvertContext,
 ) -> NormalizedShape {
-  let (children, child_gaps) = inline_tokens_to_shape_sequence(token.children, ctx)
+  let (children, child_gaps) = inline_tokens_to_shape_sequence(
+    token.children,
+    ctx,
+  )
   make_tag_shape_with_sequence(token.tag, token.attrs, children, child_gaps)
 }
 
@@ -196,8 +200,7 @@ fn try_inline_html_element(
               if depth == 0 {
                 let child_tokens = copy_token_range(tokens, start_index + 1, i)
                 let (children, child_gaps) = inline_tokens_to_shape_sequence(
-                  child_tokens,
-                  ctx,
+                  child_tokens, ctx,
                 )
                 return Some(
                   (

@@ -1,4 +1,5 @@
-﻿fn make_footnote_ref_lambda_name(index : Int) -> String {
+///|
+fn make_footnote_ref_lambda_name(index : Int) -> String {
   "md_footnote_ref_\{index}"
 }
 
@@ -61,7 +62,10 @@ fn make_footnote_item_lambda_shape(
   footnote : MdFootnote,
   ctx : ConvertContext,
 ) -> NormalizedShape {
-  let (nodes, node_gaps) = inline_tokens_to_shape_sequence(footnote.value_tokens, ctx)
+  let (nodes, node_gaps) = inline_tokens_to_shape_sequence(
+    footnote.value_tokens,
+    ctx,
+  )
   let body = make_tag_shape_with_sequence_tight_after_attrs(
     "li",
     [("id", anchor_id)],
@@ -113,7 +117,11 @@ fn make_footnotes_section_shape(ctx : ConvertContext) -> NormalizedShape? {
     make_empty_call_shape(lambda_name)
   })
   let list_node = make_tag_shape_with_children("ol", [], items)
-  Some(make_tag_shape_with_children("section", [("class", "footnotes")], [list_node]))
+  Some(
+    make_tag_shape_with_children("section", [("class", "footnotes")], [
+      list_node,
+    ]),
+  )
 }
 
 ///|

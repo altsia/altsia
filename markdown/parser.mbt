@@ -1,4 +1,4 @@
-﻿///|
+///|
 fn split_markdown_lines(source : String) -> Array[String] {
   let lines = source.split("\n").map(StringView::to_string).collect()
   lines.map(md_strip_trailing_cr)

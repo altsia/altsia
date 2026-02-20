@@ -1,4 +1,4 @@
-﻿///|
+///|
 fn fence_info(token : MdToken) -> String? {
   for attr in token.attrs {
     if attr.0 == "info" {

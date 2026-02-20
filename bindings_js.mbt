@@ -1,32 +1,53 @@
 ///|
-fn to_html_tree(source : String) -> @core.Html raise {
+fn to_html_tree(
+  source : String,
+  options : HtmlComposeOptions,
+  extern_api? : ExternApi = empty_extern_api,
+) -> @core.Html raise {
+  let rewriter = extern_api.to_rewriter()
+  let rewriter = terms => @core.Stage2Extern::rewrite_apps(terms, rewriter)
+
   source
   |> @core.Stage1::parse
   |> @core.Stage2::pass
   |> @core.Stage2Etale::expand_program
+  |> apply_if(options.extern_api, rewriter)
   |> @core.Stage3::pass
-  |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
+  |> apply_if(options.comment_strip, comment_strip)
+  |> @core.Html::from
+  |> apply_if(options.markdown_abbrev, @core.MarkdownAbbrev::desugar)
+}
+
+///|
+fn comment_strip(doc : Array[@core.Piece]) -> Array[@core.Piece] {
+  doc.filter(x => !(x is Comment(_)))
+}
+
+///|
+fn[T] apply_if(value : T, enabled : Bool, transformer : (T) -> T) -> T {
+  guard enabled else { value }
+  transformer(value)
+}
+
+///|
+fn to_html_tree_default(source : String) -> @core.Html raise {
+  to_html_tree(source, html_compose_options_default())
 }
 
 ///|
 fn altsia_to_html_impl(source : String) -> String raise {
-  to_html_tree(source) |> @core.Html::to_string
+  to_html_tree_default(source) |> @core.Html::to_string
 }
 
 ///|
 fn altsia_to_html_with_rewriter_impl(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api : ExternApi,
+  extern_api? : ExternApi,
+  options : HtmlComposeOptions,
 ) -> String raise {
   source
-  |> @core.Stage1::parse
-  |> @core.Stage2::pass
-  |> @core.Stage2Etale::expand_program
-  |> @core.Stage2Extern::rewrite_apps(extern_api.to_rewriter())
-  |> @core.Stage3::pass
-  |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
-  |> @core.MarkdownAbbrev::desugar
+  |> to_html_tree(options, extern_api?)
   |> @core.Html::visit_text(text_rewriter)
   |> @core.Html::to_string
 }
@@ -40,9 +61,14 @@ pub fn altsia_to_html_raise(source : String) -> String raise {
 pub fn altsia_to_html_with_rewriter_raise(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api : ExternApi,
+  extern_api? : ExternApi,
 ) -> String raise {
-  altsia_to_html_with_rewriter_impl(source, text_rewriter, extern_api)
+  altsia_to_html_with_rewriter_impl(
+    source,
+    text_rewriter,
+    extern_api?,
+    html_compose_options_for_rewriter(),
+  )
 }
 
 ///|
@@ -61,11 +87,16 @@ pub fn altsia_to_html_diagnostics(
 pub fn altsia_to_html_with_rewriter_diagnostics(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api : ExternApi,
+  extern_api? : ExternApi,
   language? : String = @core.default_language,
 ) -> Result[String, Array[@core.RenderError]] {
   try
-    altsia_to_html_with_rewriter_impl(source, text_rewriter, extern_api)
+    altsia_to_html_with_rewriter_impl(
+      source,
+      text_rewriter,
+      extern_api?,
+      html_compose_options_for_rewriter(),
+    )
   catch {
     err => Err([@core.render_error(err, source, language)])
   } noraise {
@@ -88,14 +119,14 @@ pub fn altsia_to_html_result(
 pub fn altsia_to_html_with_rewriter_result(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api : ExternApi,
+  extern_api? : ExternApi,
   language? : String = @core.default_language,
 ) -> Result[String, Array[String]] {
   match
     altsia_to_html_with_rewriter_diagnostics(
       source,
       text_rewriter,
-      extern_api,
+      extern_api?,
       language~,
     ) {
     Ok(html) => Ok(html)
@@ -118,14 +149,14 @@ pub fn altsia_to_html(
 pub fn altsia_to_html_with_rewriter(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api : ExternApi,
+  extern_api? : ExternApi,
   language? : String = @core.default_language,
 ) -> String {
   match
     altsia_to_html_with_rewriter_result(
       source,
       text_rewriter,
-      extern_api,
+      extern_api?,
       language~,
     ) {
     Ok(html) => html

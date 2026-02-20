@@ -9,6 +9,13 @@ pub(all) struct ExternApi {
 }
 
 ///|
+pub let empty_extern_api : ExternApi = ExternApi::{
+  read: x => x,
+  katex_render: x => x,
+  katex_display_render: x => x,
+}
+
+///|
 fn ExternApi::to_rewriter(api : ExternApi) -> @core.AppRewriter {
   (name, args, loc) => {
     match name {

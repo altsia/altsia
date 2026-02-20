@@ -1,4 +1,4 @@
-﻿///|
+///|
 fn parse_tokens_from_lines(lines : Array[String]) -> Array[MdToken] {
   let tokens : Array[MdToken] = []
   let mut start_line = 0
@@ -12,8 +12,7 @@ fn parse_tokens_from_lines(lines : Array[String]) -> Array[MdToken] {
     None => ()
   }
   let (content_lines, extracted_links, extracted_footnote_lines) = md_extract_definitions(
-    lines,
-    start_line,
+    lines, start_line,
   )
   link_references = extracted_links
   for footnote_entry in extracted_footnote_lines {
@@ -24,12 +23,10 @@ fn parse_tokens_from_lines(lines : Array[String]) -> Array[MdToken] {
       value_tokens: parse_inline_tokens_with_context(value, link_references, []),
     })
   }
-  for token in parse_blocks_from_lines(
-    content_lines,
-    0,
-    link_references,
-    footnotes,
-  ) {
+  for
+    token in parse_blocks_from_lines(
+      content_lines, 0, link_references, footnotes,
+    ) {
     tokens.push(token)
   }
   tokens
@@ -49,8 +46,7 @@ fn parse_document_from_lines(lines : Array[String]) -> MdDocument {
     None => ()
   }
   let (content_lines, extracted_links, extracted_footnote_lines) = md_extract_definitions(
-    lines,
-    start_line,
+    lines, start_line,
   )
   link_references = extracted_links
   for footnote_entry in extracted_footnote_lines {
@@ -63,9 +59,10 @@ fn parse_document_from_lines(lines : Array[String]) -> MdDocument {
   }
   MdDocument::{
     metadata,
-    tokens: parse_blocks_from_lines(content_lines, 0, link_references, footnotes),
+    tokens: parse_blocks_from_lines(
+      content_lines, 0, link_references, footnotes,
+    ),
     link_references,
     footnotes,
   }
 }
-

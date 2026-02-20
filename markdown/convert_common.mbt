@@ -1,4 +1,4 @@
-﻿///|
+///|
 fn push_shape_arg(
   args : Array[NormalizedShape],
   gaps : Array[Gap],
@@ -92,7 +92,11 @@ fn append_children_to_app(
   }
   push_shape_arg(args, gaps, nodes[0], gap_before=Space)
   for i in 1..<nodes.length() {
-    let gap_before = if i - 1 < node_gaps.length() { node_gaps[i - 1] } else { Space }
+    let gap_before = if i - 1 < node_gaps.length() {
+      node_gaps[i - 1]
+    } else {
+      Space
+    }
     push_shape_arg(args, gaps, nodes[i], gap_before~)
   }
 }
@@ -131,12 +135,21 @@ fn make_tag_shape_with_sequence_tight_after_attrs(
   let args : Array[NormalizedShape] = [Text(tag)]
   let gaps : Array[Gap] = []
   for attr in attrs {
-    push_shape_arg(args, gaps, make_attr_shape(attr.0, attr.1), gap_before=Space)
+    push_shape_arg(
+      args,
+      gaps,
+      make_attr_shape(attr.0, attr.1),
+      gap_before=Space,
+    )
   }
   let first_gap = if attrs.is_empty() { Space } else { Tight }
   push_shape_arg(args, gaps, nodes[0], gap_before=first_gap)
   for i in 1..<nodes.length() {
-    let gap_before = if i - 1 < node_gaps.length() { node_gaps[i - 1] } else { Space }
+    let gap_before = if i - 1 < node_gaps.length() {
+      node_gaps[i - 1]
+    } else {
+      Space
+    }
     push_shape_arg(args, gaps, nodes[i], gap_before~)
   }
   App(args, gaps)

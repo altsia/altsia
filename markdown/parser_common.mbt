@@ -1,4 +1,4 @@
-﻿///|
+///|
 type BlockRule = (BlockState, Int) -> Int?
 
 ///|
@@ -259,7 +259,7 @@ fn md_extract_link_destination(raw : String) -> String {
   }
   if md_char_at(trimmed, 0) == '<' {
     match md_find_char_from(trimmed, '>', 1) {
-      Some(end) => trimmed.unsafe_substring(start=1, end=end)
+      Some(end) => trimmed.unsafe_substring(start=1, end~)
       None => trimmed
     }
   } else {
@@ -301,12 +301,9 @@ fn md_parse_link_reference_definition(
 }
 
 ///|
-fn md_parse_footnote_definition_start(
-  line : String,
-) -> (String, String)? {
+fn md_parse_footnote_definition_start(line : String) -> (String, String)? {
   let indent = md_leading_spaces_upto(line, 3)
-  if indent + 2 >= line.length() ||
-    !md_has_prefix_at(line, indent, "[^") {
+  if indent + 2 >= line.length() || !md_has_prefix_at(line, indent, "[^") {
     return None
   }
   guard md_find_char_from(line, ']', indent + 2) is Some(close_bracket) else {
@@ -377,7 +374,11 @@ fn md_upsert_footnote_lines(
 fn md_extract_definitions(
   lines : Array[String],
   start_line : Int,
-) -> (Array[String], Map[String, MdLinkReference], Array[(String, Array[String])]) {
+) -> (
+  Array[String],
+  Map[String, MdLinkReference],
+  Array[(String, Array[String])],
+) {
   let content_lines : Array[String] = []
   let link_references : Map[String, MdLinkReference] = Map::new()
   let footnote_lines : Array[(String, Array[String])] = []
@@ -514,4 +515,3 @@ fn md_leading_spaces_upto(line : String, limit : Int) -> Int {
   }
   i
 }
-

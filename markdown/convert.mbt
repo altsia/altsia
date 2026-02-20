@@ -1,4 +1,5 @@
-﻿fn escape_shape_text(value : String) -> String {
+///|
+fn escape_shape_text(value : String) -> String {
   value.replace_all(old="(", new="\\(").replace_all(old=")", new="\\)")
 }
 

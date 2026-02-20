@@ -217,9 +217,7 @@ fn parse_quote_block_app_from_head(
   quote_start : Int,
 ) -> (S, Int) raise {
   let head_raw = source.unsafe_substring(start=head_start, end=quote_start)
-  let head = head_raw
-    .replace_all(old="\\(", new="(")
-    .replace_all(old="\\)", new=")")
+  let head = stage1_unescape_text(head_raw)
   let (quote_content, next) = parse_quote_block(source, quote_start)
   let head_node : S = Text(
     head,
@@ -282,9 +280,7 @@ fn parse_plain_argument(
     return None
   }
   let raw = source.unsafe_substring(start=trim_start, end=trim_end)
-  let content = raw
-    .replace_all(old="\\(", new="(")
-    .replace_all(old="\\)", new=")")
+  let content = stage1_unescape_text(raw)
   if content.iter().all(is_stage1_space) {
     return None
   }
@@ -338,9 +334,7 @@ fn parse_quote_inline_app_from_head(
   quote_start : Int,
 ) -> (S, Int) raise {
   let head_raw = source.unsafe_substring(start=head_start, end=quote_start)
-  let head = head_raw
-    .replace_all(old="\\(", new="(")
-    .replace_all(old="\\)", new=")")
+  let head = stage1_unescape_text(head_raw)
   let (quote_content, next) = parse_quote_inline(source, quote_start)
   let head_node : S = Text(
     head,
@@ -482,10 +476,9 @@ fn parse_app(source : String, start : Int) -> (S, Int) raise {
     if head_start == i {
       raise Stage1Error::EmptyApplicationHead(loc=one_char_loc(source, i))
     }
-    let head = source
-      .unsafe_substring(start=head_start, end=i)
-      .replace_all(old="\\(", new="(")
-      .replace_all(old="\\)", new=")")
+    let head = stage1_unescape_text(
+      source.unsafe_substring(start=head_start, end=i),
+    )
     push_app_arg(
       args,
       gaps,
@@ -652,8 +645,19 @@ pub fn Stage1::parse(source : String) -> Array[S] raise {
 }
 
 ///|
+fn stage1_unescape_text(value : String) -> String {
+  value
+  .replace_all(old="\\(", new="(")
+  .replace_all(old="\\)", new=")")
+  .replace_all(old="\\`", new="`")
+}
+
+///|
 fn escape_text(value : String) -> String {
-  value.replace_all(old="(", new="\\(").replace_all(old=")", new="\\)")
+  value
+  .replace_all(old="(", new="\\(")
+  .replace_all(old=")", new="\\)")
+  .replace_all(old="`", new="\\`")
 }
 
 ///|

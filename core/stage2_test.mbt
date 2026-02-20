@@ -9,8 +9,19 @@ fn erase_term_loc(term : Term) -> Term {
   match term {
     Text(s, _) => Text(s, loc)
     App(name, args, _) => App(name, args.map(erase_term_loc), loc)
-    TemplateDefinition(name, params, body, _) =>
-      TemplateDefinition(name, params, body.map(erase_term_loc), loc)
+    TemplateDefinition(name, params, param_defaults, body, _) => {
+      let erased_defaults : Array[(Name, Array[Term])] = []
+      for entry in param_defaults {
+        erased_defaults.push((entry.0, entry.1.map(erase_term_loc)))
+      }
+      TemplateDefinition(
+        name,
+        params,
+        erased_defaults,
+        body.map(erase_term_loc),
+        loc,
+      )
+    }
     Splice(terms, _) => Splice(terms.map(erase_term_loc), loc)
     Comment(c, _) => Comment(c, loc)
   }

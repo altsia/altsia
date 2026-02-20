@@ -20,14 +20,26 @@ fn rewrite_apps_in_term(term : Term, rewriter : AppRewriter) -> Array[Term] {
     }
     Splice(terms, loc) =>
       [Splice(terms.map(t => rewrite_apps_in_term(t, rewriter)).flatten(), loc)]
-    TemplateDefinition(name, params, body, loc) =>
+    TemplateDefinition(name, params, param_defaults, body, loc) =>
       [
-        TemplateDefinition(
-          name,
-          params,
-          body.map(t => rewrite_apps_in_term(t, rewriter)).flatten(),
-          loc,
-        ),
+        {
+          let rewritten_defaults : Array[(Name, Array[Term])] = []
+          for entry in param_defaults {
+            rewritten_defaults.push(
+              (
+                entry.0,
+                entry.1.map(t => rewrite_apps_in_term(t, rewriter)).flatten(),
+              ),
+            )
+          }
+          TemplateDefinition(
+            name,
+            params,
+            rewritten_defaults,
+            body.map(t => rewrite_apps_in_term(t, rewriter)).flatten(),
+            loc,
+          )
+        },
       ]
     Text(_, _) | Comment(_, _) => [term]
   }

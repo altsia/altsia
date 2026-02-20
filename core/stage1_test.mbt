@@ -46,10 +46,18 @@ test "Parsing stage 1 per component" {
 }
 
 ///|
-test "Parsing stage 1 nested app and escaped parens" {
+test "Parsing stage 1 nested app and escaped parens/backticks" {
   let source = "(root a \\(b\\) (child c d))"
   assert_eq(source |> Stage1::parse_semantics, [
     EApp([EText("root"), EText("a (b)"), EApp([EText("child"), EText("c d")])]),
+  ])
+  let backtick_source = "(p value\\`with\\`ticks)"
+  assert_eq(backtick_source |> Stage1::parse_semantics, [
+    EApp([EText("p"), EText("value`with`ticks")]),
+  ])
+  let slash_head_source = "(\\ `x`)"
+  assert_eq(slash_head_source |> Stage1::parse_semantics, [
+    EApp([EText("\\"), EQuoteInline("x")]),
   ])
 }
 
@@ -71,6 +79,11 @@ test "Reconstructing stage 1 per component" {
   assert_eq(source |> Stage1::parse |> to_source, source)
   let inline_source = "(p head `inline value` tail)"
   assert_eq(inline_source |> Stage1::parse |> to_source, inline_source)
+  let escaped_backtick_source = "(p value\\`with\\`ticks)"
+  assert_eq(
+    escaped_backtick_source |> Stage1::parse |> to_source,
+    escaped_backtick_source,
+  )
   assert_eq(
     "f`inline value`" |> Stage1::parse |> to_source,
     "(f `inline value`)",

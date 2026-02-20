@@ -33,8 +33,6 @@ pub fn is_wide_east_asian(Char) -> Bool
 
 pub fn[E : Show] join_list(@list.List[E], separator? : String) -> String
 
-pub fn parse_semantics(String) -> Array[ES] raise
-
 pub fn render_error(Error, String, String) -> RenderError
 
 pub fn render_error_supported_languages() -> Array[String]
@@ -42,8 +40,6 @@ pub fn render_error_supported_languages() -> Array[String]
 pub fn render_error_to_string(RenderError) -> String
 
 pub fn source_loc_from_offsets(String, Int, Int) -> SourceLoc
-
-pub fn stage1_to_es(S) -> ES
 
 pub fn string_display_width(String) -> Int
 
@@ -83,6 +79,8 @@ pub impl Show for Stage2Error
 
 pub(all) suberror Stage2EtaleError {
   TemplateArityMismatch(template_name~ : String, expected~ : Int, got~ : Int, args~ : Array[Term], loc~ : SourceLoc?)
+  MissingNamedArgument(template_name~ : String, param_name~ : String, loc~ : SourceLoc?)
+  DuplicateNamedArgument(template_name~ : String, param_name~ : String, loc~ : SourceLoc?)
   NestedTemplateDefinitionInSubstitution(term~ : Term, loc~ : SourceLoc?)
   UnexpectedTemplateDefinitionInExpand(term~ : Term, loc~ : SourceLoc?)
 }
@@ -193,6 +191,7 @@ pub(all) enum S {
   App(Array[S], Array[AppGap], SourceLoc)
 }
 pub fn S::loc(Self) -> SourceLoc
+pub fn S::to_es(Self) -> ES
 pub impl Eq for S
 pub impl Show for S
 pub impl @debug.Debug for S
@@ -211,6 +210,7 @@ pub type Stage1
 pub fn Stage1::normalize(String, max_width? : Int) -> String raise
 pub fn Stage1::normalize_range(String, Int, Int, max_width? : Int) -> String raise
 pub fn Stage1::parse(String) -> Array[S] raise
+pub fn Stage1::parse_semantics(String) -> Array[ES] raise
 
 pub type Stage2
 pub fn Stage2::elaborate_node(S) -> Term raise
@@ -227,13 +227,14 @@ pub fn Stage3::pass(Array[Term]) -> Array[Piece] raise
 
 pub struct Template {
   params : Array[String]
+  param_defaults : Array[(String, Array[Term])]
   body : Array[Term]
 }
 
 pub(all) enum Term {
   Text(String, SourceLoc)
   App(String, Array[Term], SourceLoc)
-  TemplateDefinition(String, Array[String], Array[Term], SourceLoc)
+  TemplateDefinition(String, Array[String], Array[(String, Array[Term])], Array[Term], SourceLoc)
   Splice(Array[Term], SourceLoc)
   Comment(String, SourceLoc)
 }

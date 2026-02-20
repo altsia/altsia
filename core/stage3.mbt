@@ -36,7 +36,7 @@ fn lower_inline(node : Term) -> Array[InlineNode] raise {
     Splice(terms, _) => terms.map(lower_inline).flatten()
     App(name, args, _) => lower_span(name, args)
     Comment(_, _) => []
-    TemplateDefinition(_, _, _, loc) =>
+    TemplateDefinition(_, _, _, _, loc) =>
       raise Stage3Error::UnexpectedTemplateDefinition(term=node, loc=Some(loc))
   }
 }
@@ -122,7 +122,7 @@ fn lower_block(node : Term) -> Array[Piece] raise {
     Text(_, _) => [Block(Paragraph(lower_inline(node)))]
     Splice(terms, _) => terms.map(lower_block).flatten()
     App(name, args, _) => lower_block_app(name, args)
-    TemplateDefinition(_, _, _, loc) =>
+    TemplateDefinition(_, _, _, _, loc) =>
       raise Stage3Error::UnexpectedTemplateDefinition(term=node, loc=Some(loc))
   }
 }

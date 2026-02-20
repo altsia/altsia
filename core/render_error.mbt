@@ -348,6 +348,38 @@ pub fn render_error(
         loc,
         source,
       )
+    Stage2EtaleError::MissingNamedArgument(template_name~, param_name~, loc~) =>
+      make_render_error(
+        "stage2-etale.missing-named-argument",
+        "stage2-etale.expand",
+        localized(
+          language,
+          "missing named argument: template=\{template_name}, param=\{param_name}",
+          "缺少具名参数: template=\{template_name}, param=\{param_name}",
+          "缺少具名參數: template=\{template_name}, param=\{param_name}",
+          "名前付き引数が不足しています: template=\{template_name}, param=\{param_name}",
+        ),
+        loc,
+        source,
+      )
+    Stage2EtaleError::DuplicateNamedArgument(
+      template_name~,
+      param_name~,
+      loc~
+    ) =>
+      make_render_error(
+        "stage2-etale.duplicate-named-argument",
+        "stage2-etale.expand",
+        localized(
+          language,
+          "duplicate named argument: template=\{template_name}, param=\{param_name}",
+          "重复的具名参数: template=\{template_name}, param=\{param_name}",
+          "重複的具名參數: template=\{template_name}, param=\{param_name}",
+          "名前付き引数が重複しています: template=\{template_name}, param=\{param_name}",
+        ),
+        loc,
+        source,
+      )
     Stage2EtaleError::NestedTemplateDefinitionInSubstitution(term~, loc~) =>
       make_render_error(
         "stage2-etale.nested-template-definition",

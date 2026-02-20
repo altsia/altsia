@@ -2,7 +2,7 @@
 pub(all) enum Term {
   Text(String, SourceLoc)
   App(Name, Array[Term], SourceLoc)
-  TemplateDefinition(Name, Array[Name], Array[Term], SourceLoc)
+  TemplateDefinition(Name, Array[Name], Array[(Name, Array[Term])], Array[Term], SourceLoc)
   Splice(Array[Term], SourceLoc)
   Comment(String, SourceLoc)
 } derive(Eq, Show, Debug)
@@ -12,7 +12,7 @@ pub fn Term::loc(node : Term) -> SourceLoc {
   match node {
     Text(_, loc) => loc
     App(_, _, loc) => loc
-    TemplateDefinition(_, _, _, loc) => loc
+    TemplateDefinition(_, _, _, _, loc) => loc
     Splice(_, loc) => loc
     Comment(_, loc) => loc
   }
@@ -65,12 +65,24 @@ fn elaborate_comment(xs : ArrayView[S]) -> String {
 }
 
 ///|
-fn elaborate_params_name(node : S) -> Name raise {
+fn stage2_is_named_param(name : Name) -> Bool {
+  name.strip_prefix(":") is Some(_)
+}
+
+///|
+fn elaborate_param_spec(node : S) -> (Name, Array[Term]?) raise {
   match node {
-    Text(s, _) => s
-    App(list, _, loc) =>
+    Text(s, _) => (s, None)
+    App(list, gaps, loc) =>
       match list {
-        [head, ..] => elaborate_name(head)
+        [head, .. tail] => {
+          let name = elaborate_name(head)
+          if stage2_is_named_param(name) && !tail.is_empty() {
+            (name, Some(elaborate_nodes_with_gaps(tail, gaps, 1)))
+          } else {
+            (name, None)
+          }
+        }
         [] =>
           raise Stage2Error::TemplateParamApplicationMissingHead(
             found=node,
@@ -133,8 +145,20 @@ fn elaborate_template(xs : ArrayView[S], app_loc : SourceLoc) -> Term raise {
     )
   }
   let name = elaborate_name(xs[0])
-  let params = match xs[1] {
-    App(list, _, _) => list.map(elaborate_params_name)
+  let (params, param_defaults) = match xs[1] {
+    App(list, _, _) => {
+      let names : Array[Name] = []
+      let defaults : Array[(Name, Array[Term])] = []
+      for param_node in list {
+        let (name, default_value) = elaborate_param_spec(param_node)
+        names.push(name)
+        match default_value {
+          Some(value) => defaults.push((name, value))
+          None => ()
+        }
+      }
+      (names, defaults)
+    }
     _ =>
       raise Stage2Error::TemplateParamsMustBeList(
         found=xs[1],
@@ -142,7 +166,7 @@ fn elaborate_template(xs : ArrayView[S], app_loc : SourceLoc) -> Term raise {
       )
   }
   let body = elaborate_nodes(xs[2:])
-  TemplateDefinition(name, params, body, app_loc)
+  TemplateDefinition(name, params, param_defaults, body, app_loc)
 }
 
 ///|

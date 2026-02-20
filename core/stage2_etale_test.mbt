@@ -52,3 +52,58 @@ test "Stage2Etale merges trailing args into variadic tail param" {
     fail("expected variadic tail param to capture trailing args as one splice")
   }
 }
+
+///|
+test "Stage2Etale binds named argument by (:name value) call syntax" {
+  let source = "(λ badge (:class content) (p (:class) (content))) (badge (:class primary) hello)"
+  let result : Result[Array[Term], Error] = try? (source
+  |> Stage1::parse
+  |> Stage2::pass
+  |> Stage2Etale::expand_program)
+  guard result
+    is Ok([App("p", [Text("primary", _), Text(" ", _), Text("hello", _)], _)]) else {
+    fail("expected named :class to bind from (:class primary)")
+  }
+}
+
+///|
+test "Stage2Etale applies named default from (:name default)" {
+  let source = "(λ badge ((:class default) content) (p (:class) (content))) (badge hello)"
+  let result : Result[Array[Term], Error] = try? (source
+  |> Stage1::parse
+  |> Stage2::pass
+  |> Stage2Etale::expand_program)
+  guard result
+    is Ok([App("p", [Text("default", _), Text(" ", _), Text("hello", _)], _)]) else {
+    fail("expected :class default to be used when named arg is omitted")
+  }
+}
+
+///|
+test "Stage2Etale treats missing named value as empty text" {
+  let source = "(λ badge (:class content) (p before (:class) after (content))) (badge (:class) hello)"
+  let result : Result[Array[Term], Error] = try? (source
+  |> Stage1::parse
+  |> Stage2::pass
+  |> Stage2Etale::expand_program)
+  guard result
+    is Ok(
+      [
+        App(
+          "p",
+          [
+            Text("before", _),
+            Text(" ", _),
+            Text("", _),
+            Text(" ", _),
+            Text("after", _),
+            Text(" ", _),
+            Text("hello", _),
+          ],
+          _
+        ),
+      ]
+    ) else {
+    fail("expected (:class) call argument to bind as empty Text(\"\")")
+  }
+}

@@ -158,6 +158,52 @@ test "Stage2Etale does not auto-merge extra args without variadic suffix" {
 }
 
 ///|
+test "Stage2Etale reports missing required named argument" {
+  let result : Result[Array[Term], Error] = try? ("(λ badge (:class content) (p (:class) (content))) (badge hello)"
+  |> Stage1::parse
+  |> Stage2::pass
+  |> Stage2Etale::expand_program)
+  guard result
+    is Err(
+      Stage2EtaleError::MissingNamedArgument(
+        template_name~,
+        param_name~,
+        loc~
+      )
+    ) else {
+    fail("expected Stage2EtaleError::MissingNamedArgument")
+  }
+  assert_eq(template_name, "badge")
+  assert_eq(param_name, ":class")
+  guard loc is Some(_) else {
+    fail("expected loc for missing named argument")
+  }
+}
+
+///|
+test "Stage2Etale reports duplicate named argument" {
+  let result : Result[Array[Term], Error] = try? ("(λ badge (:class content) (p (:class) (content))) (badge (:class a) (:class b) hello)"
+  |> Stage1::parse
+  |> Stage2::pass
+  |> Stage2Etale::expand_program)
+  guard result
+    is Err(
+      Stage2EtaleError::DuplicateNamedArgument(
+        template_name~,
+        param_name~,
+        loc~
+      )
+    ) else {
+    fail("expected Stage2EtaleError::DuplicateNamedArgument")
+  }
+  assert_eq(template_name, "badge")
+  assert_eq(param_name, ":class")
+  guard loc is Some(_) else {
+    fail("expected loc for duplicate named argument")
+  }
+}
+
+///|
 test "Stage2Etale propagates structured nested-template substitution error" {
   let result : Result[Array[Term], Error] = try? ("(λ outer (x) (λ inner (y) (y)) (x)) (outer ok)"
   |> Stage1::parse
@@ -169,7 +215,7 @@ test "Stage2Etale propagates structured nested-template substitution error" {
     ) else {
     fail("expected Stage2EtaleError::NestedTemplateDefinitionInSubstitution")
   }
-  guard term is TemplateDefinition("inner", _, _, _) else {
+  guard term is TemplateDefinition("inner", _, _, _, _) else {
     fail("expected nested template name to be inner")
   }
   guard loc is Some(_) else {
@@ -205,7 +251,7 @@ test "Stage3 returns structured unexpected template-definition error" {
   guard result is Err(Stage3Error::UnexpectedTemplateDefinition(term~, loc~)) else {
     fail("expected Stage3Error::UnexpectedTemplateDefinition")
   }
-  guard term is TemplateDefinition("t", _, _, _) else {
+  guard term is TemplateDefinition("t", _, _, _, _) else {
     fail("expected template definition term")
   }
   guard loc is Some(_) else {
@@ -228,7 +274,7 @@ test "Stage2Etale returns structured unexpected template-definition error" {
     ) else {
     fail("expected Stage2EtaleError::UnexpectedTemplateDefinitionInExpand")
   }
-  guard found_term is TemplateDefinition("t", _, _, _) else {
+  guard found_term is TemplateDefinition("t", _, _, _, _) else {
     fail("expected nested template definition in expansion error")
   }
   guard loc is Some(_) else {

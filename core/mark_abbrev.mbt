@@ -1,8 +1,8 @@
 ///|
-pub type CommonMark
+pub type MarkdownAbbrev
 
 ///|
-pub fn CommonMark::desugar(html : @core.Html) -> @core.Html {
+pub fn MarkdownAbbrev::desugar(html : Html) -> Html {
   html.visit_element(element => {
     let { name, attrs, children } = element
     let name = match name {
@@ -11,6 +11,6 @@ pub fn CommonMark::desugar(html : @core.Html) -> @core.Html {
       ">" => "blockquote"
       _ => name
     }
-    { name, attrs, children: children.map(h => CommonMark::desugar(h)) }
+    { name, attrs, children: children.map(h => MarkdownAbbrev::desugar(h)) }
   })
 }

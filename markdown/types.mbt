@@ -28,21 +28,40 @@ pub(all) struct MdMetadataItem {
 } derive(Eq, Show, Debug)
 
 ///|
+pub(all) struct MdLinkReference {
+  label : String
+  href : String
+} derive(Eq, Show, Debug)
+
+///|
+pub(all) struct MdFootnote {
+  label : String
+  value : String
+  value_tokens : Array[MdToken]
+} derive(Eq, Show, Debug)
+
+///|
 pub(all) struct MdDocument {
   metadata : Array[MdMetadataItem]
   tokens : Array[MdToken]
+  link_references : Array[MdLinkReference]
+  footnotes : Array[MdFootnote]
 } derive(Eq, Show, Debug)
 
 ///|
 pub(all) struct BlockState {
   lines : Array[String]
   tokens : Array[MdToken]
+  link_references : Array[MdLinkReference]
+  footnotes : Array[MdFootnote]
 }
 
 ///|
 pub(all) struct InlineState {
   source : String
   tokens : Array[MdToken]
+  link_references : Array[MdLinkReference]
+  footnotes : Array[MdFootnote]
 }
 
 ///|

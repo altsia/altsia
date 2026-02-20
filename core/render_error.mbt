@@ -362,11 +362,7 @@ pub fn render_error(
         loc,
         source,
       )
-    Stage2EtaleError::DuplicateNamedArgument(
-      template_name~,
-      param_name~,
-      loc~
-    ) =>
+    Stage2EtaleError::DuplicateNamedArgument(template_name~, param_name~, loc~) =>
       make_render_error(
         "stage2-etale.duplicate-named-argument",
         "stage2-etale.expand",

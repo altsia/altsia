@@ -17,6 +17,9 @@ test "Parsing stage 1 per component" {
   assert_eq("(p `inline value` tail)" |> Stage1::parse_semantics, [
     EApp([EText("p"), EQuoteInline("inline value"), EText("tail")]),
   ])
+  assert_eq("(p `inline \\` value` tail)" |> Stage1::parse_semantics, [
+    EApp([EText("p"), EQuoteInline("inline ` value"), EText("tail")]),
+  ])
   assert_eq("(p `line1\nline2` tail)" |> Stage1::parse_semantics, [
     EApp([EText("p"), EQuoteInline("line1\nline2"), EText("tail")]),
   ])
@@ -79,6 +82,11 @@ test "Reconstructing stage 1 per component" {
   assert_eq(source |> Stage1::parse |> to_source, source)
   let inline_source = "(p head `inline value` tail)"
   assert_eq(inline_source |> Stage1::parse |> to_source, inline_source)
+  let escaped_inline_quote = "(p `inline \\` value` tail)"
+  assert_eq(
+    escaped_inline_quote |> Stage1::parse |> to_source,
+    escaped_inline_quote,
+  )
   let escaped_backtick_source = "(p value\\`with\\`ticks)"
   assert_eq(
     escaped_backtick_source |> Stage1::parse |> to_source,

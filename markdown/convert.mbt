@@ -19,6 +19,87 @@ fn make_attr_shape(name : String, value : String) -> NormalizedShape {
 }
 
 ///|
+priv struct ConvertContext {
+  link_lambda_map : Array[(String, String)]
+  footnote_ref_lambda_map : Array[(String, String)]
+  footnote_item_lambda_names : Array[String]
+}
+
+///|
+fn empty_convert_context() -> ConvertContext {
+  ConvertContext::{
+    link_lambda_map: [],
+    footnote_ref_lambda_map: [],
+    footnote_item_lambda_names: [],
+  }
+}
+
+///|
+fn lookup_mapped_name(map : Array[(String, String)], key : String) -> String? {
+  for entry in map {
+    if entry.0 == key {
+      return Some(entry.1)
+    }
+  }
+  None
+}
+
+///|
+fn token_attr_value(token : MdToken, key : String) -> String? {
+  for attr in token.attrs {
+    if attr.0 == key {
+      return Some(attr.1)
+    }
+  }
+  None
+}
+
+///|
+fn make_call_shape_from_sequence(
+  fn_name : String,
+  nodes : Array[NormalizedShape],
+  node_gaps : Array[Gap],
+) -> NormalizedShape {
+  let args : Array[NormalizedShape] = [Text(fn_name)]
+  let gaps : Array[Gap] = []
+  append_children_to_app(args, gaps, nodes, node_gaps)
+  App(args, gaps)
+}
+
+///|
+fn make_lambda_shape(
+  name : String,
+  params : Array[String],
+  body : Array[NormalizedShape],
+) -> NormalizedShape {
+  let param_nodes = params.map(fn(param) { Text(param) })
+  let param_gaps : Array[Gap] = []
+  for _ in 1..<param_nodes.length() {
+    param_gaps.push(Space)
+  }
+  let args : Array[NormalizedShape] = [
+    Text("λ"),
+    Text(name),
+    App(param_nodes, param_gaps),
+  ]
+  let gaps : Array[Gap] = [Space, Space]
+  for term in body {
+    push_shape_arg(args, gaps, term, gap_before=Space)
+  }
+  App(args, gaps)
+}
+
+///|
+fn make_empty_call_shape(name : String) -> NormalizedShape {
+  App([Text(name)], [])
+}
+
+///|
+fn make_param_ref_shape(name : String) -> NormalizedShape {
+  make_empty_call_shape(name)
+}
+
+///|
 fn append_children_to_app(
   args : Array[NormalizedShape],
   gaps : Array[Gap],
@@ -83,7 +164,10 @@ fn front_matter_to_shape(content : String) -> NormalizedShape {
 fn metadata_item_to_shape(item : MdMetadataItem) -> NormalizedShape {
   let args : Array[NormalizedShape] = [Text(":\{item.key}")]
   let gaps : Array[Gap] = []
-  let (nodes, node_gaps) = inline_tokens_to_shape_sequence(item.value_tokens)
+  let (nodes, node_gaps) = inline_tokens_to_shape_sequence(
+    item.value_tokens,
+    empty_convert_context(),
+  )
   append_children_to_app(args, gaps, nodes, node_gaps)
   App(args, gaps)
 }
@@ -139,8 +223,11 @@ fn text_has_trailing_space(content : String) -> Bool {
 }
 
 ///|
-fn inline_container_token_to_shape(token : MdToken) -> NormalizedShape {
-  let (children, child_gaps) = inline_tokens_to_shape_sequence(token.children)
+fn inline_container_token_to_shape(
+  token : MdToken,
+  ctx : ConvertContext,
+) -> NormalizedShape {
+  let (children, child_gaps) = inline_tokens_to_shape_sequence(token.children, ctx)
   make_tag_shape_with_sequence(token.tag, token.attrs, children, child_gaps)
 }
 
@@ -274,6 +361,7 @@ fn copy_token_range(
 fn try_inline_html_element(
   tokens : Array[MdToken],
   start_index : Int,
+  ctx : ConvertContext,
 ) -> (NormalizedShape, Int)? {
   if start_index >= tokens.length() || tokens[start_index].typ != "html_inline" {
     return None
@@ -297,6 +385,7 @@ fn try_inline_html_element(
                 let child_tokens = copy_token_range(tokens, start_index + 1, i)
                 let (children, child_gaps) = inline_tokens_to_shape_sequence(
                   child_tokens,
+                  ctx,
                 )
                 return Some(
                   (
@@ -323,6 +412,7 @@ fn try_inline_html_element(
 ///|
 fn inline_tokens_to_shape_sequence(
   tokens : Array[MdToken],
+  ctx : ConvertContext,
 ) -> (Array[NormalizedShape], Array[Gap]) {
   let nodes : Array[NormalizedShape] = []
   let gaps : Array[Gap] = []
@@ -383,8 +473,65 @@ fn inline_tokens_to_shape_sequence(
         pending_space = false
         i += 1
       }
+      "link_ref" => {
+        let (children, child_gaps) = inline_tokens_to_shape_sequence(
+          token.children,
+          ctx,
+        )
+        let node = match token_attr_value(token, "ref") {
+          Some(label) =>
+            match lookup_mapped_name(ctx.link_lambda_map, label) {
+              Some(lambda_name) =>
+                make_call_shape_from_sequence(lambda_name, children, child_gaps)
+              None =>
+                make_tag_shape_with_sequence(
+                  token.tag,
+                  token.attrs.filter(fn(attr) { attr.0 != "ref" }),
+                  children,
+                  child_gaps,
+                )
+            }
+          None =>
+            make_tag_shape_with_sequence(
+              token.tag,
+              token.attrs.filter(fn(attr) { attr.0 != "ref" }),
+              children,
+              child_gaps,
+            )
+        }
+        let gap_before = if nodes.is_empty() {
+          Tight
+        } else if pending_space {
+          Space
+        } else {
+          Tight
+        }
+        push_shape_arg(nodes, gaps, node, gap_before~)
+        pending_space = false
+        i += 1
+      }
+      "footnote_ref" => {
+        let node = match token_attr_value(token, "ref") {
+          Some(label) =>
+            match lookup_mapped_name(ctx.footnote_ref_lambda_map, label) {
+              Some(lambda_name) => make_empty_call_shape(lambda_name)
+              None => Text("[^\{label}]")
+            }
+          None => Text("[^]")
+        }
+        let gap_before = if nodes.is_empty() {
+          Tight
+        } else if pending_space {
+          Space
+        } else {
+          Tight
+        }
+        push_shape_arg(nodes, gaps, node, gap_before~)
+        pending_space = false
+        i += 1
+      }
       "html_inline" =>
-        match try_inline_html_element(tokens, i) {
+        match try_inline_html_element(tokens, i, ctx) {
           Some((node, next_i)) => {
             let gap_before = if nodes.is_empty() {
               Tight
@@ -411,7 +558,7 @@ fn inline_tokens_to_shape_sequence(
           }
         }
       _ => {
-        let node = inline_container_token_to_shape(token)
+        let node = inline_container_token_to_shape(token, ctx)
         let gap_before = if nodes.is_empty() {
           Tight
         } else if pending_space {
@@ -455,12 +602,15 @@ fn fence_token_to_shape(token : MdToken) -> NormalizedShape {
 }
 
 ///|
-fn block_token_to_shape(token : MdToken) -> NormalizedShape {
+fn block_token_to_shape(token : MdToken, ctx : ConvertContext) -> NormalizedShape {
   match token.typ {
     "front_matter" => front_matter_to_shape(token.content)
     "math_block" => App([Text("kd"), QuoteInline(token.content)], [Space])
     "paragraph" | "heading" | "list_item" | "table_head_cell" | "table_cell" => {
-      let (nodes, node_gaps) = inline_tokens_to_shape_sequence(token.children)
+      let (nodes, node_gaps) = inline_tokens_to_shape_sequence(
+        token.children,
+        ctx,
+      )
       make_tag_shape_with_sequence(token.tag, token.attrs, nodes, node_gaps)
     }
     "bullet_list"
@@ -473,11 +623,141 @@ fn block_token_to_shape(token : MdToken) -> NormalizedShape {
       make_tag_shape_with_children(
         token.tag,
         token.attrs,
-        token.children.map(block_token_to_shape),
+        token.children.map(fn(child) { block_token_to_shape(child, ctx) }),
       )
     "fence" => fence_token_to_shape(token)
     _ => make_tag_shape_with_children("p", [], [Text(token.content)])
   }
+}
+
+///|
+fn make_link_lambda_name(index : Int) -> String {
+  "md_link_ref_\{index}"
+}
+
+///|
+fn make_footnote_ref_lambda_name(index : Int) -> String {
+  "md_footnote_ref_\{index}"
+}
+
+///|
+fn make_footnote_item_lambda_name(index : Int) -> String {
+  "md_footnote_item_\{index}"
+}
+
+///|
+fn make_footnote_anchor_id(index : Int) -> String {
+  "md-footnote-\{index}"
+}
+
+///|
+fn build_convert_context(document : MdDocument) -> ConvertContext {
+  let link_lambda_map : Array[(String, String)] = []
+  for i in 0..<document.link_references.length() {
+    let item = document.link_references[i]
+    link_lambda_map.push((item.label, make_link_lambda_name(i + 1)))
+  }
+  let footnote_ref_lambda_map : Array[(String, String)] = []
+  let footnote_item_lambda_names : Array[String] = []
+  for i in 0..<document.footnotes.length() {
+    let item = document.footnotes[i]
+    footnote_ref_lambda_map.push((item.label, make_footnote_ref_lambda_name(i + 1)))
+    footnote_item_lambda_names.push(make_footnote_item_lambda_name(i + 1))
+  }
+  ConvertContext::{
+    link_lambda_map,
+    footnote_ref_lambda_map,
+    footnote_item_lambda_names,
+  }
+}
+
+///|
+fn make_link_lambda_shape(name : String, href : String) -> NormalizedShape {
+  let body = make_tag_shape_with_children(
+    "a",
+    [("href", href)],
+    [make_param_ref_shape("content")],
+  )
+  make_lambda_shape(name, ["content..."], [body])
+}
+
+///|
+fn make_footnote_ref_lambda_shape(
+  name : String,
+  anchor_id : String,
+  display_index : Int,
+) -> NormalizedShape {
+  let link_node = make_tag_shape_with_children(
+    "a",
+    [("href", "#\{anchor_id}")],
+    [Text(display_index.to_string())],
+  )
+  let body = make_tag_shape_with_children("sup", [], [link_node])
+  make_lambda_shape(name, [], [body])
+}
+
+///|
+fn make_footnote_item_lambda_shape(
+  name : String,
+  anchor_id : String,
+  footnote : MdFootnote,
+  ctx : ConvertContext,
+) -> NormalizedShape {
+  let (nodes, node_gaps) = inline_tokens_to_shape_sequence(footnote.value_tokens, ctx)
+  let body = make_tag_shape_with_sequence(
+    "li",
+    [("id", anchor_id)],
+    nodes,
+    node_gaps,
+  )
+  make_lambda_shape(name, [], [body])
+}
+
+///|
+fn make_lambda_declarations(
+  document : MdDocument,
+  ctx : ConvertContext,
+) -> Array[NormalizedShape] {
+  let declarations : Array[NormalizedShape] = []
+  for i in 0..<document.link_references.length() {
+    let item = document.link_references[i]
+    declarations.push(
+      make_link_lambda_shape(make_link_lambda_name(i + 1), item.href),
+    )
+  }
+  for i in 0..<document.footnotes.length() {
+    let footnote = document.footnotes[i]
+    let index = i + 1
+    let anchor_id = make_footnote_anchor_id(index)
+    declarations.push(
+      make_footnote_ref_lambda_shape(
+        make_footnote_ref_lambda_name(index),
+        anchor_id,
+        index,
+      ),
+    )
+    declarations.push(
+      make_footnote_item_lambda_shape(
+        make_footnote_item_lambda_name(index),
+        anchor_id,
+        footnote,
+        ctx,
+      ),
+    )
+  }
+  declarations
+}
+
+///|
+fn make_footnotes_section_shape(ctx : ConvertContext) -> NormalizedShape? {
+  if ctx.footnote_item_lambda_names.is_empty() {
+    return None
+  }
+  let items = ctx.footnote_item_lambda_names.map(fn(lambda_name) {
+    make_empty_call_shape(lambda_name)
+  })
+  let list_node = make_tag_shape_with_children("ol", [], items)
+  Some(make_tag_shape_with_children("section", [("class", "footnotes")], [list_node]))
 }
 
 ///|
@@ -519,13 +799,21 @@ pub fn normalized_shapes_to_source(nodes : Array[NormalizedShape]) -> String {
 ///|
 pub fn MarkdownIt::to_shapes(source : String) -> Array[NormalizedShape] {
   let document = MarkdownIt::parse_document(source)
+  let ctx = build_convert_context(document)
   let shapes : Array[NormalizedShape] = []
   match metadata_to_shape(document.metadata) {
     Some(node) => shapes.push(node)
     None => ()
   }
+  for node in make_lambda_declarations(document, ctx) {
+    shapes.push(node)
+  }
   for token in document.tokens {
-    shapes.push(block_token_to_shape(token))
+    shapes.push(block_token_to_shape(token, ctx))
+  }
+  match make_footnotes_section_shape(ctx) {
+    Some(node) => shapes.push(node)
+    None => ()
   }
   shapes
 }

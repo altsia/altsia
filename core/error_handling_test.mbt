@@ -165,19 +165,13 @@ test "Stage2Etale reports missing required named argument" {
   |> Stage2Etale::expand_program)
   guard result
     is Err(
-      Stage2EtaleError::MissingNamedArgument(
-        template_name~,
-        param_name~,
-        loc~
-      )
+      Stage2EtaleError::MissingNamedArgument(template_name~, param_name~, loc~)
     ) else {
     fail("expected Stage2EtaleError::MissingNamedArgument")
   }
   assert_eq(template_name, "badge")
   assert_eq(param_name, ":class")
-  guard loc is Some(_) else {
-    fail("expected loc for missing named argument")
-  }
+  guard loc is Some(_) else { fail("expected loc for missing named argument") }
 }
 
 ///|

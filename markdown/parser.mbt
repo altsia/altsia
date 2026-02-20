@@ -224,6 +224,201 @@ fn md_trim_edges(source : String) -> String {
 }
 
 ///|
+fn md_ascii_lower_char(ch : Char) -> Char {
+  if ch >= 'A' && ch <= 'Z' {
+    Int::unsafe_to_char(ch.to_int() + 32)
+  } else {
+    ch
+  }
+}
+
+///|
+fn md_normalize_reference_label(label : String) -> String {
+  let trimmed = md_trim_edges(label)
+  let mut normalized = ""
+  let mut in_space = false
+  for ch in trimmed.iter() {
+    if md_is_space(ch) {
+      if !in_space {
+        normalized = normalized + " "
+        in_space = true
+      }
+    } else {
+      normalized = normalized + md_ascii_lower_char(ch).to_string()
+      in_space = false
+    }
+  }
+  normalized
+}
+
+///|
+fn md_extract_link_destination(raw : String) -> String {
+  let trimmed = md_trim_edges(raw)
+  if trimmed.is_empty() {
+    return ""
+  }
+  if md_char_at(trimmed, 0) == '<' {
+    match md_find_char_from(trimmed, '>', 1) {
+      Some(end) => trimmed.unsafe_substring(start=1, end=end)
+      None => trimmed
+    }
+  } else {
+    let mut i = 0
+    while i < trimmed.length() && !md_is_space(md_char_at(trimmed, i)) {
+      i += 1
+    }
+    trimmed.unsafe_substring(start=0, end=i)
+  }
+}
+
+///|
+fn md_parse_link_reference_definition(
+  line : String,
+) -> (String, String)? {
+  let indent = md_leading_spaces_upto(line, 3)
+  if indent >= line.length() || md_char_at(line, indent) != '[' {
+    return None
+  }
+  guard md_find_char_from(line, ']', indent + 1) is Some(close_bracket) else {
+    return None
+  }
+  let colon_index = close_bracket + 1
+  if colon_index >= line.length() || md_char_at(line, colon_index) != ':' {
+    return None
+  }
+  let raw_label = line.unsafe_substring(start=indent + 1, end=close_bracket)
+  if raw_label.is_empty() || md_has_prefix_at(raw_label, 0, "^") {
+    return None
+  }
+  let href_raw = line.unsafe_substring(start=colon_index + 1, end=line.length())
+  let href = md_extract_link_destination(href_raw)
+  if href.is_empty() {
+    return None
+  }
+  Some((md_normalize_reference_label(raw_label), href))
+}
+
+///|
+fn md_parse_footnote_definition_start(
+  line : String,
+) -> (String, String)? {
+  let indent = md_leading_spaces_upto(line, 3)
+  if indent + 2 >= line.length() ||
+    !md_has_prefix_at(line, indent, "[^") {
+    return None
+  }
+  guard md_find_char_from(line, ']', indent + 2) is Some(close_bracket) else {
+    return None
+  }
+  let colon_index = close_bracket + 1
+  if colon_index >= line.length() || md_char_at(line, colon_index) != ':' {
+    return None
+  }
+  let raw_label = line.unsafe_substring(start=indent + 2, end=close_bracket)
+  let label = md_normalize_reference_label(raw_label)
+  if label.is_empty() {
+    return None
+  }
+  let rest = line.unsafe_substring(start=colon_index + 1, end=line.length())
+  Some((label, md_trim_edges(rest)))
+}
+
+///|
+fn md_is_footnote_continuation_line(line : String) -> Bool {
+  if line.is_empty() {
+    return true
+  }
+  md_has_prefix_at(line, 0, "    ") ||
+  md_has_prefix_at(line, 0, "\t") ||
+  md_has_prefix_at(line, 0, "  ")
+}
+
+///|
+fn md_strip_footnote_continuation_indent(line : String) -> String {
+  if md_has_prefix_at(line, 0, "    ") {
+    line.unsafe_substring(start=4, end=line.length())
+  } else if md_has_prefix_at(line, 0, "\t") {
+    line.unsafe_substring(start=1, end=line.length())
+  } else if md_has_prefix_at(line, 0, "  ") {
+    line.unsafe_substring(start=2, end=line.length())
+  } else {
+    line
+  }
+}
+
+///|
+fn md_upsert_link_reference(
+  defs : Array[MdLinkReference],
+  label : String,
+  href : String,
+) -> Unit {
+  for i in 0..<defs.length() {
+    if defs[i].label == label {
+      defs[i] = MdLinkReference::{ label, href }
+      return
+    }
+  }
+  defs.push(MdLinkReference::{ label, href })
+}
+
+///|
+fn md_upsert_footnote_lines(
+  defs : Array[(String, Array[String])],
+  label : String,
+  lines : Array[String],
+) -> Unit {
+  for i in 0..<defs.length() {
+    if defs[i].0 == label {
+      defs[i] = (label, lines)
+      return
+    }
+  }
+  defs.push((label, lines))
+}
+
+///|
+fn md_extract_definitions(
+  lines : Array[String],
+  start_line : Int,
+) -> (Array[String], Array[MdLinkReference], Array[(String, Array[String])]) {
+  let content_lines : Array[String] = []
+  let link_references : Array[MdLinkReference] = []
+  let footnote_lines : Array[(String, Array[String])] = []
+  let mut i = start_line
+  while i < lines.length() {
+    match md_parse_link_reference_definition(lines[i]) {
+      Some((label, href)) => {
+        md_upsert_link_reference(link_references, label, href)
+        content_lines.push("")
+        i += 1
+        continue
+      }
+      None => ()
+    }
+    match md_parse_footnote_definition_start(lines[i]) {
+      Some((label, first_line)) => {
+        let body_lines : Array[String] = [first_line]
+        i += 1
+        while i < lines.length() {
+          if !md_is_footnote_continuation_line(lines[i]) {
+            break
+          }
+          body_lines.push(md_strip_footnote_continuation_indent(lines[i]))
+          i += 1
+        }
+        md_upsert_footnote_lines(footnote_lines, label, body_lines)
+        content_lines.push("")
+        continue
+      }
+      None => ()
+    }
+    content_lines.push(lines[i])
+    i += 1
+  }
+  (content_lines, link_references, footnote_lines)
+}
+
+///|
 fn md_is_blank_line(line : String) -> Bool {
   if line.is_empty() {
     return true
@@ -604,18 +799,41 @@ fn parse_heading_block(state : BlockState, line : Int) -> Int? {
     return None
   }
   state.tokens.push(
-    make_token("heading", tag, children=parse_inline_tokens(body)),
+    make_token(
+      "heading",
+      tag,
+      children=parse_inline_tokens_with_context(
+        body,
+        state.link_references,
+        state.footnotes,
+      ),
+    ),
   )
   Some(line + 1)
 }
 
 ///|
-fn make_table_row_token(cells : Array[String], header : Bool) -> MdToken {
+fn make_table_row_token_with_context(
+  cells : Array[String],
+  header : Bool,
+  link_references : Array[MdLinkReference],
+  footnotes : Array[MdFootnote],
+) -> MdToken {
   let children = []
   for cell in cells {
     let typ = if header { "table_head_cell" } else { "table_cell" }
     let tag = if header { "th" } else { "td" }
-    children.push(make_token(typ, tag, children=parse_inline_tokens(cell)))
+    children.push(
+      make_token(
+        typ,
+        tag,
+        children=parse_inline_tokens_with_context(
+          cell,
+          link_references,
+          footnotes,
+        ),
+      ),
+    )
   }
   let row_typ = if header { "table_head_row" } else { "table_row" }
   make_token(row_typ, "tr", children~)
@@ -635,7 +853,14 @@ fn parse_table_block(state : BlockState, line : Int) -> Int? {
   if header_cells.length() != columns {
     return None
   }
-  let rows : Array[MdToken] = [make_table_row_token(header_cells, true)]
+  let rows : Array[MdToken] = [
+    make_table_row_token_with_context(
+      header_cells,
+      true,
+      state.link_references,
+      state.footnotes,
+    ),
+  ]
   let mut i = line + 2
   while i < state.lines.length() {
     if md_is_blank_line(state.lines[i]) {
@@ -645,7 +870,14 @@ fn parse_table_block(state : BlockState, line : Int) -> Int? {
     if cells.length() != columns {
       break
     }
-    rows.push(make_table_row_token(cells, false))
+    rows.push(
+      make_table_row_token_with_context(
+        cells,
+        false,
+        state.link_references,
+        state.footnotes,
+      ),
+    )
     i += 1
   }
   state.tokens.push(make_token("table", "table", children=rows))
@@ -670,7 +902,12 @@ fn parse_blockquote_block(state : BlockState, line : Int) -> Int? {
     make_token(
       "blockquote",
       "blockquote",
-      children=parse_tokens_from_lines(inner_lines),
+      children=parse_blocks_from_lines(
+        inner_lines,
+        0,
+        state.link_references,
+        state.footnotes,
+      ),
     ),
   )
   Some(i)
@@ -691,7 +928,15 @@ fn parse_unordered_list_block(state : BlockState, line : Int) -> Int? {
   let children = []
   for item in items {
     children.push(
-      make_token("list_item", "li", children=parse_inline_tokens(item)),
+      make_token(
+        "list_item",
+        "li",
+        children=parse_inline_tokens_with_context(
+          item,
+          state.link_references,
+          state.footnotes,
+        ),
+      ),
     )
   }
   state.tokens.push(make_token("bullet_list", "ul", children~))
@@ -715,7 +960,15 @@ fn parse_ordered_list_block(state : BlockState, line : Int) -> Int? {
   let item_tokens = []
   for item in items {
     item_tokens.push(
-      make_token("list_item", "li", children=parse_inline_tokens(item)),
+      make_token(
+        "list_item",
+        "li",
+        children=parse_inline_tokens_with_context(
+          item,
+          state.link_references,
+          state.footnotes,
+        ),
+      ),
     )
   }
   let attrs = [("start", start_text)]
@@ -747,7 +1000,12 @@ fn parse_html_block(state : BlockState, line : Int) -> Int? {
               "html_block",
               tag,
               attrs~,
-              children=parse_blocks_from_lines(body_lines, 0),
+              children=parse_blocks_from_lines(
+                body_lines,
+                0,
+                state.link_references,
+                state.footnotes,
+              ),
             ),
           )
           return Some(i + 1)
@@ -794,7 +1052,15 @@ fn parse_paragraph_block(state : BlockState, line : Int) -> Int? {
   }
   let body = parts.join(" ")
   state.tokens.push(
-    make_token("paragraph", "p", children=parse_inline_tokens(body)),
+    make_token(
+      "paragraph",
+      "p",
+      children=parse_inline_tokens_with_context(
+        body,
+        state.link_references,
+        state.footnotes,
+      ),
+    ),
   )
   Some(i)
 }
@@ -812,8 +1078,10 @@ fn block_rules() -> Array[BlockRule] {
 fn parse_blocks_from_lines(
   lines : Array[String],
   start_line : Int,
+  link_references : Array[MdLinkReference],
+  footnotes : Array[MdFootnote],
 ) -> Array[MdToken] {
-  let state = BlockState::{ lines, tokens: [] }
+  let state = BlockState::{ lines, tokens: [], link_references, footnotes }
   let rules = block_rules()
   let mut line = start_line
   while line < state.lines.length() {
@@ -843,6 +1111,8 @@ fn parse_blocks_from_lines(
 fn parse_tokens_from_lines(lines : Array[String]) -> Array[MdToken] {
   let tokens : Array[MdToken] = []
   let mut start_line = 0
+  let mut link_references : Array[MdLinkReference] = []
+  let footnotes : Array[MdFootnote] = []
   match try_consume_front_matter(lines) {
     Some((front_matter, next_line)) => {
       tokens.push(front_matter)
@@ -850,7 +1120,25 @@ fn parse_tokens_from_lines(lines : Array[String]) -> Array[MdToken] {
     }
     None => ()
   }
-  for token in parse_blocks_from_lines(lines, start_line) {
+  let (content_lines, extracted_links, extracted_footnote_lines) = md_extract_definitions(
+    lines,
+    start_line,
+  )
+  link_references = extracted_links
+  for footnote_entry in extracted_footnote_lines {
+    let value = footnote_entry.1.join(" ")
+    footnotes.push(MdFootnote::{
+      label: footnote_entry.0,
+      value,
+      value_tokens: parse_inline_tokens_with_context(value, link_references, []),
+    })
+  }
+  for token in parse_blocks_from_lines(
+    content_lines,
+    0,
+    link_references,
+    footnotes,
+  ) {
     tokens.push(token)
   }
   tokens
@@ -860,6 +1148,8 @@ fn parse_tokens_from_lines(lines : Array[String]) -> Array[MdToken] {
 fn parse_document_from_lines(lines : Array[String]) -> MdDocument {
   let mut metadata : Array[MdMetadataItem] = []
   let mut start_line = 0
+  let mut link_references : Array[MdLinkReference] = []
+  let footnotes : Array[MdFootnote] = []
   match try_consume_front_matter(lines) {
     Some((front_matter, next_line)) => {
       metadata = parse_metadata_from_front_matter_content(front_matter.content)
@@ -867,7 +1157,25 @@ fn parse_document_from_lines(lines : Array[String]) -> MdDocument {
     }
     None => ()
   }
-  MdDocument::{ metadata, tokens: parse_blocks_from_lines(lines, start_line) }
+  let (content_lines, extracted_links, extracted_footnote_lines) = md_extract_definitions(
+    lines,
+    start_line,
+  )
+  link_references = extracted_links
+  for footnote_entry in extracted_footnote_lines {
+    let value = footnote_entry.1.join(" ")
+    footnotes.push(MdFootnote::{
+      label: footnote_entry.0,
+      value,
+      value_tokens: parse_inline_tokens_with_context(value, link_references, []),
+    })
+  }
+  MdDocument::{
+    metadata,
+    tokens: parse_blocks_from_lines(content_lines, 0, link_references, footnotes),
+    link_references,
+    footnotes,
+  }
 }
 
 ///|
@@ -883,6 +1191,50 @@ fn inline_rule_code(state : InlineState, pos : Int) -> (MdToken, Int)? {
 }
 
 ///|
+fn md_lookup_link_reference_href(
+  refs : Array[MdLinkReference],
+  raw_label : String,
+) -> String? {
+  let key = md_normalize_reference_label(raw_label)
+  if key.is_empty() {
+    return None
+  }
+  for item in refs {
+    if item.label == key {
+      return Some(item.href)
+    }
+  }
+  None
+}
+
+///|
+fn md_has_footnote(footnotes : Array[MdFootnote], raw_label : String) -> Bool {
+  let key = md_normalize_reference_label(raw_label)
+  if key.is_empty() {
+    return false
+  }
+  footnotes.iter().any(fn(item) { item.label == key })
+}
+
+///|
+fn inline_rule_footnote_ref(state : InlineState, pos : Int) -> (MdToken, Int)? {
+  if pos + 2 >= state.source.length() ||
+    !md_has_prefix_at(state.source, pos, "[^") {
+    return None
+  }
+  guard md_find_char_from(state.source, ']', pos + 2) is Some(close_bracket) else {
+    return None
+  }
+  let raw_label = state.source.unsafe_substring(start=pos + 2, end=close_bracket)
+  if !md_has_footnote(state.footnotes, raw_label) {
+    return None
+  }
+  let label = md_normalize_reference_label(raw_label)
+  let attrs = [("ref", label)]
+  Some((make_token("footnote_ref", "fnref", attrs~), close_bracket + 1))
+}
+
+///|
 fn inline_rule_link(state : InlineState, pos : Int) -> (MdToken, Int)? {
   if pos >= state.source.length() || md_char_at(state.source, pos) != '[' {
     return None
@@ -891,24 +1243,85 @@ fn inline_rule_link(state : InlineState, pos : Int) -> (MdToken, Int)? {
     return None
   }
   let open_paren = close_bracket + 1
-  if open_paren >= state.source.length() ||
-    md_char_at(state.source, open_paren) != '(' {
-    return None
-  }
-  guard md_find_char_from(state.source, ')', open_paren + 1)
-    is Some(close_paren) else {
-    return None
+  if open_paren < state.source.length() &&
+    md_char_at(state.source, open_paren) == '(' {
+    guard md_find_char_from(state.source, ')', open_paren + 1)
+      is Some(close_paren) else {
+      return None
+    }
+    let label = state.source.unsafe_substring(start=pos + 1, end=close_bracket)
+    let href = state.source.unsafe_substring(
+      start=open_paren + 1,
+      end=close_paren,
+    )
+    let attrs = [("href", href)]
+    return Some(
+      (
+        make_token(
+          "link",
+          "a",
+          attrs~,
+          children=parse_inline_tokens_with_context(
+            label,
+            state.link_references,
+            state.footnotes,
+          ),
+        ),
+        close_paren + 1,
+      ),
+    )
   }
   let label = state.source.unsafe_substring(start=pos + 1, end=close_bracket)
-  let href = state.source.unsafe_substring(
-    start=open_paren + 1,
-    end=close_paren,
-  )
-  let attrs = [("href", href)]
+  if open_paren < state.source.length() &&
+    md_char_at(state.source, open_paren) == '[' {
+    guard md_find_char_from(state.source, ']', open_paren + 1)
+      is Some(close_ref) else {
+      return None
+    }
+    let raw_ref = state.source.unsafe_substring(start=open_paren + 1, end=close_ref)
+    let lookup_label = if raw_ref.is_empty() { label } else { raw_ref }
+    guard md_lookup_link_reference_href(state.link_references, lookup_label)
+      is Some(href) else {
+      return None
+    }
+    let display_label = if label.is_empty() { lookup_label } else { label }
+    let attrs = [
+      ("ref", md_normalize_reference_label(lookup_label)),
+      ("href", href),
+    ]
+    return Some(
+      (
+        make_token(
+          "link_ref",
+          "a",
+          attrs~,
+          children=parse_inline_tokens_with_context(
+            display_label,
+            state.link_references,
+            state.footnotes,
+          ),
+        ),
+        close_ref + 1,
+      ),
+    )
+  }
+  guard md_lookup_link_reference_href(state.link_references, label) is Some(href) else {
+    return None
+  }
+  let attrs = [("ref", md_normalize_reference_label(label)), ("href", href)]
   Some(
     (
-      make_token("link", "a", attrs~, children=parse_inline_tokens(label)),
-      close_paren + 1,
+      make_token(
+        "link_ref",
+        "a",
+        attrs~,
+        children=parse_inline_tokens_with_context(
+          label,
+          state.link_references,
+          state.footnotes,
+        ),
+      ),
+      close_bracket + 1,
     ),
   )
 }
@@ -924,7 +1337,15 @@ fn inline_rule_strong(state : InlineState, pos : Int) -> (MdToken, Int)? {
   let inner = state.source.unsafe_substring(start=pos + 2, end=end_index)
   Some(
     (
-      make_token("strong", "strong", children=parse_inline_tokens(inner)),
+      make_token(
+        "strong",
+        "strong",
+        children=parse_inline_tokens_with_context(
+          inner,
+          state.link_references,
+          state.footnotes,
+        ),
+      ),
       end_index + 2,
     ),
   )
@@ -943,7 +1364,18 @@ fn inline_rule_em(state : InlineState, pos : Int) -> (MdToken, Int)? {
   }
   let inner = state.source.unsafe_substring(start=pos + 1, end=end_index)
   Some(
-    (make_token("em", "em", children=parse_inline_tokens(inner)), end_index + 1),
+    (
+      make_token(
+        "em",
+        "em",
+        children=parse_inline_tokens_with_context(
+          inner,
+          state.link_references,
+          state.footnotes,
+        ),
+      ),
+      end_index + 1,
+    ),
   )
 }
 
@@ -1182,14 +1614,18 @@ fn inline_rule_text(state : InlineState, pos : Int) -> (MdToken, Int)? {
 ///|
 fn inline_rules() -> Array[InlineRule] {
   [
-    inline_rule_code, inline_rule_link, inline_rule_strong, inline_rule_em, inline_rule_html,
+    inline_rule_code, inline_rule_footnote_ref, inline_rule_link, inline_rule_strong, inline_rule_em, inline_rule_html,
     inline_rule_math, inline_rule_text,
   ]
 }
 
 ///|
-fn parse_inline_tokens(source : String) -> Array[MdToken] {
-  let state = InlineState::{ source, tokens: [] }
+fn parse_inline_tokens_with_context(
+  source : String,
+  link_references : Array[MdLinkReference],
+  footnotes : Array[MdFootnote],
+) -> Array[MdToken] {
+  let state = InlineState::{ source, tokens: [], link_references, footnotes }
   let rules = inline_rules()
   let mut pos = 0
   while pos < state.source.length() {
@@ -1210,6 +1646,11 @@ fn parse_inline_tokens(source : String) -> Array[MdToken] {
     }
   }
   state.tokens
+}
+
+///|
+fn parse_inline_tokens(source : String) -> Array[MdToken] {
+  parse_inline_tokens_with_context(source, [], [])
 }
 
 ///|

@@ -2,7 +2,13 @@
 pub(all) enum Term {
   Text(String, SourceLoc)
   App(Name, Array[Term], SourceLoc)
-  TemplateDefinition(Name, Array[Name], Array[(Name, Array[Term])], Array[Term], SourceLoc)
+  TemplateDefinition(
+    Name,
+    Array[Name],
+    Array[(Name, Array[Term])],
+    Array[Term],
+    SourceLoc
+  )
   Splice(Array[Term], SourceLoc)
   Comment(String, SourceLoc)
 } derive(Eq, Show, Debug)

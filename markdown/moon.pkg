@@ -1,13 +1,3 @@
 import {
   "altsia/altsia/core",
 }
-
-options(
-  "pre-build": [
-  // {
-  //   "command": ":embed -i $input -o $output",
-  //   "input": "local_source.md",
-  //   "output": "local_source.mbt",
-  // },
-  ],
-)

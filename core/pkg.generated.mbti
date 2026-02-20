@@ -151,6 +151,9 @@ pub impl Eq for InlineNode
 pub impl Show for InlineNode
 pub impl @debug.Debug for InlineNode
 
+pub type MarkdownAbbrev
+pub fn MarkdownAbbrev::desugar(Html) -> Html
+
 pub(all) enum Mdx {
   Text(String)
   Comment(String)

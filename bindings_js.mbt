@@ -26,7 +26,7 @@ fn altsia_to_html_with_rewriter_impl(
   |> @core.Stage2Extern::rewrite_apps(extern_api.to_rewriter())
   |> @core.Stage3::pass
   |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
-  |> CommonMark::desugar
+  |> @core.MarkdownAbbrev::desugar
   |> @core.Html::visit_text(text_rewriter)
   |> @core.Html::to_string
 }

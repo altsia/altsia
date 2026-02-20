@@ -304,3 +304,38 @@ test "MarkdownIt generated altsia stays stage1-parseable after normalize" {
   let altsia = MarkdownIt::to_altsia(source, max_width=80)
   let _ = @core.Stage1::parse(altsia)
 }
+
+///|
+test "MarkdownIt converts reference-style links with lambda declarations" {
+  let source =
+    #|[aczél-engel]: /trees/CN2E.md
+    #|
+    #|Read [][aczél-engel] and [tree][aczél-engel].
+  let altsia = MarkdownIt::to_altsia(source, normalize=false)
+  let expected =
+    #|(λ md_link_ref_1 (content...) (a (:href /trees/CN2E.md) (content)))
+    #|
+    #|(p Read (md_link_ref_1 aczél-engel) and (md_link_ref_1 tree).)
+  assert_eq(altsia, expected)
+}
+
+///|
+test "MarkdownIt converts footnotes and reference links together" {
+  let source =
+    #|alpha[^n1].
+    #|
+    #|[^n1]: beta [x][ref]
+    #|[ref]: /r
+  let altsia = MarkdownIt::to_altsia(source, normalize=false)
+  let expected =
+    #|(λ md_link_ref_1 (content...) (a (:href /r) (content)))
+    #|
+    #|(λ md_footnote_ref_1 () (sup (a (:href #md-footnote-1) 1)))
+    #|
+    #|(λ md_footnote_item_1 () (li (:id md-footnote-1) beta (md_link_ref_1 x)))
+    #|
+    #|(p alpha(md_footnote_ref_1).)
+    #|
+    #|(section (:class footnotes) (ol (md_footnote_item_1)))
+  assert_eq(altsia, expected)
+}

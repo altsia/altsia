@@ -10,14 +10,14 @@ pub fn normalized_shape_to_source(NormalizedShape) -> String
 
 pub fn normalized_shapes_to_source(Array[NormalizedShape]) -> String
 
-pub let resource : String
-
 // Errors
 
 // Types and methods
 pub(all) struct BlockState {
   lines : Array[String]
   tokens : Array[MdToken]
+  link_references : Array[MdLinkReference]
+  footnotes : Array[MdFootnote]
 }
 
 pub(all) enum Gap {
@@ -36,6 +36,8 @@ pub impl @debug.Debug for InlineHtmlTag
 pub(all) struct InlineState {
   source : String
   tokens : Array[MdToken]
+  link_references : Array[MdLinkReference]
+  footnotes : Array[MdFootnote]
 }
 
 pub type MarkdownIt
@@ -47,10 +49,29 @@ pub fn MarkdownIt::to_shapes(String) -> Array[NormalizedShape]
 pub(all) struct MdDocument {
   metadata : Array[MdMetadataItem]
   tokens : Array[MdToken]
+  link_references : Array[MdLinkReference]
+  footnotes : Array[MdFootnote]
 }
 pub impl Eq for MdDocument
 pub impl Show for MdDocument
 pub impl @debug.Debug for MdDocument
+
+pub(all) struct MdFootnote {
+  label : String
+  value : String
+  value_tokens : Array[MdToken]
+}
+pub impl Eq for MdFootnote
+pub impl Show for MdFootnote
+pub impl @debug.Debug for MdFootnote
+
+pub(all) struct MdLinkReference {
+  label : String
+  href : String
+}
+pub impl Eq for MdLinkReference
+pub impl Show for MdLinkReference
+pub impl @debug.Debug for MdLinkReference
 
 pub(all) struct MdMetadataItem {
   key : String

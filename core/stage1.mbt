@@ -200,8 +200,9 @@ fn parse_quote_inline(source : String, start : Int) -> (String, Int) raise {
   let len = source.length()
   let mut i = start + 1
   while i < len {
-    if char_at(source, i) == '`' {
-      return (source.unsafe_substring(start=start + 1, end=i), i + 1)
+    if char_at(source, i) == '`' && !(i > 0 && char_at(source, i - 1) == '\\') {
+      let raw = source.unsafe_substring(start=start + 1, end=i)
+      return (stage1_unescape_quote_inline(raw), i + 1)
     }
     i += 1
   }
@@ -653,6 +654,11 @@ fn stage1_unescape_text(value : String) -> String {
 }
 
 ///|
+fn stage1_unescape_quote_inline(value : String) -> String {
+  value.replace_all(old="\\`", new="`")
+}
+
+///|
 fn escape_text(value : String) -> String {
   value
   .replace_all(old="(", new="\\(")
@@ -668,7 +674,7 @@ fn render_block(content : String) -> String {
 
 ///|
 fn render_inline_quote(content : String) -> String {
-  "`" + content + "`"
+  "`" + content.replace_all(old="`", new="\\`") + "`"
 }
 
 ///|

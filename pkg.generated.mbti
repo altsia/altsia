@@ -29,9 +29,6 @@ pub fn altsia_to_html_with_rewriter_result(String, (String) -> String, ExternApi
 // Errors
 
 // Types and methods
-pub type CommonMark
-pub fn CommonMark::desugar(@core.Html) -> @core.Html
-
 pub(all) struct ExternApi {
   read : (String) -> String
   katex_render : (String) -> String

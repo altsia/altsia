@@ -144,7 +144,10 @@ fn stage2_etale_has_named_param(params : Array[Name], candidate : Name) -> Bool 
 }
 
 ///|
-fn stage2_etale_named_arg_value(values : Array[Term], loc : SourceLoc) -> Array[Term] {
+fn stage2_etale_named_arg_value(
+  values : Array[Term],
+  loc : SourceLoc,
+) -> Array[Term] {
   let semantic_values = stage2_etale_strip_layout_gap_spaces(values)
   if semantic_values.is_empty() {
     [Text("", loc)]

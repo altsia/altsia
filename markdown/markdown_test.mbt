@@ -313,10 +313,18 @@ test "MarkdownIt converts reference-style links with lambda declarations" {
     #|Read [][aczél-engel] and [tree][aczél-engel].
   let altsia = MarkdownIt::to_altsia(source, normalize=false)
   let expected =
-    #|(λ md_link_ref_1 (content...) (a (:href /trees/CN2E.md) (content)))
+    #|(λ aczél-engel () /trees/CN2E.md)
     #|
-    #|(p Read (md_link_ref_1 aczél-engel) and (md_link_ref_1 tree).)
+    #|(p Read (a (:href (aczél-engel))) and (a (:href (aczél-engel)) tree).)
   assert_eq(altsia, expected)
+  let html = altsia
+    |> @core.Stage1::parse
+    |> @core.Stage2::pass
+    |> @core.Stage2Etale::expand_program
+    |> @core.Stage3::pass
+    |> @core.Html::from
+    |> @core.Html::to_string
+  assert_true(html.contains("<a href=\"/trees/CN2E.md\"></a>"))
 }
 
 ///|
@@ -328,11 +336,11 @@ test "MarkdownIt converts footnotes and reference links together" {
     #|[ref]: /r
   let altsia = MarkdownIt::to_altsia(source, normalize=false)
   let expected =
-    #|(λ md_link_ref_1 (content...) (a (:href /r) (content)))
+    #|(λ ref () /r)
     #|
-    #|(λ md_footnote_ref_1 () (sup (a (:href #md-footnote-1) 1)))
+    #|(λ md_footnote_ref_1 () (sup (a (:href #md-footnote-1)1)))
     #|
-    #|(λ md_footnote_item_1 () (li (:id md-footnote-1) beta (md_link_ref_1 x)))
+    #|(λ md_footnote_item_1 () (li (:id md-footnote-1)beta (a (:href (ref)) x)))
     #|
     #|(p alpha(md_footnote_ref_1).)
     #|

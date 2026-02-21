@@ -15,6 +15,24 @@ pub fn forester_build_project_context(Array[DocEntry]) -> ProjectContext raise
 
 pub fn forester_index_document(String, String) -> IndexedDocument raise
 
+pub fn hattr(String, String) -> (String, String)
+
+pub fn hclass(Array[String]) -> (String, String)
+
+pub fn hel(String, attrs? : Array[(String, String)], children? : Array[HtmlTermNode]) -> HtmlTermNode
+
+pub fn hterm(HtmlTermNode, @core.SourceLoc) -> @core.Term
+
+pub fn htext(String) -> HtmlTermNode
+
+pub fn html_attr(String, String) -> (String, String)
+
+pub fn html_class_attr(Array[String]) -> (String, String)
+
+pub fn html_element_node(String, attrs? : Array[(String, String)], children? : Array[HtmlTermNode]) -> HtmlTermNode
+
+pub fn html_text_node(String) -> HtmlTermNode
+
 pub fn parse_terms_for_forester(String) -> Array[@core.Term] raise
 
 // Errors
@@ -47,6 +65,24 @@ pub fn ForesterDeployOptions::to_deploy_href(Self, String) -> String
 pub impl Eq for ForesterDeployOptions
 pub impl Show for ForesterDeployOptions
 pub impl @debug.Debug for ForesterDeployOptions
+
+pub(all) struct HtmlTermElement {
+  tag : String
+  attrs : Array[(String, String)]
+  children : Array[HtmlTermNode]
+}
+pub impl Eq for HtmlTermElement
+pub impl Show for HtmlTermElement
+pub impl @debug.Debug for HtmlTermElement
+
+pub(all) enum HtmlTermNode {
+  Text(String)
+  Element(HtmlTermElement)
+}
+pub fn HtmlTermNode::to_term(Self, @core.SourceLoc) -> @core.Term
+pub impl Eq for HtmlTermNode
+pub impl Show for HtmlTermNode
+pub impl @debug.Debug for HtmlTermNode
 
 pub(all) struct IndexedDocument {
   doc_id : String

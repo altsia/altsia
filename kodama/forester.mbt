@@ -72,14 +72,12 @@ fn build_ref_anchor_shape(
   title : String?,
   loc : @core.SourceLoc,
 ) -> @core.Term {
-  let args : Array[@core.Term] = [
-    @core.Term::App(":href", [@core.Term::Text(href, loc)], loc),
-  ]
+  let anchor_attrs : Array[(String, String)] = [html_attr("href", href)]
   match title {
-    Some(title) =>
-      args.push(@core.Term::App(":title", [@core.Term::Text(title, loc)], loc))
+    Some(title) => anchor_attrs.push(html_attr("title", title))
     None => ()
   }
-  args.push(@core.Term::Text(content, loc))
-  @core.Term::App("a", args, loc)
+  hel("span", attrs=[hclass(["link", "local"])], children=[
+    hel("a", attrs=anchor_attrs, children=[htext(content)]),
+  ]).to_term(loc)
 }

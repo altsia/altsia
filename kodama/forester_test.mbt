@@ -109,7 +109,10 @@ test "Forester pass with context keeps current rendering behavior" {
     { id: "b.alt", content: "(metadata (:title B))" },
   ])
   let html = forester_pass_with_context(source, ctx, "a.alt")
-  assert_eq(html, "<div><p><a href=\"b.alt\" title=\"B [b]\">B</a></p></div>")
+  assert_eq(
+    html,
+    "<div><p><span class=\"link local\"><a href=\"b.alt\" title=\"B [b]\">B</a></span></p></div>",
+  )
 }
 
 ///|
@@ -120,7 +123,8 @@ test "Forester pass with context keeps explicit ref text over target title" {
   ])
   let html = forester_pass_with_context(source, ctx, "a.alt")
   assert_eq(
-    html, "<div><p><a href=\"b.alt\" title=\"B [b]\">Read B</a></p></div>",
+    html,
+    "<div><p><span class=\"link local\"><a href=\"b.alt\" title=\"B [b]\">Read B</a></span></p></div>",
   )
 }
 
@@ -133,7 +137,7 @@ test "Forester pass resolves relative ref target against current doc id" {
   let html = forester_pass_with_context(source, ctx, "notes/a.alt")
   assert_eq(
     html,
-    "<div><p><a href=\"./b.alt\" title=\"B [notes/b]\">B</a></p></div>",
+    "<div><p><span class=\"link local\"><a href=\"./b.alt\" title=\"B [notes/b]\">B</a></span></p></div>",
   )
 }
 
@@ -146,6 +150,6 @@ test "Forester pass resolves parent relative ref target against current doc id" 
   let html = forester_pass_with_context(source, ctx, "notes/a.alt")
   assert_eq(
     html,
-    "<div><p><a href=\"../b.alt\" title=\"B [b]\">B</a></p></div>",
+    "<div><p><span class=\"link local\"><a href=\"../b.alt\" title=\"B [b]\">B</a></span></p></div>",
   )
 }

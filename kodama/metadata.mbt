@@ -21,20 +21,11 @@ pub fn extract_doc_metadata_from_terms(
 }
 
 ///|
-fn normalize_metadata_key(key : String) -> String {
-  if key.has_prefix(":") {
-    key
-  } else {
-    ":\{key}"
-  }
-}
-
-///|
 pub fn DocMetadata::get(
   metadata : DocMetadata,
   key : String,
 ) -> @core.NamedAppArg? {
-  let lookup = normalize_metadata_key(key)
+  let lookup = normalize_named_arg_key(key)
   for entry in metadata.named {
     if entry.name == lookup {
       return Some(entry)

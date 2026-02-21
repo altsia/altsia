@@ -45,17 +45,6 @@ fn metadata_convert_context(convert_katex : KatexConvertMode) -> ConvertContext 
 }
 
 ///|
-fn should_convert_katex_to_app(
-  tex : String,
-  mode : KatexConvertMode,
-) -> Bool {
-  match mode {
-    AlwaysApp => true
-    NeverApp => false
-    AppWhenHasParens => tex.contains("(") || tex.contains(")")
-  }
-}
-
 fn token_attr_value(token : MdToken, key : String) -> String? {
   for attr in token.attrs {
     if attr.0 == key {

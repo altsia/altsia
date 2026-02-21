@@ -136,6 +136,33 @@ test "MarkdownIt can auto-convert katex by parentheses for display math" {
 }
 
 ///|
+test "MarkdownIt always converts macro definition math to app form in never mode" {
+  let source = "a $\\def\\foo{x}$ b"
+  let altsia = MarkdownIt::to_altsia(source, normalize=false, options={
+    convert_katex: NeverApp,
+  })
+  assert_eq(altsia, "(p a k`\\def\\foo{x}` b)")
+}
+
+///|
+test "MarkdownIt always converts macro definition math to app form in auto mode" {
+  let source = "a $\\newcommand{\\foo}{x}$ b"
+  let altsia = MarkdownIt::to_altsia(source, normalize=false, options={
+    convert_katex: AppWhenHasParens,
+  })
+  assert_eq(altsia, "(p a k`\\newcommand{\\foo}{x}` b)")
+}
+
+///|
+test "MarkdownIt emits standalone macro definition math without paragraph wrapper" {
+  let source = "$\\def\\foo{x}$"
+  let altsia = MarkdownIt::to_altsia(source, normalize=false, options={
+    convert_katex: NeverApp,
+  })
+  assert_eq(altsia, "k`\\def\\foo{x}`")
+}
+
+///|
 test "MarkdownIt keeps brace-nested tex body intact" {
   let source = "tex $\\frac{a}{b}$."
   let altsia = MarkdownIt::to_altsia(source, normalize=false)

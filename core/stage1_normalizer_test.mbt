@@ -370,7 +370,8 @@ test "Stage1 normalizer is idempotent" {
 
 ///|
 test "Stage1 normalizer exposes structured diagnostics" {
-  let diagnostic = match altsia_normalize_diagnostics("oops") {
+  let diagnostic = match
+    altsia_normalize_diagnostics("oops", weak_toplevel_constraint=false) {
     Err(errors) => {
       guard !errors.is_empty() else {
         fail("expected at least one normalize error")

@@ -833,9 +833,13 @@ fn normalize_nodes_with_skip(
 }
 
 ///|
-fn altsia_normalize_impl(source : String, max_width : Int) -> String raise {
+fn altsia_normalize_impl(
+  source : String,
+  max_width : Int,
+  weak_toplevel_constraint? : Bool = true,
+) -> String raise {
   let max_width = sanitize_max_width(max_width)
-  let nodes = Stage1::parse(source)
+  let nodes = Stage1::parse(source, weak_toplevel_constraint~)
   normalize_nodes_with_skip(
     nodes,
     source,
@@ -930,8 +934,11 @@ pub fn altsia_normalize_diagnostics(
   source : String,
   language? : String = default_language,
   max_width? : Int = default_max_width,
+  weak_toplevel_constraint? : Bool = true,
 ) -> Result[String, Array[RenderError]] {
-  try altsia_normalize_impl(source, max_width) catch {
+  try
+    altsia_normalize_impl(source, max_width, weak_toplevel_constraint~)
+  catch {
     err => Err([render_error(err, source, language)])
   } noraise {
     normalized => Ok(normalized)

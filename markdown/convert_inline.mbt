@@ -6,7 +6,15 @@ enum InlineHtmlTag {
 } derive(Eq, Show, Debug)
 
 ///|
-fn make_math_shape(tex : String, display : Bool) -> NormalizedShape {
+fn make_math_shape(
+  tex : String,
+  display : Bool,
+  convert_katex : KatexConvertMode,
+) -> NormalizedShape {
+  if !should_convert_katex_to_app(tex, convert_katex) {
+    let delimiter = if display { "$$" } else { "$" }
+    return Text("\{delimiter}\{tex}\{delimiter}")
+  }
   if display {
     App([Text("kd"), QuoteInline(tex)], [Space])
   } else {
@@ -269,7 +277,11 @@ fn inline_tokens_to_shape_sequence(
         push_shape_arg(
           nodes,
           gaps,
-          make_math_shape(token.content, token.typ == "math_display_inline"),
+          make_math_shape(
+            token.content,
+            token.typ == "math_display_inline",
+            ctx.convert_katex,
+          ),
           gap_before~,
         )
         pending_space = false
@@ -405,5 +417,3 @@ fn inline_tokens_to_shape_sequence(
   }
   (nodes, gaps)
 }
-
-///|

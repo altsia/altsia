@@ -31,18 +31,31 @@ priv struct ConvertContext {
   link_lambda_map : Map[String, String]
   footnote_ref_lambda_map : Map[String, String]
   footnote_item_lambda_names : Array[String]
+  convert_katex : KatexConvertMode
 }
 
 ///|
-fn empty_convert_context() -> ConvertContext {
+fn metadata_convert_context(convert_katex : KatexConvertMode) -> ConvertContext {
   ConvertContext::{
     link_lambda_map: Map::new(),
     footnote_ref_lambda_map: Map::new(),
     footnote_item_lambda_names: [],
+    convert_katex,
   }
 }
 
 ///|
+fn should_convert_katex_to_app(
+  tex : String,
+  mode : KatexConvertMode,
+) -> Bool {
+  match mode {
+    AlwaysApp => true
+    NeverApp => false
+    AppWhenHasParens => tex.contains("(") || tex.contains(")")
+  }
+}
+
 fn token_attr_value(token : MdToken, key : String) -> String? {
   for attr in token.attrs {
     if attr.0 == key {
@@ -180,26 +193,38 @@ fn front_matter_to_shape(content : String) -> NormalizedShape {
 }
 
 ///|
-fn metadata_item_to_shape(item : MdMetadataItem) -> NormalizedShape {
+fn metadata_item_to_shape(
+  item : MdMetadataItem,
+  ctx : ConvertContext,
+) -> NormalizedShape {
   let args : Array[NormalizedShape] = [Text(":\{item.key}")]
   let gaps : Array[Gap] = []
   let (nodes, node_gaps) = inline_tokens_to_shape_sequence(
     item.value_tokens,
-    empty_convert_context(),
+    ctx,
   )
   append_children_to_app(args, gaps, nodes, node_gaps)
   App(args, gaps)
 }
 
 ///|
-fn metadata_to_shape(items : Array[MdMetadataItem]) -> NormalizedShape? {
+fn metadata_to_shape(
+  items : Array[MdMetadataItem],
+  convert_katex : KatexConvertMode,
+) -> NormalizedShape? {
   if items.is_empty() {
     return None
   }
+  let ctx = metadata_convert_context(convert_katex)
   let args : Array[NormalizedShape] = [Text("metadata")]
   let gaps : Array[Gap] = [Space]
   for item in items {
-    push_shape_arg(args, gaps, metadata_item_to_shape(item), gap_before=Space)
+    push_shape_arg(
+      args,
+      gaps,
+      metadata_item_to_shape(item, ctx),
+      gap_before=Space,
+    )
   }
   Some(App(args, gaps))
 }

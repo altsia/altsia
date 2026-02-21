@@ -593,7 +593,54 @@ fn append_quote_to_last_app(
 }
 
 ///|
-pub fn Stage1::parse(source : String) -> Array[S] raise {
+fn remap_weak_wrapped_loc(
+  node_loc : SourceLoc,
+  source : String,
+  tail_start : Int,
+) -> SourceLoc {
+  let prefix_len = 3 // "(_ "
+  let mapped_start = if node_loc.start_offset < prefix_len {
+    tail_start
+  } else {
+    tail_start + node_loc.start_offset - prefix_len
+  }
+  let mapped_end = if node_loc.end_offset < prefix_len {
+    tail_start
+  } else {
+    tail_start + node_loc.end_offset - prefix_len
+  }
+  source_loc_from_offsets(source, mapped_start, mapped_end)
+}
+
+///|
+fn remap_weak_wrapped_node(
+  node : S,
+  source : String,
+  tail_start : Int,
+) -> S {
+  let mapped_loc = remap_weak_wrapped_loc(node.loc(), source, tail_start)
+  match node {
+    Text(value, _) => Text(value, mapped_loc)
+    QuoteInline(value, _) => QuoteInline(value, mapped_loc)
+    QuoteBlock(value, _) => QuoteBlock(value, mapped_loc)
+    App(args, gaps, _) =>
+      App(args.map(fn(arg) { remap_weak_wrapped_node(arg, source, tail_start) }), gaps, mapped_loc)
+  }
+}
+
+///|
+fn parse_weak_toplevel_tail(source : String, tail_start : Int) -> S raise {
+  let tail = source.unsafe_substring(start=tail_start, end=source.length())
+  let wrapped_source = "(_ " + tail + ")"
+  let (wrapped_node, _) = parse_app(wrapped_source, 0)
+  remap_weak_wrapped_node(wrapped_node, source, tail_start)
+}
+
+///|
+pub fn Stage1::parse(
+  source : String,
+  weak_toplevel_constraint? : Bool = false,
+) -> Array[S] raise {
   let len = source.length()
   let mut i = 0
   let result : Array[S] = []
@@ -637,6 +684,10 @@ pub fn Stage1::parse(source : String) -> Array[S] raise {
       None => ()
     }
     let token = source.unsafe_substring(start=i, end=i + 1)
+    if weak_toplevel_constraint {
+      result.push(parse_weak_toplevel_tail(source, i))
+      break
+    }
     raise Stage1Error::UnexpectedTopLevelToken(
       token~,
       loc=one_char_loc(source, i),

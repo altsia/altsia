@@ -35,11 +35,14 @@ pub fn normalized_shapes_to_source(nodes : Array[NormalizedShape]) -> String {
 }
 
 ///|
-pub fn MarkdownIt::to_shapes(source : String) -> Array[NormalizedShape] {
+fn to_shapes_with_options(
+  source : String,
+  options : MarkdownConvertOptions,
+) -> Array[NormalizedShape] {
   let document = MarkdownIt::parse_document(source)
-  let ctx = build_convert_context(document)
+  let ctx = build_convert_context(document, options.convert_katex)
   let shapes : Array[NormalizedShape] = []
-  match metadata_to_shape(document.metadata) {
+  match metadata_to_shape(document.metadata, options.convert_katex) {
     Some(node) => shapes.push(node)
     None => ()
   }
@@ -57,12 +60,22 @@ pub fn MarkdownIt::to_shapes(source : String) -> Array[NormalizedShape] {
 }
 
 ///|
+pub fn MarkdownIt::to_shapes(source : String) -> Array[NormalizedShape] {
+  to_shapes_with_options(
+    source,
+    MarkdownConvertOptions::{ convert_katex: AlwaysApp },
+  )
+}
+
+///|
 pub fn MarkdownIt::to_altsia(
   source : String,
   normalize? : Bool = true,
   max_width? : Int = @core.default_max_width,
+  options? : MarkdownConvertOptions = default_options,
 ) -> String raise {
-  let rendered = MarkdownIt::to_shapes(source) |> normalized_shapes_to_source
+  let rendered = to_shapes_with_options(source, options)
+    |> normalized_shapes_to_source
   if normalize {
     @core.Stage1::normalize(rendered, max_width~)
   } else {

@@ -25,13 +25,28 @@ fn fence_token_to_shape(token : MdToken) -> NormalizedShape {
 }
 
 ///|
+fn math_block_token_to_shape(
+  token : MdToken,
+  convert_katex : KatexConvertMode,
+) -> NormalizedShape {
+  if should_convert_katex_to_app(token.content, convert_katex) {
+    return App([Text("kd"), QuoteInline(token.content)], [Space])
+  }
+  if token_attr_value(token, "math_style") == Some("multi_line") {
+    Text("$$\n\{token.content}\n$$")
+  } else {
+    Text("$$\{token.content}$$")
+  }
+}
+
+///|
 fn block_token_to_shape(
   token : MdToken,
   ctx : ConvertContext,
 ) -> NormalizedShape {
   match token.typ {
     "front_matter" => front_matter_to_shape(token.content)
-    "math_block" => App([Text("kd"), QuoteInline(token.content)], [Space])
+    "math_block" => math_block_token_to_shape(token, ctx.convert_katex)
     "paragraph" | "heading" | "list_item" | "table_head_cell" | "table_cell" => {
       let (nodes, node_gaps) = inline_tokens_to_shape_sequence(
         token.children,

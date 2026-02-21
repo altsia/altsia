@@ -14,7 +14,10 @@ fn make_footnote_anchor_id(index : Int) -> String {
 }
 
 ///|
-fn build_convert_context(document : MdDocument) -> ConvertContext {
+fn build_convert_context(
+  document : MdDocument,
+  convert_katex : KatexConvertMode,
+) -> ConvertContext {
   let link_lambda_map : Map[String, String] = Map::new()
   for entry in document.link_references.to_array() {
     let item = entry.1
@@ -31,6 +34,7 @@ fn build_convert_context(document : MdDocument) -> ConvertContext {
     link_lambda_map,
     footnote_ref_lambda_map,
     footnote_item_lambda_names,
+    convert_katex,
   }
 }
 

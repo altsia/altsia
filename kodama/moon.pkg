@@ -2,14 +2,3 @@ import {
   "altsia/altsia/core",
   "altsia/altsia/date",
 }
-
-options(
-  link: {
-    "js": {
-      "exports": [
-        "kodama_to_html",
-        "kodama_to_html_raise",
-      ],
-    },
-  },
-)

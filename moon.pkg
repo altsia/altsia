@@ -1,5 +1,6 @@
 import {
   "altsia/altsia/core",
+  "altsia/altsia/kodama",
 }
 
 options(
@@ -17,6 +18,8 @@ options(
         "render_error_supported_languages",
         "altsia_to_html_raise",
         "altsia_to_html_with_rewriter_raise",
+        "kodama_to_html",
+        "kodama_to_html_raise",
       ],
     },
   },

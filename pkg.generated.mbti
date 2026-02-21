@@ -3,6 +3,7 @@ package "altsia/altsia"
 
 import {
   "altsia/altsia/core",
+  "altsia/altsia/kodama",
 }
 
 // Values
@@ -18,23 +19,25 @@ pub fn altsia_to_html_raise(String) -> String raise
 
 pub fn altsia_to_html_result(String, language? : String) -> Result[String, Array[String]]
 
-pub fn altsia_to_html_with_rewriter(String, (String) -> String, extern_api? : ExternApi, language? : String) -> String
+pub fn altsia_to_html_with_rewriter(String, (String) -> String, extern_api? : @core.ExternApi, language? : String) -> String
 
-pub fn altsia_to_html_with_rewriter_diagnostics(String, (String) -> String, extern_api? : ExternApi, language? : String) -> Result[String, Array[@core.RenderError]]
+pub fn altsia_to_html_with_rewriter_diagnostics(String, (String) -> String, extern_api? : @core.ExternApi, language? : String) -> Result[String, Array[@core.RenderError]]
 
-pub fn altsia_to_html_with_rewriter_raise(String, (String) -> String, extern_api? : ExternApi) -> String raise
+pub fn altsia_to_html_with_rewriter_raise(String, (String) -> String, extern_api? : @core.ExternApi) -> String raise
 
-pub fn altsia_to_html_with_rewriter_result(String, (String) -> String, extern_api? : ExternApi, language? : String) -> Result[String, Array[String]]
+pub fn altsia_to_html_with_rewriter_result(String, (String) -> String, extern_api? : @core.ExternApi, language? : String) -> Result[String, Array[String]]
 
-pub let empty_extern_api : ExternApi
+pub fn kodama_to_html(String, @kodama.ContextApi, Array[@kodama.DocEntry], HtmlComposeOptions, (String) -> String, extern_api? : @core.ExternApi, language? : String) -> String
+
+pub fn kodama_to_html_raise(String, @kodama.ContextApi, Array[@kodama.DocEntry], HtmlComposeOptions, (String) -> String, extern_api? : @core.ExternApi) -> String raise
 
 // Errors
 
 // Types and methods
-pub(all) struct ExternApi {
-  read : (String) -> String
-  katex_render : (String) -> String
-  katex_display_render : (String) -> String
+pub struct HtmlComposeOptions {
+  extern_api : Bool
+  comment_strip : Bool
+  markdown_abbrev : Bool
 }
 
 // Type aliases

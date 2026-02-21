@@ -29,6 +29,8 @@ pub let default_max_width : Int
 #alias(elaborate_string_literal)
 pub fn elaborate_name(S) -> String raise
 
+pub let empty_extern_api : ExternApi
+
 pub fn is_wide_east_asian(Char) -> Bool
 
 pub fn[E : Show] join_list(@list.List[E], separator? : String) -> String
@@ -128,6 +130,13 @@ pub(all) struct Element[T] {
 pub impl[T : Eq] Eq for Element[T]
 pub impl[T : Show] Show for Element[T]
 pub impl[T : @debug.Debug] @debug.Debug for Element[T]
+
+pub(all) struct ExternApi {
+  read : (String) -> String
+  katex_render : (String) -> String
+  katex_display_render : (String) -> String
+}
+pub fn ExternApi::to_rewriter(Self) -> (String, Array[Term], SourceLoc) -> Array[Term]
 
 pub(all) enum Html {
   Text(String)

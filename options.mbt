@@ -1,5 +1,5 @@
 ///|
-priv struct HtmlComposeOptions {
+pub struct HtmlComposeOptions {
   extern_api : Bool
   comment_strip : Bool
   markdown_abbrev : Bool

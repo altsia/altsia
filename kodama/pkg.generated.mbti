@@ -15,10 +15,6 @@ pub fn forester_build_project_context(Array[DocEntry]) -> ProjectContext raise
 
 pub fn forester_index_document(String, String) -> IndexedDocument raise
 
-pub fn kodama_to_html(String, ContextApi, Array[DocEntry], language? : String) -> String
-
-pub fn kodama_to_html_raise(String, ContextApi, Array[DocEntry]) -> String raise
-
 pub fn parse_terms_for_forester(String) -> Array[@core.Term] raise
 
 // Errors

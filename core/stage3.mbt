@@ -103,16 +103,16 @@ fn attr_value(term : Array[Term], loc : SourceLoc) -> String raise {
 ///|
 fn extract_attrs(
   args : Array[Term],
-) -> (@hashmap.HashMap[String, String], Array[Term]) raise {
-  let entries = []
+) -> (Map[String, String], Array[Term]) raise {
+  let attrs : Map[String, String] = Map::new()
   let body = []
   for term in args {
     guard term is App(name, v, loc) && name.strip_prefix(":") is Some(key) else {
       body.push(term)
     }
-    entries.push((key.to_string(), attr_value(v, loc)))
+    attrs[key.to_string()] = attr_value(v, loc)
   }
-  (@hashmap.HashMap::from_array(entries), body)
+  (attrs, body)
 }
 
 ///|

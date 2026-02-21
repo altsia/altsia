@@ -3,16 +3,71 @@ package "altsia/altsia/kodama"
 
 import {
   "altsia/altsia/core",
+  "moonbitlang/core/debug",
 }
 
 // Values
+pub fn extract_doc_metadata_from_terms(Array[@core.Term]) -> DocMetadata
+
 pub fn forester_app_rewriter(String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
 
+pub fn forester_build_project_context(Array[(String, String)]) -> ProjectContext raise
+
+pub fn forester_index_document(String, String) -> IndexedDocument raise
+
 pub fn forester_pass(String) -> String raise
+
+pub fn forester_pass_with_context(String, ProjectContext, String) -> String raise
 
 // Errors
 
 // Types and methods
+pub(all) struct DocMetadata {
+  named : Array[@core.NamedAppArg]
+}
+pub fn DocMetadata::get(Self, String) -> @core.NamedAppArg?
+pub impl Eq for DocMetadata
+pub impl Show for DocMetadata
+pub impl @debug.Debug for DocMetadata
+
+pub(all) struct ForesterDeployOptions {
+  base_url : String
+  pretty_url : Bool
+}
+pub fn ForesterDeployOptions::plan_ref_href(Self, String) -> RefHrefPlan
+pub fn ForesterDeployOptions::to_deploy_href(Self, String) -> String
+pub impl Eq for ForesterDeployOptions
+pub impl Show for ForesterDeployOptions
+pub impl @debug.Debug for ForesterDeployOptions
+
+pub(all) struct IndexedDocument {
+  doc_id : String
+  slug : String
+  title : String
+  metadata : DocMetadata
+}
+pub fn IndexedDocument::title_with_slug(Self) -> String
+pub impl Eq for IndexedDocument
+pub impl Show for IndexedDocument
+pub impl @debug.Debug for IndexedDocument
+
+pub(all) struct ProjectContext {
+  docs : Map[String, IndexedDocument]
+}
+pub fn ProjectContext::get_document(Self, String) -> IndexedDocument?
+pub fn ProjectContext::get_metadata(Self, String) -> DocMetadata?
+pub fn ProjectContext::resolve_ref_target_metadata(Self, Array[@core.Term]) -> DocMetadata?
+pub fn ProjectContext::resolve_target_document(Self, String) -> IndexedDocument?
+pub fn ProjectContext::to_forester_rewriter(Self, String) -> (String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
+
+pub(all) struct RefHrefPlan {
+  authored_href : String
+  local_href : String
+  deploy_href : String
+}
+pub impl Eq for RefHrefPlan
+pub impl Show for RefHrefPlan
+pub impl @debug.Debug for RefHrefPlan
 
 // Type aliases
 

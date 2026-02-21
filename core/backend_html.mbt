@@ -38,7 +38,7 @@ pub fn Html::elaborate_block(node : BlockNode) -> Html {
     Paragraph(xs) =>
       Element({
         name: "p",
-        attrs: @hashmap.HashMap::new(),
+        attrs: Map::new(),
         children: xs.map(Html::elaborate_inline),
       })
     Container({ name, attrs, children }) =>
@@ -62,7 +62,7 @@ pub fn Html::from(
 ) -> Html {
   Element({
     name: "div",
-    attrs: @hashmap.HashMap::new(),
+    attrs: Map::new(),
     children: f(doc.map(Html::elaborate_node)),
   })
 }

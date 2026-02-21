@@ -214,11 +214,6 @@ fn md_math_is_escaped_at(source : String, index : Int) -> Bool {
 }
 
 ///|
-fn md_math_is_digit(ch : Char) -> Bool {
-  ch >= '0' && ch <= '9'
-}
-
-///|
 fn md_math_valid_open(
   source : String,
   index : Int,
@@ -228,30 +223,18 @@ fn md_math_valid_open(
     return false
   }
   let right_index = index + delimiter_length
-  if right_index >= source.length() {
-    return false
-  }
-  !md_is_space(md_char_at(source, right_index))
+  right_index < source.length()
 }
 
 ///|
 fn md_math_valid_close(
   source : String,
   index : Int,
-  delimiter_length : Int,
 ) -> Bool {
   if md_math_is_escaped_at(source, index) {
     return false
   }
-  if index <= 0 || md_is_space(md_char_at(source, index - 1)) {
-    return false
-  }
-  let right_index = index + delimiter_length
-  if right_index < source.length() &&
-    md_math_is_digit(md_char_at(source, right_index)) {
-    return false
-  }
-  true
+  index > 0
 }
 
 ///|
@@ -300,7 +283,7 @@ fn inline_rule_math(state : InlineState, pos : Int) -> (MdToken, Int)? {
 
   let close = match
     md_find_end_of_math(delimiter, source, pos + delimiter_length) {
-    Some(found) if md_math_valid_close(source, found, delimiter_length) => found
+    Some(found) if md_math_valid_close(source, found) => found
     _ => -1
   }
   if close < 0 {

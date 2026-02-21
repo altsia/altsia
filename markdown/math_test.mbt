@@ -169,10 +169,17 @@ test "MarkdownIt parses table cells and math inside them" {
 }
 
 ///|
-test "MarkdownIt keeps invalid math delimiters as plain text" {
+test "MarkdownIt keeps dollar-delimited text form when auto mode does not use app" {
   let source = "a $ x$ b $x $ c $x$2 d $x$ e"
   let altsia = MarkdownIt::to_altsia(source, normalize=false)
   assert_eq(altsia, "(p a $ x$ b $x $ c $x$2 d $x$ e)")
+}
+
+///|
+test "MarkdownIt treats unescaped dollar as math delimiter regardless of spaces or trailing digits" {
+  let source = "a $ f(x)$ b $f(x) $ c $f(x)$2 d"
+  let altsia = MarkdownIt::to_altsia(source, normalize=false)
+  assert_eq(altsia, "(p a k` f(x)` b k`f(x) ` c k`f(x)`2 d)")
 }
 
 ///|

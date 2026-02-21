@@ -11,17 +11,28 @@ pub fn extract_doc_metadata_from_terms(Array[@core.Term]) -> DocMetadata
 
 pub fn forester_app_rewriter(String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
 
-pub fn forester_build_project_context(Array[(String, String)]) -> ProjectContext raise
+pub fn forester_build_project_context(Array[DocEntry]) -> ProjectContext raise
 
 pub fn forester_index_document(String, String) -> IndexedDocument raise
 
-pub fn forester_pass(String) -> String raise
+pub fn kodama_to_html(String, ContextApi, Array[DocEntry], language? : String) -> String
 
-pub fn forester_pass_with_context(String, ProjectContext, String) -> String raise
+pub fn kodama_to_html_raise(String, ContextApi, Array[DocEntry]) -> String raise
+
+pub fn parse_terms_for_forester(String) -> Array[@core.Term] raise
 
 // Errors
 
 // Types and methods
+pub(all) struct ContextApi {
+  doc_workspace_path : String
+}
+
+pub(all) struct DocEntry {
+  id : String
+  content : String
+}
+
 pub(all) struct DocMetadata {
   named : Array[@core.NamedAppArg]
 }

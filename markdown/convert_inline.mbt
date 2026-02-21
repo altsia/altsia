@@ -56,6 +56,74 @@ fn inline_container_token_to_shape(
 }
 
 ///|
+fn make_text_attr_shape_from_sequence(
+  nodes : Array[NormalizedShape],
+  node_gaps : Array[Gap],
+) -> NormalizedShape {
+  let args : Array[NormalizedShape] = [Text(":text")]
+  let gaps : Array[Gap] = []
+  append_children_to_app(args, gaps, nodes, node_gaps)
+  App(args, gaps)
+}
+
+///|
+fn local_link_token_to_ref_shape(
+  token : MdToken,
+  ctx : ConvertContext,
+  href : String,
+) -> NormalizedShape {
+  let args : Array[NormalizedShape] = [Text("ref")]
+  let gaps : Array[Gap] = []
+  let (children, child_gaps) = inline_tokens_to_shape_sequence(
+    token.children,
+    ctx,
+  )
+  if !children.is_empty() {
+    push_shape_arg(
+      args,
+      gaps,
+      make_text_attr_shape_from_sequence(children, child_gaps),
+      gap_before=Space,
+    )
+  }
+  push_shape_arg(args, gaps, Text(href), gap_before=Space)
+  App(args, gaps)
+}
+
+///|
+fn link_token_to_shape_with_href(
+  token : MdToken,
+  ctx : ConvertContext,
+  href_node : NormalizedShape,
+) -> NormalizedShape {
+  let (children, child_gaps) = inline_tokens_to_shape_sequence(
+    token.children,
+    ctx,
+  )
+  let link_args : Array[NormalizedShape] = [Text(token.tag)]
+  let link_gaps : Array[Gap] = []
+  for attr in token.attrs {
+    if attr.0 == "ref" || attr.0 == "href" {
+      continue
+    }
+    push_shape_arg(
+      link_args,
+      link_gaps,
+      make_attr_shape(attr.0, attr.1),
+      gap_before=Space,
+    )
+  }
+  push_shape_arg(
+    link_args,
+    link_gaps,
+    make_attr_shape_with_node("href", href_node),
+    gap_before=Space,
+  )
+  append_children_to_app(link_args, link_gaps, children, child_gaps)
+  App(link_args, link_gaps)
+}
+
+///|
 fn html_skip_spaces(source : String, start : Int, end_exclusive : Int) -> Int {
   let mut i = start
   while i < end_exclusive && md_is_space(md_char_at(source, i)) {
@@ -300,11 +368,25 @@ fn inline_tokens_to_shape_sequence(
         pending_space = false
         i += 1
       }
+      "link" => {
+        let node = match token_attr_value(token, "href") {
+          Some(href) if is_local_link(href) =>
+            local_link_token_to_ref_shape(token, ctx, href)
+          Some(href) => link_token_to_shape_with_href(token, ctx, Text(href))
+          None => link_token_to_shape_with_href(token, ctx, Text(""))
+        }
+        let gap_before = if nodes.is_empty() {
+          Tight
+        } else if pending_space {
+          Space
+        } else {
+          Tight
+        }
+        push_shape_arg(nodes, gaps, node, gap_before~)
+        pending_space = false
+        i += 1
+      }
       "link_ref" => {
-        let (children, child_gaps) = inline_tokens_to_shape_sequence(
-          token.children,
-          ctx,
-        )
         let href_node = match token_attr_value(token, "ref") {
           Some(label) =>
             match ctx.link_lambda_map.get(label) {
@@ -321,27 +403,7 @@ fn inline_tokens_to_shape_sequence(
               None => Text("")
             }
         }
-        let link_args : Array[NormalizedShape] = [Text(token.tag)]
-        let link_gaps : Array[Gap] = []
-        for attr in token.attrs {
-          if attr.0 == "ref" || attr.0 == "href" {
-            continue
-          }
-          push_shape_arg(
-            link_args,
-            link_gaps,
-            make_attr_shape(attr.0, attr.1),
-            gap_before=Space,
-          )
-        }
-        push_shape_arg(
-          link_args,
-          link_gaps,
-          make_attr_shape_with_node("href", href_node),
-          gap_before=Space,
-        )
-        append_children_to_app(link_args, link_gaps, children, child_gaps)
-        let node = App(link_args, link_gaps)
+        let node = link_token_to_shape_with_href(token, ctx, href_node)
         let gap_before = if nodes.is_empty() {
           Tight
         } else if pending_space {

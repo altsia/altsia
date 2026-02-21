@@ -17,11 +17,18 @@ test "MarkdownIt converts front matter into structured metadata node" {
 
 ///|
 test "MarkdownIt converts inline markdown to altsia apps" {
-  let source = "Hello *world* and **moon** with `x^2` [ref](/x)."
+  let source = "Hello *world* and **moon** with `x^2` [local link](/x)."
   let altsia = MarkdownIt::to_altsia(source, normalize=false)
   assert_eq(
-    altsia, "(p Hello (em world) and (strong moon) with (code `x^2`) (a (:href /x) ref).)",
+    altsia, "(p Hello (em world) and (strong moon) with (code `x^2`) (ref (:text local link) /x).)",
   )
+}
+
+///|
+test "MarkdownIt keeps external href as plain text in link app" {
+  let source = "[site](https://example.com)"
+  let altsia = MarkdownIt::to_altsia(source, normalize=false)
+  assert_eq(altsia, "(p (a (:href https://example.com) site))")
 }
 
 ///|

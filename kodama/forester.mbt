@@ -12,27 +12,15 @@ fn forester_app_rewriter_with_context(
       let _current_doc = ctx.get_document(current_doc_id)
       let split = @core.Stage2Chisel::split_app_args(args)
       let target_doc_id = resolve_ref_target_doc_id(split)
-      let target_doc = match target_doc_id {
-        Some(target_doc_id) =>
-          ctx.resolve_target_document(target_doc_id, current_doc_id~)
-        None => None
-      }
-      let href = match target_doc_id {
-        Some(target_doc_id) => target_doc_id
-        None => ""
-      }
-      let title = match target_doc {
-        Some(doc) => Some(doc.title_with_slug())
-        None => None
-      }
-      let content = match resolve_ref_text(split) {
-        Some(text) => text
-        None =>
-          match target_doc {
-            Some(doc) => doc.title
-            None => href
-          }
-      }
+      let target_doc = target_doc_id.bind(doc_id =>
+        ctx.resolve_target_document(doc_id, current_doc_id~)
+      )
+      let href = target_doc_id.unwrap_or("")
+      let title = target_doc.map(doc => doc.title_with_slug())
+      let content = resolve_ref_text(split).map_or_else(
+        () => target_doc.map_or(href, doc => doc.title),
+        text => text,
+      )
       [build_ref_anchor_shape(href, content, title, loc)]
     }
     _ => [@core.Term::App(name, args, loc)]
@@ -73,9 +61,8 @@ fn build_ref_anchor_shape(
   loc : @core.SourceLoc,
 ) -> @core.Term {
   let anchor_attrs : Array[(String, String)] = [html_attr("href", href)]
-  match title {
-    Some(title) => anchor_attrs.push(html_attr("title", title))
-    None => ()
+  for value in title.iter() {
+    anchor_attrs.push(html_attr("title", value))
   }
   hel("span", attrs=[hclass(["link", "local"])], children=[
     hel("a", attrs=anchor_attrs, children=[htext(content)]),

@@ -1,5 +1,5 @@
 ///|
-test "MarkdownIt parses markdown with rule-chain tokens" {
+test "KoMarkdown parses markdown with rule-chain tokens" {
   let source =
     #|# Title
     #|
@@ -11,7 +11,7 @@ test "MarkdownIt parses markdown with rule-chain tokens" {
     #|```js
     #|let x = 1
     #|```
-  let tokens = MarkdownIt::parse(source)
+  let tokens = KoMarkdown::parse(source)
   assert_eq(tokens.map(t => t.typ), [
     "heading", "bullet_list", "blockquote", "fence",
   ])
@@ -21,7 +21,7 @@ test "MarkdownIt parses markdown with rule-chain tokens" {
 }
 
 ///|
-test "MarkdownIt parses yaml front matter at document start" {
+test "KoMarkdown parses yaml front matter at document start" {
   let source =
     #|---
     #|title: Demo
@@ -29,14 +29,14 @@ test "MarkdownIt parses yaml front matter at document start" {
     #|  - altsia
     #|---
     #|# Title
-  let tokens = MarkdownIt::parse(source)
+  let tokens = KoMarkdown::parse(source)
   assert_eq(tokens.map(t => t.typ), ["front_matter", "heading"])
   assert_eq(tokens[0].content, "title: Demo\ntags:\n  - altsia")
   assert_eq(tokens[1].tag, "h1")
 }
 
 ///|
-test "MarkdownIt parses yaml front matter after leading blank lines" {
+test "KoMarkdown parses yaml front matter after leading blank lines" {
   let source =
     #|
     #|
@@ -44,15 +44,15 @@ test "MarkdownIt parses yaml front matter after leading blank lines" {
     #|title: Demo
     #|---
     #|# Title
-  let tokens = MarkdownIt::parse(source)
+  let tokens = KoMarkdown::parse(source)
   assert_eq(tokens.map(t => t.typ), ["front_matter", "heading"])
-  let document = MarkdownIt::parse_document(source)
+  let document = KoMarkdown::parse_document(source)
   assert_eq(document.metadata.map(item => item.key), ["title"])
   assert_eq(document.metadata.map(item => item.value), ["Demo"])
 }
 
 ///|
-test "MarkdownIt parses structured metadata from front matter" {
+test "KoMarkdown parses structured metadata from front matter" {
   let source =
     #|---
     #|title: Hello *moon*
@@ -60,7 +60,7 @@ test "MarkdownIt parses structured metadata from front matter" {
     #|invalid-line
     #|---
     #|# Title
-  let document = MarkdownIt::parse_document(source)
+  let document = KoMarkdown::parse_document(source)
   assert_eq(document.tokens.map(t => t.typ), ["heading"])
   assert_eq(document.metadata.map(item => item.key), ["title", "equation"])
   assert_eq(document.metadata.map(item => item.value), [
@@ -70,31 +70,31 @@ test "MarkdownIt parses structured metadata from front matter" {
 }
 
 ///|
-test "MarkdownIt ignores non-leading front matter fence" {
+test "KoMarkdown ignores non-leading front matter fence" {
   let source =
     #|paragraph
     #|---
     #|title: Demo
     #|---
-  let tokens = MarkdownIt::parse(source)
+  let tokens = KoMarkdown::parse(source)
   assert_eq(tokens.map(t => t.typ), ["paragraph"])
 }
 
 ///|
-test "MarkdownIt keeps unclosed front matter as normal paragraph" {
+test "KoMarkdown keeps unclosed front matter as normal paragraph" {
   let source =
     #|---
     #|title: Demo
     #|# Title
-  let tokens = MarkdownIt::parse(source)
+  let tokens = KoMarkdown::parse(source)
   assert_eq(tokens.map(t => t.typ), ["paragraph", "heading"])
   assert_true(!tokens.map(t => t.typ).contains("front_matter"))
 }
 
 ///|
-test "MarkdownIt parses inline html tags as html_inline tokens" {
+test "KoMarkdown parses inline html tags as html_inline tokens" {
   let source = "a <span title=\"1 > 0\">b</span> c"
-  let tokens = MarkdownIt::parse(source)
+  let tokens = KoMarkdown::parse(source)
   let children = tokens[0].children
   assert_eq(children.map(t => t.typ), [
     "text", "html_inline", "text", "html_inline", "text",

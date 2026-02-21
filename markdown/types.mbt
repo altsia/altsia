@@ -65,4 +65,4 @@ pub(all) struct InlineState {
 }
 
 ///|
-pub type MarkdownIt
+pub type KoMarkdown

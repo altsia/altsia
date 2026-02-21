@@ -40,11 +40,11 @@ pub(all) struct InlineState {
   footnotes : Array[MdFootnote]
 }
 
-pub type MarkdownIt
-pub fn MarkdownIt::parse(String) -> Array[MdToken]
-pub fn MarkdownIt::parse_document(String) -> MdDocument
-pub fn MarkdownIt::to_altsia(String, normalize? : Bool, max_width? : Int, options? : MarkdownConvertOptions) -> String raise
-pub fn MarkdownIt::to_shapes(String) -> Array[NormalizedShape]
+pub type KoMarkdown
+pub fn KoMarkdown::parse(String) -> Array[MdToken]
+pub fn KoMarkdown::parse_document(String) -> MdDocument
+pub fn KoMarkdown::to_altsia(String, normalize? : Bool, max_width? : Int, options? : MarkdownConvertOptions) -> String raise
+pub fn KoMarkdown::to_shapes(String) -> Array[NormalizedShape]
 
 pub(all) struct MdDocument {
   metadata : Array[MdMetadataItem]

@@ -5,11 +5,11 @@ fn split_markdown_lines(source : String) -> Array[String] {
 }
 
 ///|
-pub fn MarkdownIt::parse_document(source : String) -> MdDocument {
+pub fn KoMarkdown::parse_document(source : String) -> MdDocument {
   parse_document_from_lines(split_markdown_lines(source))
 }
 
 ///|
-pub fn MarkdownIt::parse(source : String) -> Array[MdToken] {
+pub fn KoMarkdown::parse(source : String) -> Array[MdToken] {
   parse_tokens_from_lines(split_markdown_lines(source))
 }

@@ -1,10 +1,10 @@
 ///|
-test "MarkdownIt converts reference-style links with lambda declarations" {
+test "KoMarkdown converts reference-style links with lambda declarations" {
   let source =
     #|[acz茅l-engel]: /trees/CN2E.md
     #|
     #|Read [][acz茅l-engel] and [tree][acz茅l-engel].
-  let altsia = MarkdownIt::to_altsia(source, normalize=false)
+  let altsia = KoMarkdown::to_altsia(source, normalize=false)
   let expected =
     #|(λ acz茅l-engel () /trees/CN2E.md)
     #|
@@ -21,13 +21,13 @@ test "MarkdownIt converts reference-style links with lambda declarations" {
 }
 
 ///|
-test "MarkdownIt converts footnotes and reference links together" {
+test "KoMarkdown converts footnotes and reference links together" {
   let source =
     #|alpha[^n1].
     #|
     #|[^n1]: beta [x][ref]
     #|[ref]: /r
-  let altsia = MarkdownIt::to_altsia(source, normalize=false)
+  let altsia = KoMarkdown::to_altsia(source, normalize=false)
   let expected =
     #|(λ ref () /r)
     #|

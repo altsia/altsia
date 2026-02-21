@@ -39,7 +39,7 @@ fn to_shapes_with_options(
   source : String,
   options : MarkdownConvertOptions,
 ) -> Array[NormalizedShape] {
-  let document = MarkdownIt::parse_document(source)
+  let document = KoMarkdown::parse_document(source)
   let ctx = build_convert_context(document, options.convert_katex)
   let shapes : Array[NormalizedShape] = []
   match metadata_to_shape(document.metadata, options.convert_katex) {
@@ -60,7 +60,7 @@ fn to_shapes_with_options(
 }
 
 ///|
-pub fn MarkdownIt::to_shapes(source : String) -> Array[NormalizedShape] {
+pub fn KoMarkdown::to_shapes(source : String) -> Array[NormalizedShape] {
   to_shapes_with_options(
     source,
     MarkdownConvertOptions::{ convert_katex: AlwaysApp },
@@ -68,7 +68,7 @@ pub fn MarkdownIt::to_shapes(source : String) -> Array[NormalizedShape] {
 }
 
 ///|
-pub fn MarkdownIt::to_altsia(
+pub fn KoMarkdown::to_altsia(
   source : String,
   normalize? : Bool = true,
   max_width? : Int = @core.default_max_width,

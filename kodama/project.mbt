@@ -4,6 +4,129 @@ pub(all) struct ProjectContext {
 }
 
 ///|
+fn workspace_has_leading_slash(path : String) -> Bool {
+  if path.is_empty() {
+    return false
+  }
+  let ch = path.get_char(0).unwrap()
+  ch == '/' || ch == '\\'
+}
+
+///|
+fn workspace_strip_leading_slashes(path : String) -> String {
+  let mut start = 0
+  while start < path.length() {
+    let ch = path.get_char(start).unwrap()
+    if ch != '/' && ch != '\\' {
+      break
+    }
+    start += 1
+  }
+  if start == 0 {
+    path
+  } else {
+    path.unsafe_substring(start=start, end=path.length())
+  }
+}
+
+///|
+fn normalize_workspace_path(path : String) -> String {
+  let absolute = workspace_has_leading_slash(path)
+  let mut segment = ""
+  let segments : Array[String] = []
+  let mut segment_count = 0
+
+  for i in 0..=path.length() {
+    let is_end = i == path.length()
+    let ch = if is_end { '/' } else { path.get_char(i).unwrap() }
+    let is_sep = ch == '/' || ch == '\\'
+    if !is_sep {
+      segment = segment + ch.to_string()
+      continue
+    }
+
+    if segment.is_empty() || segment == "." {
+      segment = ""
+      continue
+    }
+
+    if segment == ".." {
+      if segment_count > 0 && segments[segment_count - 1] != ".." {
+        segment_count -= 1
+      } else if !absolute {
+        if segment_count < segments.length() {
+          segments[segment_count] = segment
+        } else {
+          segments.push(segment)
+        }
+        segment_count += 1
+      }
+      segment = ""
+      continue
+    }
+
+    if segment_count < segments.length() {
+      segments[segment_count] = segment
+    } else {
+      segments.push(segment)
+    }
+    segment_count += 1
+    segment = ""
+  }
+
+  let mut body = ""
+  for i in 0..<segment_count {
+    if i > 0 {
+      body = body + "/"
+    }
+    body = body + segments[i]
+  }
+  if absolute {
+    if body.is_empty() { "/" } else { "/" + body }
+  } else {
+    body
+  }
+}
+
+///|
+fn workspace_dir_path(path : String) -> String {
+  let normalized = normalize_workspace_path(path)
+  let mut last_slash = -1
+  for i in 0..<normalized.length() {
+    if normalized.get_char(i).unwrap() == '/' {
+      last_slash = i
+    }
+  }
+  if last_slash < 0 {
+    ""
+  } else if last_slash == 0 {
+    "/"
+  } else {
+    normalized.unsafe_substring(start=0, end=last_slash)
+  }
+}
+
+///|
+fn resolve_ref_target_workspace_path(
+  target : String,
+  current_doc_id : String,
+) -> String {
+  let target = normalize_workspace_path(target)
+  let is_relative = !target.is_empty() &&
+    !workspace_has_leading_slash(target) &&
+    !target.contains(":")
+  if !is_relative || current_doc_id.is_empty() {
+    return target
+  }
+  let base_dir = workspace_dir_path(current_doc_id)
+  if base_dir.is_empty() {
+    normalize_workspace_path(target)
+  } else {
+    normalize_workspace_path("\{base_dir}/\{target}")
+  }
+}
+
+///|
 fn ref_target_to_doc_id_candidate(target : String) -> String {
   if target.has_suffix(".md") {
     let stem = target.unsafe_substring(start=0, end=target.length() - 3)
@@ -37,6 +160,16 @@ fn ref_target_to_slug_candidate(target : String) -> String {
 }
 
 ///|
+fn push_unique_non_empty(values : Array[String], value : String) -> Unit {
+  if value.is_empty() {
+    return
+  }
+  if !values.contains(value) {
+    values.push(value)
+  }
+}
+
+///|
 pub(all) struct DocEntry {
   id : String
   content : String
@@ -65,27 +198,50 @@ pub fn ProjectContext::get_document(
 pub fn ProjectContext::resolve_target_document(
   ctx : ProjectContext,
   target : String,
+  current_doc_id? : String = "",
 ) -> IndexedDocument? {
-  let normalized = ref_target_to_doc_id_candidate(target)
-  match ctx.docs.get(normalized) {
-    Some(doc) => Some(doc)
-    None => {
-      if !normalized.contains(".") {
-        match ctx.docs.get(normalized + ".alt") {
-          Some(doc) => return Some(doc)
-          None => ()
-        }
-      }
-      let slug_candidate = ref_target_to_slug_candidate(target)
-      for entry in ctx.docs.to_array() {
-        let doc = entry.1
-        if doc.slug == slug_candidate {
-          return Some(doc)
-        }
-      }
-      None
+  let workspace_target = resolve_ref_target_workspace_path(
+    target,
+    current_doc_id,
+  )
+  let normalized = ref_target_to_doc_id_candidate(workspace_target)
+  let candidates : Array[String] = []
+  push_unique_non_empty(candidates, normalized)
+  if !normalized.contains(".") {
+    push_unique_non_empty(candidates, normalized + ".alt")
+  }
+
+  let stripped = workspace_strip_leading_slashes(normalized)
+  if stripped != normalized {
+    push_unique_non_empty(candidates, stripped)
+    if !stripped.contains(".") {
+      push_unique_non_empty(candidates, stripped + ".alt")
+    }
+  } else {
+    push_unique_non_empty(candidates, "/" + normalized)
+    if !normalized.contains(".") {
+      push_unique_non_empty(candidates, "/" + normalized + ".alt")
     }
   }
+
+  for candidate in candidates {
+    match ctx.docs.get(candidate) {
+      Some(doc) => return Some(doc)
+      None => ()
+    }
+  }
+
+  let slug_candidate = ref_target_to_slug_candidate(workspace_target)
+  let stripped_slug = workspace_strip_leading_slashes(slug_candidate)
+  for entry in ctx.docs.to_array() {
+    let doc = entry.1
+    if doc.slug == slug_candidate ||
+      doc.slug == stripped_slug ||
+      workspace_strip_leading_slashes(doc.slug) == stripped_slug {
+      return Some(doc)
+    }
+  }
+  None
 }
 
 ///|
@@ -138,11 +294,12 @@ fn resolve_ref_text(split : @core.SplitAppArgs) -> String? {
 pub fn ProjectContext::resolve_ref_target_metadata(
   ctx : ProjectContext,
   args : Array[@core.Term],
+  current_doc_id? : String = "",
 ) -> DocMetadata? {
   let split = @core.Stage2Chisel::split_app_args(args)
   match resolve_ref_target_doc_id(split) {
     Some(target_doc_id) =>
-      match ctx.resolve_target_document(target_doc_id) {
+      match ctx.resolve_target_document(target_doc_id, current_doc_id~) {
         Some(doc) => Some(doc.metadata)
         None => None
       }

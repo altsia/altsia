@@ -13,7 +13,8 @@ fn forester_app_rewriter_with_context(
       let split = @core.Stage2Chisel::split_app_args(args)
       let target_doc_id = resolve_ref_target_doc_id(split)
       let target_doc = match target_doc_id {
-        Some(target_doc_id) => ctx.resolve_target_document(target_doc_id)
+        Some(target_doc_id) =>
+          ctx.resolve_target_document(target_doc_id, current_doc_id~)
         None => None
       }
       let href = match target_doc_id {

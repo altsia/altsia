@@ -65,6 +65,30 @@ test "Forester project context resolves ref target metadata from ref args" {
 }
 
 ///|
+test "Forester resolves relative ref target metadata from current doc id" {
+  let ctx = forester_build_project_context([
+    { id: "notes/a.alt", content: "(metadata (:title A))" },
+    { id: "notes/b.alt", content: "(metadata (:title B))" },
+  ])
+  let terms = "(p (ref ./b.alt))" |> @core.Stage1::parse |> @core.Stage2::pass
+  guard terms
+    is [@core.Term::App("p", [@core.Term::App("ref", ref_args, _)], _)] else {
+    fail("expected p(ref ./b.alt)")
+  }
+  guard
+    ctx.resolve_ref_target_metadata(ref_args, current_doc_id="notes/a.alt")
+    is Some(meta) else {
+    fail("expected target metadata for notes/b.alt")
+  }
+  guard meta.get("title") is Some(title) else {
+    fail("expected :title metadata in target")
+  }
+  guard title.values is [@core.Term::Text("B", _)] else {
+    fail("expected title B")
+  }
+}
+
+///|
 fn forester_pass_with_context(
   source : String,
   ctx : ProjectContext,
@@ -97,5 +121,31 @@ test "Forester pass with context keeps explicit ref text over target title" {
   let html = forester_pass_with_context(source, ctx, "a.alt")
   assert_eq(
     html, "<div><p><a href=\"b.alt\" title=\"B [b]\">Read B</a></p></div>",
+  )
+}
+
+///|
+test "Forester pass resolves relative ref target against current doc id" {
+  let source = "(p (ref ./b.alt))"
+  let ctx = forester_build_project_context([
+    { id: "notes/b.alt", content: "(metadata (:title B))" },
+  ])
+  let html = forester_pass_with_context(source, ctx, "notes/a.alt")
+  assert_eq(
+    html,
+    "<div><p><a href=\"./b.alt\" title=\"B [notes/b]\">B</a></p></div>",
+  )
+}
+
+///|
+test "Forester pass resolves parent relative ref target against current doc id" {
+  let source = "(p (ref ../b.alt))"
+  let ctx = forester_build_project_context([
+    { id: "b.alt", content: "(metadata (:title B))" },
+  ])
+  let html = forester_pass_with_context(source, ctx, "notes/a.alt")
+  assert_eq(
+    html,
+    "<div><p><a href=\"../b.alt\" title=\"B [b]\">B</a></p></div>",
   )
 }

@@ -22,6 +22,7 @@ pub fn parse_terms_for_forester(String) -> Array[@core.Term] raise
 // Types and methods
 pub(all) struct ContextApi {
   doc_workspace_path : String
+  docs : Array[DocEntry]
 }
 
 pub(all) struct DocEntry {
@@ -63,8 +64,8 @@ pub(all) struct ProjectContext {
 }
 pub fn ProjectContext::get_document(Self, String) -> IndexedDocument?
 pub fn ProjectContext::get_metadata(Self, String) -> DocMetadata?
-pub fn ProjectContext::resolve_ref_target_metadata(Self, Array[@core.Term]) -> DocMetadata?
-pub fn ProjectContext::resolve_target_document(Self, String) -> IndexedDocument?
+pub fn ProjectContext::resolve_ref_target_metadata(Self, Array[@core.Term], current_doc_id? : String) -> DocMetadata?
+pub fn ProjectContext::resolve_target_document(Self, String, current_doc_id? : String) -> IndexedDocument?
 pub fn ProjectContext::to_forester_rewriter(Self, String) -> (String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
 
 pub(all) struct RefHrefPlan {

@@ -250,12 +250,9 @@ fn parse_math_block(state : BlockState, line : Int) -> Int? {
   match md_parse_single_line_math_block_content(state.lines[line]) {
     Some(content) => {
       state.tokens.push(
-        make_token(
-          "math_block",
-          "kd",
-          content~,
-          attrs=[("math_style", "single_line")],
-        ),
+        make_token("math_block", "kd", content~, attrs=[
+          ("math_style", "single_line"),
+        ]),
       )
       return Some(line + 1)
     }
@@ -275,12 +272,9 @@ fn parse_math_block(state : BlockState, line : Int) -> Int? {
     i += 1
   }
   state.tokens.push(
-    make_token(
-      "math_block",
-      "kd",
-      content=tex_lines.join("\n"),
-      attrs=[("math_style", "multi_line")],
-    ),
+    make_token("math_block", "kd", content=tex_lines.join("\n"), attrs=[
+      ("math_style", "multi_line"),
+    ]),
   )
   Some(i)
 }

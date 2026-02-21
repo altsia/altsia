@@ -16,7 +16,7 @@ pub let empty_extern_api : ExternApi = ExternApi::{
 }
 
 ///|
-fn ExternApi::to_rewriter(api : ExternApi) -> @core.AppRewriter {
+pub fn ExternApi::to_rewriter(api : ExternApi) -> AppRewriter {
   (name, args, loc) => {
     match name {
       "read" => {
@@ -39,7 +39,7 @@ fn ExternApi::to_rewriter(api : ExternApi) -> @core.AppRewriter {
         }
         [Text((api.katex_display_render)(path), loc)]
       }
-      _ => [@core.Term::App(name, args, loc)]
+      _ => [Term::App(name, args, loc)]
     }
   }
 }

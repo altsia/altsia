@@ -1,8 +1,8 @@
 ///|
 fn is_katex_macro_definition(tex : String) -> Bool {
   let macro_prefixes = [
-    "\\def\\", "\\gdef\\", "\\edef\\", "\\xdef\\", "\\let\\", "\\newcommand",
-    "\\renewcommand", "\\providecommand",
+    "\\def\\", "\\gdef\\", "\\edef\\", "\\xdef\\", "\\let\\", "\\newcommand", "\\renewcommand",
+    "\\providecommand",
   ]
   macro_prefixes.iter().any(prefix => tex.has_prefix(prefix))
 }

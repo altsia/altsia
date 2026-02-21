@@ -51,7 +51,7 @@ fn trim_trailing_slashes(s : String) -> String {
   if end == s.length() {
     s
   } else {
-    s.unsafe_substring(start=0, end=end)
+    s.unsafe_substring(start=0, end~)
   }
 }
 
@@ -67,7 +67,7 @@ fn trim_leading_slashes(s : String) -> String {
   if start == 0 {
     s
   } else {
-    s.unsafe_substring(start=start, end=s.length())
+    s.unsafe_substring(start~, end=s.length())
   }
 }
 

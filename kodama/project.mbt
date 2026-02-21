@@ -37,14 +37,18 @@ fn ref_target_to_slug_candidate(target : String) -> String {
 }
 
 ///|
+pub(all) struct DocEntry {
+  id : String
+  content : String
+}
+
+///|
 pub fn forester_build_project_context(
-  docs : Array[(String, String)],
+  docs : Array[DocEntry],
 ) -> ProjectContext raise {
   let indexed : Map[String, IndexedDocument] = Map::new()
   for entry in docs {
-    let doc_id = entry.0
-    let source = entry.1
-    indexed[doc_id] = forester_index_document(doc_id, source)
+    indexed[entry.id] = forester_index_document(entry.id, entry.content)
   }
   ProjectContext::{ docs: indexed }
 }
@@ -91,6 +95,57 @@ pub fn ProjectContext::get_metadata(
 ) -> DocMetadata? {
   match ctx.docs.get(doc_id) {
     Some(doc) => Some(doc.metadata)
+    None => None
+  }
+}
+
+///|
+fn resolve_ref_target_doc_id(split : @core.SplitAppArgs) -> String? {
+  for arg in split.positional {
+    if arg is @core.Term::Text(path, _) {
+      return Some(path)
+    }
+  }
+  None
+}
+
+///|
+fn ref_values_to_text(values : Array[@core.Term]) -> String {
+  let mut out = ""
+  for value in values {
+    match value {
+      @core.Term::Text(text, _) => out = out + text
+      _ => ()
+    }
+  }
+  out
+}
+
+///|
+fn resolve_ref_text(split : @core.SplitAppArgs) -> String? {
+  for named in split.named {
+    if named.name == ":text" {
+      let text = ref_values_to_text(named.values)
+      if !text.is_empty() {
+        return Some(text)
+      }
+    }
+  }
+  None
+}
+
+///|
+pub fn ProjectContext::resolve_ref_target_metadata(
+  ctx : ProjectContext,
+  args : Array[@core.Term],
+) -> DocMetadata? {
+  let split = @core.Stage2Chisel::split_app_args(args)
+  match resolve_ref_target_doc_id(split) {
+    Some(target_doc_id) =>
+      match ctx.resolve_target_document(target_doc_id) {
+        Some(doc) => Some(doc.metadata)
+        None => None
+      }
     None => None
   }
 }

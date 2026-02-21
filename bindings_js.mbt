@@ -2,11 +2,10 @@
 fn to_html_tree(
   source : String,
   options : HtmlComposeOptions,
-  extern_api? : ExternApi = empty_extern_api,
+  extern_api? : @core.ExternApi = @core.empty_extern_api,
 ) -> @core.Html raise {
   let rewriter = extern_api.to_rewriter()
   let rewriter = terms => @core.Stage2Extern::rewrite_apps(terms, rewriter)
-
   source
   |> @core.Stage1::parse
   |> @core.Stage2::pass
@@ -43,7 +42,7 @@ fn altsia_to_html_impl(source : String) -> String raise {
 fn altsia_to_html_with_rewriter_impl(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api? : ExternApi,
+  extern_api? : @core.ExternApi,
   options : HtmlComposeOptions,
 ) -> String raise {
   source
@@ -61,7 +60,7 @@ pub fn altsia_to_html_raise(source : String) -> String raise {
 pub fn altsia_to_html_with_rewriter_raise(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api? : ExternApi,
+  extern_api? : @core.ExternApi,
 ) -> String raise {
   altsia_to_html_with_rewriter_impl(
     source,
@@ -87,7 +86,7 @@ pub fn altsia_to_html_diagnostics(
 pub fn altsia_to_html_with_rewriter_diagnostics(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api? : ExternApi,
+  extern_api? : @core.ExternApi,
   language? : String = @core.default_language,
 ) -> Result[String, Array[@core.RenderError]] {
   try
@@ -119,7 +118,7 @@ pub fn altsia_to_html_result(
 pub fn altsia_to_html_with_rewriter_result(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api? : ExternApi,
+  extern_api? : @core.ExternApi,
   language? : String = @core.default_language,
 ) -> Result[String, Array[String]] {
   match
@@ -149,7 +148,7 @@ pub fn altsia_to_html(
 pub fn altsia_to_html_with_rewriter(
   source : String,
   text_rewriter : (String) -> String,
-  extern_api? : ExternApi,
+  extern_api? : @core.ExternApi,
   language? : String = @core.default_language,
 ) -> String {
   match

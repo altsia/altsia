@@ -61,10 +61,9 @@ fn to_shapes_with_options(
 
 ///|
 pub fn KoMarkdown::to_shapes(source : String) -> Array[NormalizedShape] {
-  to_shapes_with_options(
-    source,
-    MarkdownConvertOptions::{ convert_katex: AlwaysApp },
-  )
+  to_shapes_with_options(source, MarkdownConvertOptions::{
+    convert_katex: AlwaysApp,
+  })
 }
 
 ///|

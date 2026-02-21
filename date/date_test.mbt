@@ -31,6 +31,8 @@ test "format_unix_millis_date supports short month and two-digit year pattern" {
 ///|
 test "format_unix_millis_date keeps non-token characters in custom pattern" {
   let ts : UInt64 = 1634947200000
-  assert_eq(format_unix_millis_date(ts, format="YYYY年M月D日"), "2021年10月23日")
+  assert_eq(
+    format_unix_millis_date(ts, format="YYYY年M月D日"),
+    "2021年10月23日",
+  )
 }
-

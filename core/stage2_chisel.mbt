@@ -11,6 +11,7 @@ pub(all) struct SplitAppArgs {
   positional : Array[Term]
 } derive(Eq, Show, Debug)
 
+///|
 pub type Stage2Chisel
 
 ///|
@@ -52,7 +53,7 @@ pub fn Stage2Chisel::split_app_args(
   } else {
     args
   }
-  
+
   let named : Array[NamedAppArg] = []
   let positional : Array[Term] = []
   for arg in normalized_args {

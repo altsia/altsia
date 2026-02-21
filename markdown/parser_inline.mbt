@@ -227,10 +227,7 @@ fn md_math_valid_open(
 }
 
 ///|
-fn md_math_valid_close(
-  source : String,
-  index : Int,
-) -> Bool {
+fn md_math_valid_close(source : String, index : Int) -> Bool {
   if md_math_is_escaped_at(source, index) {
     return false
   }

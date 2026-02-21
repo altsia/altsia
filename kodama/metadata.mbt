@@ -17,7 +17,7 @@ pub fn extract_doc_metadata_from_terms(
       _ => ()
     }
   }
-  DocMetadata::{ named }
+  DocMetadata::{ named, }
 }
 
 ///|

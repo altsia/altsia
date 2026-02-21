@@ -27,8 +27,8 @@ test "Forester indexes top-level metadata into named entries" {
 ///|
 test "Forester builds project context and resolves metadata by doc id" {
   let ctx = forester_build_project_context([
-    ("a.alt", "(metadata (:title A))"),
-    ("b.alt", "(metadata (:title B) (:parent a.alt))"),
+    { id: "a.alt", content: "(metadata (:title A))" },
+    { id: "b.alt", content: "(metadata (:title B) (:parent a.alt))" },
   ])
   guard ctx.get_metadata("b.alt") is Some(meta_b) else {
     fail("expected metadata for b.alt")
@@ -45,13 +45,12 @@ test "Forester builds project context and resolves metadata by doc id" {
 ///|
 test "Forester project context resolves ref target metadata from ref args" {
   let ctx = forester_build_project_context([
-    ("a.alt", "(metadata (:title A))"),
-    ("b.alt", "(metadata (:title B))"),
+    { id: "a.alt", content: "(metadata (:title A))" },
+    { id: "b.alt", content: "(metadata (:title B))" },
   ])
-  let terms = "(p (ref b.alt))"
-    |> @core.Stage1::parse
-    |> @core.Stage2::pass
-  guard terms is [@core.Term::App("p", [@core.Term::App("ref", ref_args, _)], _)] else {
+  let terms = "(p (ref b.alt))" |> @core.Stage1::parse |> @core.Stage2::pass
+  guard terms
+    is [@core.Term::App("p", [@core.Term::App("ref", ref_args, _)], _)] else {
     fail("expected p(ref b.alt)")
   }
   guard ctx.resolve_ref_target_metadata(ref_args) is Some(meta) else {
@@ -66,9 +65,25 @@ test "Forester project context resolves ref target metadata from ref args" {
 }
 
 ///|
+fn forester_pass_with_context(
+  source : String,
+  ctx : ProjectContext,
+  current_doc_id : String,
+) -> String raise {
+  parse_terms_for_forester(source)
+  |> @core.Stage2Extern::rewrite_apps(ctx.to_forester_rewriter(current_doc_id))
+  |> @core.Stage3::pass
+  |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
+  |> @core.MarkdownAbbrev::desugar
+  |> @core.Html::to_string
+}
+
+///|
 test "Forester pass with context keeps current rendering behavior" {
   let source = "(p (ref b.alt))"
-  let ctx = forester_build_project_context([("b.alt", "(metadata (:title B))")])
+  let ctx = forester_build_project_context([
+    { id: "b.alt", content: "(metadata (:title B))" },
+  ])
   let html = forester_pass_with_context(source, ctx, "a.alt")
   assert_eq(html, "<div><p><a href=\"b.alt\" title=\"B [b]\">B</a></p></div>")
 }
@@ -76,10 +91,11 @@ test "Forester pass with context keeps current rendering behavior" {
 ///|
 test "Forester pass with context keeps explicit ref text over target title" {
   let source = "(p (ref (:text Read B) b.alt))"
-  let ctx = forester_build_project_context([("b.alt", "(metadata (:title B))")])
+  let ctx = forester_build_project_context([
+    { id: "b.alt", content: "(metadata (:title B))" },
+  ])
   let html = forester_pass_with_context(source, ctx, "a.alt")
   assert_eq(
-    html,
-    "<div><p><a href=\"b.alt\" title=\"B [b]\">Read B</a></p></div>",
+    html, "<div><p><a href=\"b.alt\" title=\"B [b]\">Read B</a></p></div>",
   )
 }

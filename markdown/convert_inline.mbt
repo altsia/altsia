@@ -96,7 +96,12 @@ fn local_link_token_to_ref_shape(
       gap_before=Space,
     )
   }
-  push_shape_arg(args, gaps, Text(rewrite_local_link_url(href)), gap_before=Space)
+  push_shape_arg(
+    args,
+    gaps,
+    Text(rewrite_local_link_url(href)),
+    gap_before=Space,
+  )
   App(args, gaps)
 }
 

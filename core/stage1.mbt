@@ -613,18 +613,18 @@ fn remap_weak_wrapped_loc(
 }
 
 ///|
-fn remap_weak_wrapped_node(
-  node : S,
-  source : String,
-  tail_start : Int,
-) -> S {
+fn remap_weak_wrapped_node(node : S, source : String, tail_start : Int) -> S {
   let mapped_loc = remap_weak_wrapped_loc(node.loc(), source, tail_start)
   match node {
     Text(value, _) => Text(value, mapped_loc)
     QuoteInline(value, _) => QuoteInline(value, mapped_loc)
     QuoteBlock(value, _) => QuoteBlock(value, mapped_loc)
     App(args, gaps, _) =>
-      App(args.map(fn(arg) { remap_weak_wrapped_node(arg, source, tail_start) }), gaps, mapped_loc)
+      App(
+        args.map(fn(arg) { remap_weak_wrapped_node(arg, source, tail_start) }),
+        gaps,
+        mapped_loc,
+      )
   }
 }
 

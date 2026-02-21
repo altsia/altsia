@@ -7,7 +7,7 @@ pub(all) struct IndexedDocument {
 } derive(Eq, Show, Debug)
 
 ///|
-fn parse_terms_for_forester(source : String) -> Array[@core.Term] raise {
+pub fn parse_terms_for_forester(source : String) -> Array[@core.Term] raise {
   source
   |> @core.Stage1::parse
   |> @core.Stage2::pass

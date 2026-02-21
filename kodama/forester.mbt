@@ -1,78 +1,4 @@
 ///|
-fn resolve_ref_target_doc_id(split : @core.SplitAppArgs) -> String? {
-  for arg in split.positional {
-    if arg is @core.Term::Text(path, _) {
-      return Some(path)
-    }
-  }
-  None
-}
-
-///|
-fn ref_values_to_text(values : Array[@core.Term]) -> String {
-  let mut out = ""
-  for value in values {
-    match value {
-      @core.Term::Text(text, _) => out = out + text
-      _ => ()
-    }
-  }
-  out
-}
-
-///|
-fn resolve_ref_text(split : @core.SplitAppArgs) -> String? {
-  for named in split.named {
-    if named.name == ":text" {
-      let text = ref_values_to_text(named.values)
-      if !text.is_empty() {
-        return Some(text)
-      }
-    }
-  }
-  None
-}
-
-///|
-pub fn ProjectContext::resolve_ref_target_metadata(
-  ctx : ProjectContext,
-  args : Array[@core.Term],
-) -> DocMetadata? {
-  let split = @core.Stage2Chisel::split_app_args(args)
-  match resolve_ref_target_doc_id(split) {
-    Some(target_doc_id) =>
-      match ctx.resolve_target_document(target_doc_id) {
-        Some(doc) => Some(doc.metadata)
-        None => None
-      }
-    None => None
-  }
-}
-
-///|
-fn build_ref_anchor_shape(
-  href : String,
-  content : String,
-  title : String?,
-  loc : @core.SourceLoc,
-) -> @core.Term {
-  let args : Array[@core.Term] = [
-    @core.Term::App(":href", [@core.Term::Text(href, loc)], loc),
-  ]
-  match title {
-    Some(title) =>
-      args.push(@core.Term::App(":title", [@core.Term::Text(title, loc)], loc))
-    None => ()
-  }
-  args.push(@core.Term::Text(content, loc))
-  @core.Term::App(
-    "a",
-    args,
-    loc,
-  )
-}
-
-///|
 fn forester_app_rewriter_with_context(
   ctx : ProjectContext,
   current_doc_id : String,
@@ -133,29 +59,26 @@ pub fn ProjectContext::to_forester_rewriter(
   ctx : ProjectContext,
   current_doc_id : String,
 ) -> @core.AppRewriter {
-  (name, args, loc) =>
+  (name, args, loc) => {
     forester_app_rewriter_with_context(ctx, current_doc_id, name, args, loc)
+  }
 }
 
 ///|
-pub fn forester_pass_with_context(
-  source : String,
-  ctx : ProjectContext,
-  current_doc_id : String,
-) -> String raise {
-  parse_terms_for_forester(source)
-  |> @core.Stage2Extern::rewrite_apps(ctx.to_forester_rewriter(current_doc_id))
-  |> @core.Stage3::pass
-  |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
-  |> @core.MarkdownAbbrev::desugar
-  |> @core.Html::to_string
-}
-
-///|
-pub fn forester_pass(source : String) -> String raise {
-  forester_pass_with_context(
-    source,
-    ProjectContext::{ docs: Map::new() },
-    "",
-  )
+fn build_ref_anchor_shape(
+  href : String,
+  content : String,
+  title : String?,
+  loc : @core.SourceLoc,
+) -> @core.Term {
+  let args : Array[@core.Term] = [
+    @core.Term::App(":href", [@core.Term::Text(href, loc)], loc),
+  ]
+  match title {
+    Some(title) =>
+      args.push(@core.Term::App(":title", [@core.Term::Text(title, loc)], loc))
+    None => ()
+  }
+  args.push(@core.Term::Text(content, loc))
+  @core.Term::App("a", args, loc)
 }

@@ -229,6 +229,9 @@ fn make_render_part(
 ///|
 fn contains_multiline_quote_inline(node : S) -> Bool {
   match node {
+    // Multiline plain text should preserve its internal newlines as-is.
+    // Otherwise each normalize pass may indent every inner line again.
+    Text(content, _) => content.contains("\n")
     QuoteInline(content, _) => content.contains("\n")
     App(args, _, _) =>
       args.iter().any(fn(child) { contains_multiline_quote_inline(child) })

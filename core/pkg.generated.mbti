@@ -8,7 +8,7 @@ import {
 }
 
 // Values
-pub fn altsia_normalize_diagnostics(String, language? : String, max_width? : Int) -> Result[String, Array[RenderError]]
+pub fn altsia_normalize_diagnostics(String, language? : String, max_width? : Int, weak_toplevel_constraint? : Bool) -> Result[String, Array[RenderError]]
 
 pub fn altsia_normalize_raise(String, max_width? : Int) -> String raise
 
@@ -167,6 +167,15 @@ pub fn Mdx::from(Array[Piece], f? : (Array[Self]) -> Array[Self]) -> Self
 pub fn Mdx::to_string(Self) -> String
 pub impl Show for Mdx
 
+pub(all) struct NamedAppArg {
+  name : String
+  values : Array[Term]
+  loc : SourceLoc
+}
+pub impl Eq for NamedAppArg
+pub impl Show for NamedAppArg
+pub impl @debug.Debug for NamedAppArg
+
 pub(all) enum Piece {
   Inline(InlineNode)
   Block(BlockNode)
@@ -209,10 +218,18 @@ pub impl Eq for SourceLoc
 pub impl Show for SourceLoc
 pub impl @debug.Debug for SourceLoc
 
+pub(all) struct SplitAppArgs {
+  named : Array[NamedAppArg]
+  positional : Array[Term]
+}
+pub impl Eq for SplitAppArgs
+pub impl Show for SplitAppArgs
+pub impl @debug.Debug for SplitAppArgs
+
 pub type Stage1
 pub fn Stage1::normalize(String, max_width? : Int) -> String raise
 pub fn Stage1::normalize_range(String, Int, Int, max_width? : Int) -> String raise
-pub fn Stage1::parse(String) -> Array[S] raise
+pub fn Stage1::parse(String, weak_toplevel_constraint? : Bool) -> Array[S] raise
 pub fn Stage1::parse_semantics(String) -> Array[ES] raise
 
 pub type Stage2
@@ -224,6 +241,7 @@ pub fn Stage2Etale::expand_program(Array[Term]) -> Array[Term] raise
 
 pub type Stage2Extern
 pub fn Stage2Extern::rewrite_apps(Array[Term], (String, Array[Term], SourceLoc) -> Array[Term]) -> Array[Term]
+pub fn Stage2Extern::split_app_args(Array[Term], strip_layout_gap_spaces? : Bool) -> SplitAppArgs
 
 pub type Stage3
 pub fn Stage3::pass(Array[Term]) -> Array[Piece] raise

@@ -25,6 +25,13 @@ test "KoMarkdown converts inline markdown to altsia apps" {
 }
 
 ///|
+test "KoMarkdown rewrites local markdown link suffix to .alt" {
+  let source = "[doc](docs/intro.md)"
+  let altsia = KoMarkdown::to_altsia(source, normalize=false)
+  assert_eq(altsia, "(p (ref (:text doc) docs/intro.alt))")
+}
+
+///|
 test "KoMarkdown keeps external href as plain text in link app" {
   let source = "[site](https://example.com)"
   let altsia = KoMarkdown::to_altsia(source, normalize=false)

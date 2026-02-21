@@ -158,6 +158,15 @@ test "Stage1 normalizer still wraps template with multiline inline quote by widt
 }
 
 ///|
+test "Stage1 normalizer is idempotent for multiline plain text inside app" {
+  let source = "(proof $$\nAA\n$$ (tail x))"
+  let once = altsia_normalize_raise(source, max_width=16)
+  let twice = altsia_normalize_raise(once, max_width=16)
+  assert_eq(once, twice)
+  assert_same_normalizer_semantics(source, once)
+}
+
+///|
 test "Stage1 normalizer supports altsia-fmt-skip at top level" {
   let source =
     #|(% altsia-fmt-skip)

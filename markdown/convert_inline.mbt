@@ -67,6 +67,16 @@ fn make_text_attr_shape_from_sequence(
 }
 
 ///|
+fn rewrite_local_link_url(url : String) -> String {
+  if url.has_suffix(".md") {
+    let stem = url.unsafe_substring(start=0, end=url.length() - 3)
+    stem + ".alt"
+  } else {
+    url
+  }
+}
+
+///|
 fn local_link_token_to_ref_shape(
   token : MdToken,
   ctx : ConvertContext,
@@ -86,7 +96,7 @@ fn local_link_token_to_ref_shape(
       gap_before=Space,
     )
   }
-  push_shape_arg(args, gaps, Text(href), gap_before=Space)
+  push_shape_arg(args, gaps, Text(rewrite_local_link_url(href)), gap_before=Space)
   App(args, gaps)
 }
 

@@ -40,7 +40,12 @@ fn build_convert_context(
 
 ///|
 fn make_link_lambda_shape(name : String, href : String) -> NormalizedShape {
-  make_lambda_shape(name, [], [Text(href)])
+  let normalized_href = if is_local_link(href) {
+    rewrite_local_link_url(href)
+  } else {
+    href
+  }
+  make_lambda_shape(name, [], [Text(normalized_href)])
 }
 
 ///|

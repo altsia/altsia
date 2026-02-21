@@ -397,23 +397,29 @@ fn inline_tokens_to_shape_sequence(
         i += 1
       }
       "link_ref" => {
-        let href_node = match token_attr_value(token, "ref") {
-          Some(label) =>
-            match ctx.link_lambda_map.get(label) {
-              Some(lambda_name) => make_empty_call_shape(lambda_name)
+        let node = match token_attr_value(token, "href") {
+          Some(href) if is_local_link(href) =>
+            local_link_token_to_ref_shape(token, ctx, href)
+          _ => {
+            let href_node = match token_attr_value(token, "ref") {
+              Some(label) =>
+                match ctx.link_lambda_map.get(label) {
+                  Some(lambda_name) => make_empty_call_shape(lambda_name)
+                  None =>
+                    match token_attr_value(token, "href") {
+                      Some(href) => Text(href)
+                      None => Text("")
+                    }
+                }
               None =>
                 match token_attr_value(token, "href") {
                   Some(href) => Text(href)
                   None => Text("")
                 }
             }
-          None =>
-            match token_attr_value(token, "href") {
-              Some(href) => Text(href)
-              None => Text("")
-            }
+            link_token_to_shape_with_href(token, ctx, href_node)
+          }
         }
-        let node = link_token_to_shape_with_href(token, ctx, href_node)
         let gap_before = if nodes.is_empty() {
           Tight
         } else if pending_space {

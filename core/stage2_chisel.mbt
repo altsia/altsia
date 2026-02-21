@@ -11,8 +11,10 @@ pub(all) struct SplitAppArgs {
   positional : Array[Term]
 } derive(Eq, Show, Debug)
 
+pub type Stage2Chisel
+
 ///|
-fn stage2_extern_is_layout_gap_space(term : Term) -> Bool {
+fn Stage2Chisel::is_layout_gap_space(term : Term) -> Bool {
   match term {
     Text(" ", loc) => loc.start_offset == loc.end_offset
     _ => false
@@ -20,10 +22,10 @@ fn stage2_extern_is_layout_gap_space(term : Term) -> Bool {
 }
 
 ///|
-fn stage2_extern_strip_layout_gap_spaces(args : Array[Term]) -> Array[Term] {
+fn Stage2Chisel::strip_layout_gap_spaces(args : Array[Term]) -> Array[Term] {
   let result = []
   for arg in args {
-    if !stage2_extern_is_layout_gap_space(arg) {
+    if !Stage2Chisel::is_layout_gap_space(arg) {
       result.push(arg)
     }
   }
@@ -31,15 +33,26 @@ fn stage2_extern_strip_layout_gap_spaces(args : Array[Term]) -> Array[Term] {
 }
 
 ///|
-pub fn Stage2Extern::split_app_args(
+/// Split app arguments into:
+/// - named args: `(:name ...)`
+/// - positional args: all others
+///
+/// `strip_layout_gap_spaces` controls whether parser-inserted layout gap nodes
+/// (`Text(" ", loc)` where `loc.start_offset == loc.end_offset`) are removed
+/// before splitting.
+///
+/// Keep it `true` (default) for semantic processing.
+/// Set it to `false` when you need to preserve original layout gaps.
+pub fn Stage2Chisel::split_app_args(
   args : Array[Term],
   strip_layout_gap_spaces? : Bool = true,
 ) -> SplitAppArgs {
   let normalized_args = if strip_layout_gap_spaces {
-    stage2_extern_strip_layout_gap_spaces(args)
+    Stage2Chisel::strip_layout_gap_spaces(args)
   } else {
     args
   }
+  
   let named : Array[NamedAppArg] = []
   let positional : Array[Term] = []
   for arg in normalized_args {

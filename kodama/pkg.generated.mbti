@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "altsia/altsia/kodama"
+
+import {
+  "altsia/altsia/core",
+}
+
+// Values
+pub fn forester_app_rewriter(String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
+
+pub fn forester_pass(String) -> String raise
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

@@ -2,8 +2,9 @@
 package "altsia/altsia/date"
 
 // Values
-pub let default_date_format : String
+pub const DEFAULT_FORMAT : String = "MMMM D, YYYY"
 
+#alias(today)
 pub fn format_now_date(format? : String) -> String
 
 pub fn format_unix_millis_date(UInt64, format? : String) -> String

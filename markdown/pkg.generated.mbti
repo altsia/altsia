@@ -6,6 +6,16 @@ import {
 }
 
 // Values
+pub let default_options : MarkdownConvertOptions
+
+pub fn is_assets_link(String) -> Bool
+
+pub fn is_external_link(String) -> Bool
+
+pub fn is_inline_typst(String) -> Bool
+
+pub fn is_local_link(String) -> Bool
+
 pub fn normalized_shape_to_source(NormalizedShape) -> String
 
 pub fn normalized_shapes_to_source(Array[NormalizedShape]) -> String
@@ -40,11 +50,27 @@ pub(all) struct InlineState {
   footnotes : Array[MdFootnote]
 }
 
+pub(all) enum KatexConvertMode {
+  AlwaysApp
+  NeverApp
+  AppWhenHasParens
+}
+pub impl Eq for KatexConvertMode
+pub impl Show for KatexConvertMode
+pub impl @debug.Debug for KatexConvertMode
+
 pub type KoMarkdown
 pub fn KoMarkdown::parse(String) -> Array[MdToken]
 pub fn KoMarkdown::parse_document(String) -> MdDocument
 pub fn KoMarkdown::to_altsia(String, normalize? : Bool, max_width? : Int, options? : MarkdownConvertOptions) -> String raise
 pub fn KoMarkdown::to_shapes(String) -> Array[NormalizedShape]
+
+pub(all) struct MarkdownConvertOptions {
+  convert_katex : KatexConvertMode
+}
+pub impl Eq for MarkdownConvertOptions
+pub impl Show for MarkdownConvertOptions
+pub impl @debug.Debug for MarkdownConvertOptions
 
 pub(all) struct MdDocument {
   metadata : Array[MdMetadataItem]
@@ -93,22 +119,6 @@ pub impl Eq for MdToken
 pub impl Show for MdToken
 pub impl @debug.Debug for MdToken
 
-pub(all) enum KatexConvertMode {
-  AlwaysApp
-  NeverApp
-  AppWhenHasParens
-}
-pub impl Eq for KatexConvertMode
-pub impl Show for KatexConvertMode
-pub impl @debug.Debug for KatexConvertMode
-
-pub(all) struct MarkdownConvertOptions {
-  convert_katex : KatexConvertMode
-}
-pub impl Eq for MarkdownConvertOptions
-pub impl Show for MarkdownConvertOptions
-pub impl @debug.Debug for MarkdownConvertOptions
-
 pub(all) enum NormalizedShape {
   Text(String)
   QuoteInline(String)
@@ -121,3 +131,4 @@ pub impl @debug.Debug for NormalizedShape
 // Type aliases
 
 // Traits
+

@@ -236,12 +236,14 @@ pub type Stage2
 pub fn Stage2::elaborate_node(S) -> Term raise
 pub fn Stage2::pass(Array[S]) -> Array[Term] raise
 
+pub type Stage2Chisel
+pub fn Stage2Chisel::split_app_args(Array[Term], strip_layout_gap_spaces? : Bool) -> SplitAppArgs
+
 pub type Stage2Etale
 pub fn Stage2Etale::expand_program(Array[Term]) -> Array[Term] raise
 
 pub type Stage2Extern
 pub fn Stage2Extern::rewrite_apps(Array[Term], (String, Array[Term], SourceLoc) -> Array[Term]) -> Array[Term]
-pub fn Stage2Extern::split_app_args(Array[Term], strip_layout_gap_spaces? : Bool) -> SplitAppArgs
 
 pub type Stage3
 pub fn Stage3::pass(Array[Term]) -> Array[Piece] raise

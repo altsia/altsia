@@ -68,6 +68,15 @@ pub fn Html::from(
 }
 
 ///|
+pub fn Html::from_with(
+  doc : Doc,
+  f? : (Array[Html]) -> Array[Html] = x => x,
+  outer : (Array[Html]) -> Html,
+) -> Html {
+  outer(f(doc.map(Html::elaborate_node)))
+}
+
+///|
 pub fn Html::visit_text(html : Html, visitor : Visitor[String]) -> Html {
   match html {
     Comment(_) => html

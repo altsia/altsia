@@ -1,7 +1,7 @@
 ///|
 pub(all) struct Element[T] {
   name : String
-  attrs : Map[String, String]
+  attrs : Map[String, String] 
   children : Array[T]
 } derive(Eq, Show, Debug)
 

@@ -27,9 +27,9 @@ pub fn altsia_to_html_with_rewriter_raise(String, (String) -> String, extern_api
 
 pub fn altsia_to_html_with_rewriter_result(String, (String) -> String, extern_api? : @core.ExternApi, language? : String) -> Result[String, Array[String]]
 
-pub fn kodama_to_html(String, @kodama.ContextApi, Array[@kodama.DocEntry], HtmlComposeOptions, (String) -> String, extern_api? : @core.ExternApi, language? : String) -> String
+pub fn kodama_to_html(String, @kodama.ContextApi, (String) -> String, extern_api? : @core.ExternApi, language? : String) -> String
 
-pub fn kodama_to_html_raise(String, @kodama.ContextApi, Array[@kodama.DocEntry], HtmlComposeOptions, (String) -> String, extern_api? : @core.ExternApi) -> String raise
+pub fn kodama_to_html_raise(String, @kodama.ContextApi, (String) -> String, extern_api? : @core.ExternApi) -> String raise
 
 // Errors
 

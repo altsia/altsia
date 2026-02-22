@@ -13,7 +13,7 @@ pub fn Mdx::to_string(node : Mdx) -> String {
     Text(s) => s
     Group(xs) => xs.map(Mdx::to_string).join("")
     Element({ name, attrs, children }) => {
-      let html_attrs = attrs.to_array().map(x => "\{x.0}=\"\{x.1}\"").join(" ")
+      let html_attrs = attrs.map(x => "\{x.0}=\"\{x.1}\"").join(" ")
       let html_attrs = if attrs.is_empty() {
         html_attrs
       } else {

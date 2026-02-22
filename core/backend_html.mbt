@@ -11,7 +11,7 @@ pub fn Html::to_string(node : Html) -> String {
     Comment(s) => "<!-- \{s} -->"
     Text(s) => s
     Element({ name, attrs, children }) => {
-      let html_attrs = attrs.to_array().map(x => "\{x.0}=\"\{x.1}\"").join(" ")
+      let html_attrs = attrs.map(x => "\{x.0}=\"\{x.1}\"").join(" ")
       let html_attrs = if attrs.is_empty() {
         html_attrs
       } else {
@@ -38,7 +38,7 @@ pub fn Html::elaborate_block(node : BlockNode) -> Html {
     Paragraph(xs) =>
       Element({
         name: "p",
-        attrs: Map::new(),
+        attrs: [],
         children: xs.map(Html::elaborate_inline),
       })
     Container({ name, attrs, children }) =>
@@ -62,7 +62,7 @@ pub fn Html::from(
 ) -> Html {
   Element({
     name: "div",
-    attrs: Map::new(),
+    attrs: [],
     children: f(doc.map(Html::elaborate_node)),
   })
 }

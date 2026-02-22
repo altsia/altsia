@@ -124,7 +124,7 @@ pub impl Show for ES
 
 pub(all) struct Element[T] {
   name : String
-  attrs : Map[String, String]
+  attrs : Array[(String, String)]
   children : Array[T]
 }
 pub impl[T : Eq] Eq for Element[T]
@@ -147,6 +147,7 @@ pub fn Html::elaborate_block(BlockNode) -> Self
 pub fn Html::elaborate_inline(InlineNode) -> Self
 pub fn Html::elaborate_node(Piece) -> Self
 pub fn Html::from(Array[Piece], f? : (Array[Self]) -> Array[Self]) -> Self
+pub fn Html::from_with(Array[Piece], f? : (Array[Self]) -> Array[Self], (Array[Self]) -> Self) -> Self
 pub fn Html::to_string(Self) -> String
 pub fn Html::visit_element(Self, (Element[Self]) -> Element[Self]) -> Self
 pub fn Html::visit_text(Self, (String) -> String) -> Self

@@ -103,14 +103,14 @@ fn attr_value(term : Array[Term], loc : SourceLoc) -> String raise {
 ///|
 fn extract_attrs(
   args : Array[Term],
-) -> (Map[String, String], Array[Term]) raise {
-  let attrs : Map[String, String] = Map::new()
+) -> (Array[(String, String)], Array[Term]) raise {
+  let attrs : Array[(String, String)] = []
   let body = []
   for term in args {
     guard term is App(name, v, loc) && name.strip_prefix(":") is Some(key) else {
       body.push(term)
     }
-    attrs[key.to_string()] = attr_value(v, loc)
+    attrs.push((key.to_string(), attr_value(v, loc)))
   }
   (attrs, body)
 }

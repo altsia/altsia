@@ -15,23 +15,19 @@ pub fn forester_build_project_context(Array[DocEntry]) -> ProjectContext raise
 
 pub fn forester_index_document(String, String) -> IndexedDocument raise
 
-pub fn hattr(String, String) -> (String, String)
-
-pub fn hclass(Array[String]) -> (String, String)
-
-pub fn hel(String, attrs? : Array[(String, String)], children? : Array[HtmlTermNode]) -> HtmlTermNode
-
-pub fn hterm(HtmlTermNode, @core.SourceLoc) -> @core.Term
-
-pub fn htext(String) -> HtmlTermNode
-
+#alias(hattr)
 pub fn html_attr(String, String) -> (String, String)
 
+#alias(hclass)
 pub fn html_class_attr(Array[String]) -> (String, String)
 
+#alias(hel)
 pub fn html_element_node(String, attrs? : Array[(String, String)], children? : Array[HtmlTermNode]) -> HtmlTermNode
 
+#alias(htext)
 pub fn html_text_node(String) -> HtmlTermNode
+
+pub fn outer_article(Array[@core.Html]) -> @core.Html
 
 pub fn parse_terms_for_forester(String) -> Array[@core.Term] raise
 
@@ -79,6 +75,7 @@ pub(all) enum HtmlTermNode {
   Text(String)
   Element(HtmlTermElement)
 }
+#alias(hterm)
 pub fn HtmlTermNode::to_term(Self, @core.SourceLoc) -> @core.Term
 pub impl Eq for HtmlTermNode
 pub impl Show for HtmlTermNode

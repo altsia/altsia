@@ -209,7 +209,7 @@ test "Forester pass rewrites metadata app into summary structure" {
   let ctx = forester_build_project_context([{ id: "demo.alt", content: source }])
   let html = forester_pass_with_context(source, ctx, "demo.alt")
   assert_eq(
-    html, "<div><summary><header><h1><span class=\"taxon\">Lemma</span>Demo</h1><div class=\"metadata\"><ul><li class=\"meta-item\">id: demo-1</li></ul></div></header></summary></div>",
+    html, "<div><summary><header><h1><span class=\"taxon\">Lemma. </span>Demo</h1><div class=\"metadata\"><ul><li class=\"meta-item\">demo-1</li></ul></div></header></summary></div>",
   )
 }
 
@@ -219,7 +219,7 @@ test "Forester metadata summary omits metadata list when only fancy keys exist" 
   let ctx = forester_build_project_context([{ id: "demo.alt", content: source }])
   let html = forester_pass_with_context(source, ctx, "demo.alt")
   assert_eq(
-    html, "<div><summary><header><h1><span class=\"taxon\">Lemma</span>Demo</h1></header></summary></div>",
+    html, "<div><summary><header><h1><span class=\"taxon\">Lemma. </span>Demo</h1></header></summary></div>",
   )
 }
 
@@ -229,7 +229,7 @@ test "Forester metadata summary keeps term title and term custom items" {
   let ctx = forester_build_project_context([{ id: "demo.alt", content: source }])
   let html = forester_pass_with_context(source, ctx, "demo.alt")
   assert_eq(
-    html, "<div><summary><header><h1><span class=\"taxon\">Lemma</span><em>Demo</em></h1><div class=\"metadata\"><ul><li class=\"meta-item\">id: <strong>demo-1</strong></li></ul></div></header></summary></div>",
+    html, "<div><summary><header><h1><span class=\"taxon\">Lemma. </span><em>Demo</em></h1><div class=\"metadata\"><ul><li class=\"meta-item\"><strong>demo-1</strong></li></ul></div></header></summary></div>",
   )
 }
 
@@ -242,6 +242,6 @@ test "Forester metadata custom items can contain rewritten ref apps" {
   ])
   let html = forester_pass_with_context(source, ctx, "demo.alt")
   assert_eq(
-    html, "<div><summary><header><h1>Demo</h1><div class=\"metadata\"><ul><li class=\"meta-item\">id: <span class=\"link local\"><a href=\"b.alt\" title=\"B [b]\">B</a></span></li></ul></div></header></summary></div>",
+    html, "<div><summary><header><h1>Demo</h1><div class=\"metadata\"><ul><li class=\"meta-item\"><span class=\"link local\"><a href=\"b.alt\" title=\"B [b]\">B</a></span></li></ul></div></header></summary></div>",
   )
 }

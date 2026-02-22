@@ -166,3 +166,40 @@ test "render_error localizes message with language parameter" {
   assert_true(langs.contains("zh-CN"))
   assert_true(langs.contains("ms"))
 }
+
+///|
+fn test_extern_api() -> @core.ExternApi {
+  @core.ExternApi::{
+    read: path => "<read:\{path}>",
+    katex_render: tex => "<k:\{tex}>",
+    katex_display_render: tex => "<kd:\{tex}>",
+  }
+}
+
+///|
+test "bindings text_rewriter skips extern api rendered text in altsia_to_html_with_rewriter" {
+  let html = altsia_to_html_with_rewriter(
+    "(p pre (k x) post)",
+    s => s.to_upper(),
+    extern_api=test_extern_api(),
+  )
+  assert_true(html.contains("PRE"))
+  assert_true(html.contains("POST"))
+  assert_true(html.contains("<k:x>"))
+  assert_true(!html.contains("<K:X>"))
+}
+
+///|
+test "bindings text_rewriter skips extern api rendered text in kodama_to_html" {
+  let context = @kodama.ContextApi::{ doc_workspace_path: "notes/a.alt", docs: [] }
+  let html = kodama_to_html(
+    "(p pre (k x) post)",
+    context,
+    s => s.to_upper(),
+    extern_api=test_extern_api(),
+  )
+  assert_true(html.contains("PRE"))
+  assert_true(html.contains("POST"))
+  assert_true(html.contains("<k:x>"))
+  assert_true(!html.contains("<K:X>"))
+}

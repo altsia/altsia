@@ -11,6 +11,9 @@ pub fn Html::to_string(node : Html) -> String {
     Comment(s) => "<!-- \{s} -->"
     Text(s) => s
     Element({ name, attrs, children }) => {
+      if is_extern(name) {
+        return children.map(Html::to_string).join("")
+      }
       let html_attrs = attrs.map(x => "\{x.0}=\"\{x.1}\"").join(" ")
       let html_attrs = if attrs.is_empty() {
         html_attrs
@@ -73,12 +76,14 @@ pub fn Html::visit_text(html : Html, visitor : Visitor[String]) -> Html {
   match html {
     Comment(_) => html
     Text(s) => Text(visitor(s))
-    Element({ name, attrs, children }) =>
+    Element({ name, attrs, children }) => {
+      guard !is_extern(name) else { html }
       Element({
         name,
         attrs,
         children: children.map(h => Html::visit_text(h, visitor)),
       })
+    }
   }
 }
 

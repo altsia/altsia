@@ -1,3 +1,4 @@
 import {
   "altsia/altsia/core",
+  "altsia/altsia/kodama", 
 }

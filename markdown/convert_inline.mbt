@@ -82,7 +82,7 @@ fn local_link_token_to_ref_shape(
   ctx : ConvertContext,
   href : String,
 ) -> NormalizedShape {
-  let args : Array[NormalizedShape] = [Text("ref")]
+  let args : Array[NormalizedShape] = [Text(@kodama.LOCAL_LINK_APP_NAME)]
   let gaps : Array[Gap] = []
   let (children, child_gaps) = inline_tokens_to_shape_sequence(
     token.children,

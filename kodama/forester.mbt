@@ -8,8 +8,8 @@ fn forester_app_rewriter_with_context(
 ) -> Array[@core.Term] {
   match name {
     "today" => [@core.Term::Text(@date.today(), loc)]
-    "ref" => rewrite_ref(ctx, current_doc_id, args, loc)
-    "metadata" => rewrite_metadata(ctx, current_doc_id, args, loc)
+    LOCAL_LINK_APP_NAME => rewrite_ref(ctx, current_doc_id, args, loc)
+    METADATA_APP_NAME => rewrite_metadata(ctx, current_doc_id, args, loc)
     _ => [@core.Term::App(name, args, loc)]
   }
 }

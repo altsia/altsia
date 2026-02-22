@@ -12,8 +12,8 @@ pub(all) struct RawMetadata {
 } derive(Eq, Show, Debug)
 
 ///|
-fn metadata_strip_named_key_prefix(name : String) -> String {
-  match name.strip_prefix(":") {
+pub fn strip_named_key_prefix(name : String) -> String {
+  match @core.Stage2::extract_named_param(name) {
     Some(rest) => rest.to_string()
     None => name
   }
@@ -29,7 +29,7 @@ fn metadata_build_from_named_map(
   let custom : Map[String, @core.NamedAppArg] = Map::new()
 
   for entry in named.to_array() {
-    let key = metadata_strip_named_key_prefix(entry.0)
+    let key = strip_named_key_prefix(entry.0)
     let value = entry.1
     match key {
       KEY_TITLE => title = Some(value)

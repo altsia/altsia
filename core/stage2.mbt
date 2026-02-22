@@ -71,8 +71,12 @@ fn elaborate_comment(xs : ArrayView[S]) -> String {
 }
 
 ///|
-fn stage2_is_named_param(name : Name) -> Bool {
-  name.strip_prefix(":") is Some(_)
+pub fn Stage2::is_named_param(name : Name) -> Bool {
+  name.has_prefix(":")
+}
+
+pub fn Stage2::extract_named_param(name : Name) -> Option[StringView] {
+  name.strip_prefix(":")
 }
 
 ///|
@@ -83,7 +87,7 @@ fn elaborate_param_spec(node : S) -> (Name, Array[Term]?) raise {
       match list {
         [head, .. tail] => {
           let name = elaborate_name(head)
-          if stage2_is_named_param(name) && !tail.is_empty() {
+          if Stage2::is_named_param(name) && !tail.is_empty() {
             (name, Some(elaborate_nodes_with_gaps(tail, gaps, 1)))
           } else {
             (name, None)

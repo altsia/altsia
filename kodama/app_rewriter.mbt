@@ -1,10 +1,3 @@
-///|
-fn metadata_named_arg_key(name : String) -> String {
-  match name.strip_prefix(":") {
-    Some(rest) => rest.to_string()
-    None => name
-  }
-}
 
 ///|
 fn resolve_metadata_title(
@@ -22,14 +15,9 @@ fn resolve_metadata_title(
 
 ///|
 fn custom_item_term(named : @core.NamedAppArg) -> @core.Term {
-  let key = metadata_named_arg_key(named.name)
   match named.values {
-    [] => @core.Term::Text(key, named.loc)
-    _ => {
-      let values : Array[@core.Term] = [@core.Term::Text("\{key}: ", named.loc)]
-      values.append(named.values)
-      @core.Term::Splice(values, named.loc)
-    }
+    [] => @core.Term::Text("", named.loc)
+    _ => @core.Term::Splice(named.values, named.loc)
   }
 }
 

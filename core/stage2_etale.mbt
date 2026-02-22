@@ -80,11 +80,6 @@ fn stage2_etale_has_variadic_suffix(name : Name) -> Bool {
 }
 
 ///|
-fn stage2_etale_is_named_param(name : Name) -> Bool {
-  name.strip_prefix(":") is Some(_)
-}
-
-///|
 fn stage2_etale_strip_variadic_suffix(name : Name) -> Name {
   if stage2_etale_has_variadic_suffix(name) {
     name.unsafe_substring(start=0, end=name.length() - 3)
@@ -136,7 +131,7 @@ fn stage2_etale_find_default(
 ///|
 fn stage2_etale_has_named_param(params : Array[Name], candidate : Name) -> Bool {
   for param in params {
-    if stage2_etale_is_named_param(param) && param == candidate {
+    if Stage2::is_named_param(param) && param == candidate {
       return true
     }
   }
@@ -208,7 +203,7 @@ fn expand_template_call(
   let positional_params : Array[Name] = []
   let named_params : Array[Name] = []
   for param in template.params {
-    if stage2_etale_is_named_param(param) {
+    if Stage2::is_named_param(param) {
       named_params.push(param)
     } else {
       positional_params.push(param)
@@ -218,7 +213,7 @@ fn expand_template_call(
   let named_values : ParamsEnv = @hashmap.HashMap::new()
   for arg in semantic_args {
     match arg {
-      App(name, values, loc) if stage2_etale_is_named_param(name) &&
+      App(name, values, loc) if Stage2::is_named_param(name) &&
         stage2_etale_has_named_param(named_params, name) => {
         if named_values.get(name) is Some(_) {
           raise Stage2EtaleError::DuplicateNamedArgument(

@@ -107,7 +107,8 @@ fn extract_attrs(
   let attrs : Array[(String, String)] = []
   let body = []
   for term in args {
-    guard term is App(name, v, loc) && name.strip_prefix(":") is Some(key) else {
+    guard term is App(name, v, loc) &&
+      Stage2::extract_named_param(name) is Some(key) else {
       body.push(term)
     }
     attrs.push((key.to_string(), attr_value(v, loc)))

@@ -58,7 +58,7 @@ pub fn Stage2Chisel::split_app_args(
   let positional : Array[Term] = []
   for arg in normalized_args {
     match arg {
-      App(name, values, loc) if name.strip_prefix(":") is Some(_) => {
+      App(name, values, loc) if Stage2::is_named_param(name) => {
         let named_arg = NamedAppArg::{ name, values, loc }
         // Keep first occurrence for key-based lookup.
         if named.get(name) is None {

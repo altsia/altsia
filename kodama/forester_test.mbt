@@ -74,10 +74,12 @@ test "Forester project context resolves ref target metadata from ref args" {
     { id: "a.alt", content: "(metadata (:title A))" },
     { id: "b.alt", content: "(metadata (:title B))" },
   ])
-  let terms = "(p (ref b.alt))" |> @core.Stage1::parse |> @core.Stage2::pass
+  let terms = "(p (\{LOCAL_LINK_APP_NAME} b.alt))"
+    |> @core.Stage1::parse
+    |> @core.Stage2::pass
   guard terms
-    is [@core.Term::App("p", [@core.Term::App("ref", ref_args, _)], _)] else {
-    fail("expected p(ref b.alt)")
+    is [@core.Term::App("p", [@core.Term::App(LOCAL_LINK_APP_NAME, ref_args, _)], _)] else {
+    fail("expected p(\{LOCAL_LINK_APP_NAME} b.alt)")
   }
   guard ctx.resolve_ref_target_metadata(ref_args) is Some(meta) else {
     fail("expected target metadata for b.alt")
@@ -96,10 +98,12 @@ test "Forester resolves relative ref target metadata from current doc id" {
     { id: "notes/a.alt", content: "(metadata (:title A))" },
     { id: "notes/b.alt", content: "(metadata (:title B))" },
   ])
-  let terms = "(p (ref ./b.alt))" |> @core.Stage1::parse |> @core.Stage2::pass
+  let terms = "(p (\{LOCAL_LINK_APP_NAME} ./b.alt))"
+    |> @core.Stage1::parse
+    |> @core.Stage2::pass
   guard terms
-    is [@core.Term::App("p", [@core.Term::App("ref", ref_args, _)], _)] else {
-    fail("expected p(ref ./b.alt)")
+    is [@core.Term::App("p", [@core.Term::App(LOCAL_LINK_APP_NAME, ref_args, _)], _)] else {
+    fail("expected p(\{LOCAL_LINK_APP_NAME} ./b.alt)")
   }
   guard ctx.resolve_ref_target_metadata(ref_args, current_doc_id="notes/a.alt")
     is Some(meta) else {
@@ -129,7 +133,7 @@ fn forester_pass_with_context(
 
 ///|
 test "Forester pass with context keeps current rendering behavior" {
-  let source = "(p (ref b.alt))"
+  let source = "(p (\{LOCAL_LINK_APP_NAME} b.alt))"
   let ctx = forester_build_project_context([
     { id: "b.alt", content: "(metadata (:title B))" },
   ])
@@ -141,7 +145,7 @@ test "Forester pass with context keeps current rendering behavior" {
 
 ///|
 test "Forester pass with context keeps explicit ref text over target title" {
-  let source = "(p (ref (:text Read B) b.alt))"
+  let source = "(p (\{LOCAL_LINK_APP_NAME} (:text Read B) b.alt))"
   let ctx = forester_build_project_context([
     { id: "b.alt", content: "(metadata (:title B))" },
   ])
@@ -153,7 +157,7 @@ test "Forester pass with context keeps explicit ref text over target title" {
 
 ///|
 test "Forester ref title attr prefers target :page-title over extracted :title text" {
-  let source = "(p (ref b.alt))"
+  let source = "(p (\{LOCAL_LINK_APP_NAME} b.alt))"
   let ctx = forester_build_project_context([
     { id: "b.alt", content: "(metadata (:title (em B)) (:page-title Bee))" },
   ])
@@ -165,7 +169,7 @@ test "Forester ref title attr prefers target :page-title over extracted :title t
 
 ///|
 test "Forester ref fallback renders target title term content" {
-  let source = "(p (ref b.alt))"
+  let source = "(p (\{LOCAL_LINK_APP_NAME} b.alt))"
   let ctx = forester_build_project_context([
     { id: "b.alt", content: "(metadata (:title (em B)))" },
   ])
@@ -177,7 +181,7 @@ test "Forester ref fallback renders target title term content" {
 
 ///|
 test "Forester pass resolves relative ref target against current doc id" {
-  let source = "(p (ref ./b.alt))"
+  let source = "(p (\{LOCAL_LINK_APP_NAME} ./b.alt))"
   let ctx = forester_build_project_context([
     { id: "notes/b.alt", content: "(metadata (:title B))" },
   ])
@@ -189,7 +193,7 @@ test "Forester pass resolves relative ref target against current doc id" {
 
 ///|
 test "Forester pass resolves parent relative ref target against current doc id" {
-  let source = "(p (ref ../b.alt))"
+  let source = "(p (\{LOCAL_LINK_APP_NAME} ../b.alt))"
   let ctx = forester_build_project_context([
     { id: "b.alt", content: "(metadata (:title B))" },
   ])
@@ -231,7 +235,7 @@ test "Forester metadata summary keeps term title and term custom items" {
 
 ///|
 test "Forester metadata custom items can contain rewritten ref apps" {
-  let source = "(metadata (:title Demo) (:id (ref b.alt)))"
+  let source = "(metadata (:title Demo) (:id (\{LOCAL_LINK_APP_NAME} b.alt)))"
   let ctx = forester_build_project_context([
     { id: "demo.alt", content: source },
     { id: "b.alt", content: "(metadata (:title B))" },

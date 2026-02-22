@@ -24,6 +24,7 @@ fn comment_strip(doc : Array[@core.Piece]) -> Array[@core.Piece] {
 }
 
 ///|
+#inline
 fn[T] apply_if(value : T, enabled : Bool, transformer : (T) -> T) -> T {
   guard enabled else { value }
   transformer(value)

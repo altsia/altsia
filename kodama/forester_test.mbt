@@ -7,7 +7,9 @@ test "Forester indexes top-level metadata into named entries" {
   let indexed = forester_index_document("demo-1.alt", source)
   assert_eq(indexed.doc_id, "demo-1.alt")
   assert_eq(indexed.slug, "demo-1")
-  assert_eq(indexed.title, "Demo")
+  guard indexed.title is @core.Term::Text("Demo", _) else {
+    fail("expected indexed title term to be Demo")
+  }
   assert_eq(indexed.title_with_slug(), "Demo [demo-1]")
   assert_eq(indexed.metadata.named_args.length(), 2)
   guard indexed.metadata.get("title") is Some(title) else {
@@ -22,6 +24,30 @@ test "Forester indexes top-level metadata into named entries" {
   guard doc_id_meta.values is [@core.Term::Text("demo-1", _)] else {
     fail("expected :id value to be demo-1")
   }
+}
+
+///|
+test "Forester uses :page-title for title_with_slug text" {
+  let source =
+    #|(metadata (:title (em Demo)) (:page-title Demo Page))
+    #|
+    #|(p body)
+  let indexed = forester_index_document("demo-1.alt", source)
+  guard indexed.title is @core.Term::App("em", [@core.Term::Text("Demo", _)], _) else {
+    fail("expected rich title term")
+  }
+  assert_eq(indexed.title_with_slug(), "Demo Page [demo-1]")
+}
+
+///|
+test "Forester ignores user-provided :slug metadata when indexing slug" {
+  let source =
+    #|(metadata (:slug custom-slug) (:title Demo))
+    #|
+    #|(p body)
+  let indexed = forester_index_document("notes/demo-1.alt", source)
+  assert_eq(indexed.slug, "notes/demo-1")
+  assert_eq(indexed.title_with_slug(), "Demo [notes/demo-1]")
 }
 
 ///|
@@ -129,6 +155,32 @@ test "Forester pass with context keeps explicit ref text over target title" {
 }
 
 ///|
+test "Forester ref title attr prefers target :page-title over extracted :title text" {
+  let source = "(p (ref b.alt))"
+  let ctx = forester_build_project_context([
+    { id: "b.alt", content: "(metadata (:title (em B)) (:page-title Bee))" },
+  ])
+  let html = forester_pass_with_context(source, ctx, "a.alt")
+  assert_eq(
+    html,
+    "<div><p><span class=\"link local\"><a href=\"b.alt\" title=\"Bee [b]\"><em>B</em></a></span></p></div>",
+  )
+}
+
+///|
+test "Forester ref fallback renders target title term content" {
+  let source = "(p (ref b.alt))"
+  let ctx = forester_build_project_context([
+    { id: "b.alt", content: "(metadata (:title (em B)))" },
+  ])
+  let html = forester_pass_with_context(source, ctx, "a.alt")
+  assert_eq(
+    html,
+    "<div><p><span class=\"link local\"><a href=\"b.alt\" title=\"B [b]\"><em>B</em></a></span></p></div>",
+  )
+}
+
+///|
 test "Forester pass resolves relative ref target against current doc id" {
   let source = "(p (ref ./b.alt))"
   let ctx = forester_build_project_context([
@@ -169,7 +221,7 @@ test "Forester pass rewrites metadata app into summary structure" {
 
 ///|
 test "Forester metadata summary omits metadata list when only fancy keys exist" {
-  let source = "(metadata (:title Demo) (:taxon Lemma))"
+  let source = "(metadata (:title Demo) (:page-title Demo Page) (:taxon Lemma))"
   let ctx = forester_build_project_context([
     { id: "demo.alt", content: source },
   ])
@@ -177,5 +229,32 @@ test "Forester metadata summary omits metadata list when only fancy keys exist" 
   assert_eq(
     html,
     "<div><summary><header><h1><span class=\"taxon\">Lemma</span>Demo</h1></header></summary></div>",
+  )
+}
+
+///|
+test "Forester metadata summary keeps term title and term custom items" {
+  let source = "(metadata (:title (em Demo)) (:taxon Lemma) (:id (strong demo-1)))"
+  let ctx = forester_build_project_context([
+    { id: "demo.alt", content: source },
+  ])
+  let html = forester_pass_with_context(source, ctx, "demo.alt")
+  assert_eq(
+    html,
+    "<div><summary><header><h1><span class=\"taxon\">Lemma</span><em>Demo</em></h1><div class=\"metadata\"><ul><li class=\"meta-item\">id: <strong>demo-1</strong></li></ul></div></header></summary></div>",
+  )
+}
+
+///|
+test "Forester metadata custom items can contain rewritten ref apps" {
+  let source = "(metadata (:title Demo) (:id (ref b.alt)))"
+  let ctx = forester_build_project_context([
+    { id: "demo.alt", content: source },
+    { id: "b.alt", content: "(metadata (:title B))" },
+  ])
+  let html = forester_pass_with_context(source, ctx, "demo.alt")
+  assert_eq(
+    html,
+    "<div><summary><header><h1>Demo</h1><div class=\"metadata\"><ul><li class=\"meta-item\">id: <span class=\"link local\"><a href=\"b.alt\" title=\"B [b]\">B</a></span></li></ul></div></header></summary></div>",
   )
 }

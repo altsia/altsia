@@ -279,7 +279,7 @@ fn ref_values_to_text(values : Array[@core.Term]) -> String {
 
 ///|
 fn resolve_ref_text(split : @core.SplitAppArgs) -> String? {
-  match split.get_named("text") {
+  match split.get_named(":text") {
     Some(named) => {
       let text = ref_values_to_text(named.values)
       if text.is_empty() { None } else { Some(text) }

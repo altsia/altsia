@@ -1,4 +1,5 @@
 import {
   "altsia/altsia/core",
   "altsia/altsia/date",
+  "moonbitlang/core/immut/hashset" @immut_hashset,
 }

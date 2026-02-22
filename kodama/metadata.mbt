@@ -12,7 +12,9 @@ pub fn extract_doc_metadata_from_terms(
     match term {
       @core.Term::App("metadata", args, _) => {
         let split = @core.Stage2Chisel::split_app_args(args)
-        named_args.append(split.named_entries)
+        for entry in split.named.to_array() {
+          named_args.push(entry.1)
+        }
       }
       _ => ()
     }
@@ -32,4 +34,17 @@ pub fn DocMetadata::get(
     }
   }
   None
+}
+
+///|
+pub fn DocMetadata::get_plain_text(
+  metadata : DocMetadata,
+  key : String,
+) -> String? {
+  metadata
+  .get(key)
+  .bind(named => {
+    let text = terms_plain_text(named.values)
+    ite_eager(text.is_empty(), None, Some(text))
+  })
 }

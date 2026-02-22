@@ -1,35 +1,53 @@
 ///|
-pub fn term_metadata(items : Array[HtmlTermNode]) -> HtmlTermNode {
-  let items = items.map(item => {
-    hel("li", attrs=[("class", "meta-item")], children=[item])
+pub fn term_metadata(
+  items : Array[@core.Term],
+  loc : @core.SourceLoc,
+) -> @core.Term {
+  let li_terms = items.map(item => {
+    hel("li", loc, attrs=[hclass(["meta-item"], loc)], children=[item])
   })
-  hel("div", attrs=[("class", "metadata")], children=[hel("ul", children=items)])
+  hel(
+    "div",
+    loc,
+    attrs=[hclass(["metadata"], loc)],
+    children=[hel("ul", loc, children=li_terms)],
+  )
+}
+
+///|
+fn taxon_term(taxon : Taxon, loc : @core.SourceLoc) -> @core.Term {
+  hel(
+    "span",
+    loc,
+    attrs=[hclass(["taxon"], loc)],
+    children=[htext(taxon.display(), loc)],
+  )
 }
 
 ///|
 pub fn term_section_summary(
   taxon : Taxon?,
-  title : HtmlTermNode,
-  metadata_items : Array[HtmlTermNode],
-) -> HtmlTermNode {
-  let html_taxon = taxon.map_or([], taxon => {
-    [hel("span", attrs=[("class", "taxon")], children=[htext(taxon.display())])]
-  })
+  title : @core.Term,
+  metadata_items : Array[@core.Term],
+  loc : @core.SourceLoc,
+) -> @core.Term {
+  let h1_children : Array[@core.Term] = []
+  for taxon in taxon.iter() {
+    h1_children.push(taxon_term(taxon, loc))
+  }
+  h1_children.push(title)
 
-  let html_metadata = ite(
-    metadata_items.is_empty(),
-    () => [], // 
-    () => [term_metadata(metadata_items)],
+  let header_children : Array[@core.Term] = [hel("h1", loc, children=h1_children)]
+  if !metadata_items.is_empty() {
+    header_children.push(term_metadata(metadata_items, loc))
+  }
+
+  // slug, edit actions
+  hel(
+    "summary",
+    loc,
+    children=[hel("header", loc, children=header_children)],
   )
-
-  // slug, 
-  // edit, 
-  hel("summary", children=[
-    hel(
-      "header",
-      children=[hel("h1", children=[..html_taxon, title]), ..html_metadata],
-    ),
-  ])
 }
 
 ///|

@@ -230,7 +230,6 @@ pub impl @debug.Debug for SourceLoc
 
 pub(all) struct SplitAppArgs {
   named : Map[String, NamedAppArg]
-  named_entries : Array[NamedAppArg]
   positional : Array[Term]
 }
 pub fn SplitAppArgs::get_named(Self, String) -> NamedAppArg?

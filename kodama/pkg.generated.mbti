@@ -4,9 +4,12 @@ package "altsia/altsia/kodama"
 import {
   "altsia/altsia/core",
   "moonbitlang/core/debug",
+  "moonbitlang/core/immut/hashset",
 }
 
 // Values
+pub const KEY_PAGE_TITLE : String = "page-title"
+
 pub const KEY_SLUG : String = "slug"
 
 pub const KEY_TAXON : String = "taxon"
@@ -15,8 +18,6 @@ pub const KEY_TITLE : String = "title"
 
 pub fn extract_doc_metadata_from_terms(Array[@core.Term]) -> DocMetadata
 
-pub let fancy_metadata_keys : Array[String]
-
 pub fn forester_app_rewriter(String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
 
 pub fn forester_build_project_context(Array[DocEntry]) -> ProjectContext raise
@@ -24,20 +25,31 @@ pub fn forester_build_project_context(Array[DocEntry]) -> ProjectContext raise
 pub fn forester_index_document(String, String) -> IndexedDocument raise
 
 #alias(hattr)
-pub fn html_attr(String, String) -> (String, String)
+pub fn html_attr(String, String, @core.SourceLoc) -> @core.Term
+
+#alias(hattrs)
+pub fn html_attrs_from_pairs(Array[(String, String)], @core.SourceLoc) -> Array[@core.Term]
 
 #alias(hclass)
-pub fn html_class_attr(Array[String]) -> (String, String)
+pub fn html_class_attr(Array[String], @core.SourceLoc) -> @core.Term
 
 #alias(hel)
-pub fn html_element_node(String, attrs? : Array[(String, String)], children? : Array[HtmlTermNode]) -> HtmlTermNode
+pub fn html_element_term(String, @core.SourceLoc, attrs? : Array[@core.Term], children? : Array[@core.Term]) -> @core.Term
+
+#alias(help)
+pub fn html_element_term_from_pairs(String, @core.SourceLoc, attrs? : Array[(String, String)], children? : Array[@core.Term]) -> @core.Term
+
+#alias(hnamed)
+pub fn html_named_attr_term(String, Array[@core.Term], @core.SourceLoc) -> @core.Term
 
 #alias(htext)
-pub fn html_text_node(String) -> HtmlTermNode
-
-pub fn is_fancy_metadata(String) -> Bool
+pub fn html_text_term(String, @core.SourceLoc) -> @core.Term
 
 pub fn[X] ite(Bool, () -> X, () -> X) -> X
+
+pub fn[X] ite_eager(Bool, X, X) -> X
+
+pub let metadata_preset_keys : @hashset.HashSet[String]
 
 pub fn outer_article(Array[@core.Html]) -> @core.Html
 
@@ -45,9 +57,13 @@ pub fn outer_section(Array[@core.Html]) -> @core.Html
 
 pub fn parse_terms_for_forester(String) -> Array[@core.Term] raise
 
-pub fn term_metadata(Array[HtmlTermNode]) -> HtmlTermNode
+pub fn term_metadata(Array[@core.Term], @core.SourceLoc) -> @core.Term
 
-pub fn term_section_summary(Taxon?, HtmlTermNode, Array[HtmlTermNode]) -> HtmlTermNode
+pub fn term_plain_text(@core.Term) -> String
+
+pub fn term_section_summary(Taxon?, @core.Term, Array[@core.Term], @core.SourceLoc) -> @core.Term
+
+pub fn terms_plain_text(Array[@core.Term]) -> String
 
 // Errors
 
@@ -63,7 +79,7 @@ pub(all) struct DocEntry {
 }
 
 pub(all) struct DocMetadata {
-  named : Array[@core.NamedAppArg]
+  named_args : Array[@core.NamedAppArg]
 }
 pub fn DocMetadata::get(Self, String) -> @core.NamedAppArg?
 pub impl Eq for DocMetadata
@@ -80,35 +96,26 @@ pub impl Eq for ForesterDeployOptions
 pub impl Show for ForesterDeployOptions
 pub impl @debug.Debug for ForesterDeployOptions
 
-pub(all) struct HtmlTermElement {
-  tag : String
-  attrs : Array[(String, String)]
-  children : Array[HtmlTermNode]
-}
-pub impl Eq for HtmlTermElement
-pub impl Show for HtmlTermElement
-pub impl @debug.Debug for HtmlTermElement
-
-pub(all) enum HtmlTermNode {
-  Text(String)
-  Element(HtmlTermElement)
-}
-#alias(hterm)
-pub fn HtmlTermNode::to_term(Self, @core.SourceLoc) -> @core.Term
-pub impl Eq for HtmlTermNode
-pub impl Show for HtmlTermNode
-pub impl @debug.Debug for HtmlTermNode
-
 pub(all) struct IndexedDocument {
   doc_id : String
   slug : String
-  title : String
+  title : @core.Term
   metadata : DocMetadata
 }
+pub fn IndexedDocument::title_text(Self) -> String
 pub fn IndexedDocument::title_with_slug(Self) -> String
 pub impl Eq for IndexedDocument
 pub impl Show for IndexedDocument
 pub impl @debug.Debug for IndexedDocument
+
+pub(all) struct Metadata {
+  title : @core.Term
+  taxon : Taxon?
+  custom_items : Array[@core.Term]
+}
+
+pub type MetadataKey
+pub fn MetadataKey::is_preset(String) -> Bool
 
 pub(all) struct ProjectContext {
   docs : Map[String, IndexedDocument]
@@ -135,6 +142,7 @@ pub(all) struct Taxon {
 pub fn Taxon::display(Self) -> String
 
 // Type aliases
+pub type PresetKeys = @hashset.HashSet[String]
 
 // Traits
 

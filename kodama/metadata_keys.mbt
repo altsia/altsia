@@ -2,6 +2,10 @@
 pub const KEY_TITLE : String = "title"
 
 ///|
+/// User-provided plain-text title for text-only contexts (e.g. HTML title attr).
+pub const KEY_PAGE_TITLE : String = "page-title"
+
+///|
 /// Auto-detected
 pub const KEY_SLUG : String = "slug"
 
@@ -9,10 +13,20 @@ pub const KEY_SLUG : String = "slug"
 pub const KEY_TAXON : String = "taxon"
 
 ///|
-pub let fancy_metadata_keys : Array[String] = [KEY_TITLE, KEY_TAXON]
+pub type PresetKeys = @immut_hashset.HashSet[String]
 
 ///|
-pub fn is_fancy_metadata(key : String) -> Bool {
-  fancy_metadata_keys.contains(key)
-}
+pub let metadata_preset_keys : PresetKeys = PresetKeys::from_array([
+  KEY_TITLE,
+  KEY_PAGE_TITLE,
+  KEY_TAXON,
+  KEY_SLUG,
+])
 
+///|
+pub type MetadataKey
+
+///|
+pub fn MetadataKey::is_preset(key : String) -> Bool {
+  metadata_preset_keys.contains(key)
+}

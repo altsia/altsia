@@ -4,16 +4,15 @@ test "Stage2Chisel split_app_args separates named and positional args" {
   let terms = source |> Stage1::parse |> Stage2::pass
   guard terms is [App("badge", args, _)] else { fail("expected badge call") }
   let split = Stage2Chisel::split_app_args(args)
-  assert_eq(split.named_entries.length(), 1)
+  assert_eq(split.named.to_array().length(), 1)
   assert_eq(split.positional.length(), 1)
-  guard split.get_named("class") is Some(named) else {
+  guard split.get_named(":class") is Some(named) else {
     fail("expected :class named arg")
   }
-  guard split.get_named(":class") is Some(named_with_colon) else {
-    fail("expected :class named arg with colon key")
+  guard split.get_named("class") is None else {
+    fail("expected strict key lookup to reject non-colon key")
   }
   assert_eq(named.name, ":class")
-  assert_eq(named_with_colon.name, ":class")
   assert_eq(named.values.length(), 1)
   guard named.values[0] is Text("primary", _) else {
     fail("expected named value primary")

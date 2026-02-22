@@ -2,7 +2,7 @@
 pub(all) struct IndexedDocument {
   doc_id : String
   slug : String
-  title : String
+  title : @core.Term
   metadata : DocMetadata
 } derive(Eq, Show, Debug)
 
@@ -12,18 +12,6 @@ pub fn parse_terms_for_forester(source : String) -> Array[@core.Term] raise {
   |> @core.Stage1::parse
   |> @core.Stage2::pass
   |> @core.Stage2Etale::expand_program
-}
-
-///|
-fn term_values_to_text(values : Array[@core.Term]) -> String {
-  let mut out = ""
-  for value in values {
-    match value {
-      @core.Term::Text(text, _) => out = out + text
-      _ => ()
-    }
-  }
-  out
 }
 
 ///|
@@ -50,7 +38,37 @@ fn doc_id_to_slug(doc_id : String) -> String {
 
 ///|
 pub fn IndexedDocument::title_with_slug(doc : IndexedDocument) -> String {
-  "\{doc.title} [\{doc.slug}]"
+  "\{doc.title_text()} [\{doc.slug}]"
+}
+
+///|
+pub fn IndexedDocument::title_text(doc : IndexedDocument) -> String {
+  for text in doc.metadata.get_plain_text(KEY_PAGE_TITLE).iter() {
+    return text
+  }
+  let plain = term_plain_text(doc.title)
+  if plain.is_empty() {
+    doc.title.to_string()
+  } else {
+    plain
+  }
+}
+
+///|
+fn default_title_term(text : String) -> @core.Term {
+  @core.Term::Text(text, { start_offset: 0, end_offset: 0, line: 1, column: 1 })
+}
+
+///|
+fn title_from_named_arg(
+  named : @core.NamedAppArg,
+  fallback : @core.Term,
+) -> @core.Term {
+  match named.values {
+    [] => fallback
+    [title] => title
+    _ => @core.Term::Splice(named.values, named.loc)
+  }
 }
 
 ///|
@@ -60,13 +78,11 @@ pub fn forester_index_document(
 ) -> IndexedDocument raise {
   let terms = parse_terms_for_forester(source)
   let metadata = extract_doc_metadata_from_terms(terms)
-  let slug = match metadata.get("slug") {
-    Some(value) => term_values_to_text(value.values)
-    None => doc_id_to_slug(doc_id)
-  }
-  let title = match metadata.get("title") {
-    Some(value) => term_values_to_text(value.values)
-    None => slug
-  }
+  // Slug is auto-detected from doc id and does not accept user override.
+  let slug = doc_id_to_slug(doc_id)
+  let title_fallback = default_title_term(slug)
+  let title = metadata
+    .get("title")
+    .map_or(title_fallback, named => title_from_named_arg(named, title_fallback))
   IndexedDocument::{ doc_id, slug, title, metadata }
 }

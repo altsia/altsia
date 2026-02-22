@@ -132,5 +132,3 @@ fn make_footnotes_section_shape(ctx : ConvertContext) -> NormalizedShape? {
     ]),
   )
 }
-
-///|

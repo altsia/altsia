@@ -20,7 +20,8 @@ test "KoMarkdown converts inline markdown to altsia apps" {
   let source = "Hello *world* and **moon** with `x^2` [local link](/x)."
   let altsia = KoMarkdown::to_altsia(source, normalize=false)
   assert_eq(
-    altsia, "(p Hello (em world) and (strong moon) with (code `x^2`) (ref (:text local link) /x).)",
+    altsia,
+    "(p Hello (em world) and (strong moon) with (code `x^2`) (\{@kodama.LOCAL_LINK_APP_NAME} (:text local link) /x).)",
   )
 }
 
@@ -28,7 +29,10 @@ test "KoMarkdown converts inline markdown to altsia apps" {
 test "KoMarkdown rewrites local markdown link suffix to .alt" {
   let source = "[doc](docs/intro.md)"
   let altsia = KoMarkdown::to_altsia(source, normalize=false)
-  assert_eq(altsia, "(p (ref (:text doc) docs/intro.alt))")
+  assert_eq(
+    altsia,
+    "(p (\{@kodama.LOCAL_LINK_APP_NAME} (:text doc) docs/intro.alt))",
+  )
 }
 
 ///|

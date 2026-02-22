@@ -16,7 +16,9 @@ pub const KEY_TAXON : String = "taxon"
 
 pub const KEY_TITLE : String = "title"
 
-pub fn extract_doc_metadata_from_terms(Array[@core.Term]) -> DocMetadata
+pub fn extract_raw_metadata_from_metadata_args(Array[@core.Term]) -> RawMetadata
+
+pub fn extract_raw_metadata_from_terms(Array[@core.Term]) -> RawMetadata
 
 pub fn forester_app_rewriter(String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
 
@@ -78,14 +80,6 @@ pub(all) struct DocEntry {
   content : String
 }
 
-pub(all) struct DocMetadata {
-  named_args : Array[@core.NamedAppArg]
-}
-pub fn DocMetadata::get(Self, String) -> @core.NamedAppArg?
-pub impl Eq for DocMetadata
-pub impl Show for DocMetadata
-pub impl @debug.Debug for DocMetadata
-
 pub(all) struct ForesterDeployOptions {
   base_url : String
   pretty_url : Bool
@@ -100,7 +94,7 @@ pub(all) struct IndexedDocument {
   doc_id : String
   slug : String
   title : @core.Term
-  metadata : DocMetadata
+  metadata : RawMetadata
 }
 pub fn IndexedDocument::title_text(Self) -> String
 pub fn IndexedDocument::title_with_slug(Self) -> String
@@ -121,10 +115,32 @@ pub(all) struct ProjectContext {
   docs : Map[String, IndexedDocument]
 }
 pub fn ProjectContext::get_document(Self, String) -> IndexedDocument?
-pub fn ProjectContext::get_metadata(Self, String) -> DocMetadata?
-pub fn ProjectContext::resolve_ref_target_metadata(Self, Array[@core.Term], current_doc_id? : String) -> DocMetadata?
+pub fn ProjectContext::get_metadata(Self, String) -> RawMetadata?
+pub fn ProjectContext::resolve_ref_target_metadata(Self, Array[@core.Term], current_doc_id? : String) -> RawMetadata?
 pub fn ProjectContext::resolve_target_document(Self, String, current_doc_id? : String) -> IndexedDocument?
 pub fn ProjectContext::to_forester_rewriter(Self, String) -> (String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
+
+pub(all) struct RawMetadata {
+  preset : RawMetadataPreset
+  custom : Map[String, @core.NamedAppArg]
+}
+pub fn RawMetadata::custom_items(Self) -> Array[@core.NamedAppArg]
+pub fn RawMetadata::get(Self, String) -> @core.NamedAppArg?
+pub fn RawMetadata::get_plain_text(Self, String) -> String?
+pub fn RawMetadata::taxon_text(Self) -> String?
+pub fn RawMetadata::title_term(Self, @core.Term) -> @core.Term
+pub impl Eq for RawMetadata
+pub impl Show for RawMetadata
+pub impl @debug.Debug for RawMetadata
+
+pub(all) struct RawMetadataPreset {
+  title : @core.NamedAppArg?
+  page_title : @core.NamedAppArg?
+  taxon : @core.NamedAppArg?
+}
+pub impl Eq for RawMetadataPreset
+pub impl Show for RawMetadataPreset
+pub impl @debug.Debug for RawMetadataPreset
 
 pub(all) struct RefHrefPlan {
   authored_href : String

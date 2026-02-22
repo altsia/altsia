@@ -248,7 +248,7 @@ pub fn ProjectContext::resolve_target_document(
 pub fn ProjectContext::get_metadata(
   ctx : ProjectContext,
   doc_id : String,
-) -> DocMetadata? {
+) -> RawMetadata? {
   match ctx.docs.get(doc_id) {
     Some(doc) => Some(doc.metadata)
     None => None
@@ -293,7 +293,7 @@ pub fn ProjectContext::resolve_ref_target_metadata(
   ctx : ProjectContext,
   args : Array[@core.Term],
   current_doc_id? : String = "",
-) -> DocMetadata? {
+) -> RawMetadata? {
   let split = @core.Stage2Chisel::split_app_args(args)
   match resolve_ref_target_doc_id(split) {
     Some(target_doc_id) =>

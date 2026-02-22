@@ -3,7 +3,7 @@ pub(all) struct IndexedDocument {
   doc_id : String
   slug : String
   title : @core.Term
-  metadata : DocMetadata
+  metadata : RawMetadata
 } derive(Eq, Show, Debug)
 
 ///|
@@ -61,14 +61,10 @@ fn default_title_term(text : String) -> @core.Term {
 
 ///|
 fn title_from_named_arg(
-  named : @core.NamedAppArg,
+  metadata : RawMetadata,
   fallback : @core.Term,
 ) -> @core.Term {
-  match named.values {
-    [] => fallback
-    [title] => title
-    _ => @core.Term::Splice(named.values, named.loc)
-  }
+  metadata.title_term(fallback)
 }
 
 ///|
@@ -77,12 +73,10 @@ pub fn forester_index_document(
   source : String,
 ) -> IndexedDocument raise {
   let terms = parse_terms_for_forester(source)
-  let metadata = extract_doc_metadata_from_terms(terms)
+  let metadata = extract_raw_metadata_from_terms(terms)
   // Slug is auto-detected from doc id and does not accept user override.
   let slug = doc_id_to_slug(doc_id)
   let title_fallback = default_title_term(slug)
-  let title = metadata
-    .get("title")
-    .map_or(title_fallback, named => title_from_named_arg(named, title_fallback))
+  let title = title_from_named_arg(metadata, title_fallback)
   IndexedDocument::{ doc_id, slug, title, metadata }
 }

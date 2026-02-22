@@ -11,7 +11,7 @@ test "Forester indexes top-level metadata into named entries" {
     fail("expected indexed title term to be Demo")
   }
   assert_eq(indexed.title_with_slug(), "Demo [demo-1]")
-  assert_eq(indexed.metadata.named_args.length(), 2)
+  assert_eq(indexed.metadata.custom_items().length(), 1)
   guard indexed.metadata.get("title") is Some(title) else {
     fail("expected :title metadata")
   }

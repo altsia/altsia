@@ -7,45 +7,17 @@ fn metadata_named_arg_key(name : String) -> String {
 }
 
 ///|
-fn find_metadata_named_arg(
-  split : @core.SplitAppArgs,
-  key : String,
-) -> @core.NamedAppArg? {
-  split.get_named(":\{key}")
-}
-
-///|
 fn resolve_metadata_title(
   ctx : ProjectContext,
   current_doc_id : String,
-  split : @core.SplitAppArgs,
+  raw : RawMetadata,
   loc : @core.SourceLoc,
 ) -> @core.Term {
   let fallback = match ctx.get_document(current_doc_id) {
     Some(doc) => doc.title
     None => @core.Term::Text(current_doc_id, loc)
   }
-  match find_metadata_named_arg(split, KEY_TITLE) {
-    Some(named) =>
-      match named.values {
-        [] => fallback
-        [title] => title
-        _ => @core.Term::Splice(named.values, named.loc)
-      }
-    None => fallback
-  }
-}
-
-///|
-fn metadata_values_to_text(values : Array[@core.Term]) -> String {
-  let mut out = ""
-  for value in values {
-    match value {
-      @core.Term::Text(text, _) => out = out + text
-      _ => out = out + value.to_string()
-    }
-  }
-  out
+  raw.title_term(fallback)
 }
 
 ///|
@@ -62,14 +34,10 @@ fn custom_item_term(named : @core.NamedAppArg) -> @core.Term {
 }
 
 ///|
-fn summary_custom_items(split : @core.SplitAppArgs) -> Array[@core.Term] {
+fn summary_custom_items(raw : RawMetadata) -> Array[@core.Term] {
   let items : Array[@core.Term] = []
-  for entry in split.named.to_array() {
-    let named = entry.1
-    let key = metadata_named_arg_key(named.name)
-    if !MetadataKey::is_preset(key) {
-      items.push(custom_item_term(named))
-    }
+  for item in raw.custom_items() {
+    items.push(custom_item_term(item))
   }
   items
 }
@@ -90,28 +58,18 @@ pub(all) struct Metadata {
 fn collect_metadata(
   ctx : ProjectContext,
   current_doc_id : String,
-  split : @core.SplitAppArgs,
+  raw : RawMetadata,
   loc : @core.SourceLoc,
 ) -> Metadata {
-  let title = resolve_metadata_title(ctx, current_doc_id, split, loc)
-  let taxon = resolve_metadata_taxon(split)
-  let custom_items = summary_custom_items(split)
+  let title = resolve_metadata_title(ctx, current_doc_id, raw, loc)
+  let taxon = resolve_metadata_taxon(raw)
+  let custom_items = summary_custom_items(raw)
   Metadata::{ title, taxon, custom_items }
 }
 
 ///|
-fn resolve_metadata_taxon(split : @core.SplitAppArgs) -> Taxon? {
-  match find_metadata_named_arg(split, KEY_TAXON) {
-    Some(named) => {
-      let text = metadata_values_to_text(named.values)
-      if text.is_empty() {
-        None
-      } else {
-        Some(Taxon::{ numbering: None, text })
-      }
-    }
-    None => None
-  }
+fn resolve_metadata_taxon(raw : RawMetadata) -> Taxon? {
+  raw.taxon_text().map(text => Taxon::{ numbering: None, text })
 }
 
 ///|
@@ -121,8 +79,8 @@ fn rewrite_metadata(
   args : Array[@core.Term],
   loc : @core.SourceLoc,
 ) -> Array[@core.Term] {
-  let split = @core.Stage2Chisel::split_app_args(args)
-  let metadata = collect_metadata(ctx, current_doc_id, split, loc)
+  let raw = extract_raw_metadata_from_metadata_args(args)
+  let metadata = collect_metadata(ctx, current_doc_id, raw, loc)
   [
     term_section_summary(
       metadata.taxon,

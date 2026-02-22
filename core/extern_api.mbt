@@ -27,17 +27,17 @@ pub fn ExternApi::to_rewriter(api : ExternApi) -> AppRewriter {
       }
       // katex render
       "k" => {
-        guard args.get(0) is Some(Text(path, _)) else {
+        guard args.get(0) is Some(Text(raw_tex, _)) else {
           [Text("[Error]: \{args} should be [tex: text]", loc)]
         }
-        [Text((api.katex_render)(path), loc)]
+        [Text((api.katex_render)(raw_tex), loc)]
       }
       // katex display render
       "kd" => {
-        guard args.get(0) is Some(Text(path, _)) else {
+        guard args.get(0) is Some(Text(raw_tex, _)) else {
           [Text("[Error]: \{args} should be [tex: text]", loc)]
         }
-        [Text((api.katex_display_render)(path), loc)]
+        [Text((api.katex_display_render)(raw_tex), loc)]
       }
       _ => [Term::App(name, args, loc)]
     }

@@ -25,7 +25,7 @@ fn workspace_strip_leading_slashes(path : String) -> String {
   if start == 0 {
     path
   } else {
-    path.unsafe_substring(start=start, end=path.length())
+    path.unsafe_substring(start~, end=path.length())
   }
 }
 
@@ -36,7 +36,7 @@ fn normalize_workspace_path(path : String) -> String {
   let segments : Array[String] = []
   let mut segment_count = 0
 
-  for i in 0..=path.length() {
+  for i in 0..<=path.length() {
     let is_end = i == path.length()
     let ch = if is_end { '/' } else { path.get_char(i).unwrap() }
     let is_sep = ch == '/' || ch == '\\'
@@ -82,7 +82,11 @@ fn normalize_workspace_path(path : String) -> String {
     body = body + segments[i]
   }
   if absolute {
-    if body.is_empty() { "/" } else { "/" + body }
+    if body.is_empty() {
+      "/"
+    } else {
+      "/" + body
+    }
   } else {
     body
   }
@@ -201,8 +205,7 @@ pub fn ProjectContext::resolve_target_document(
   current_doc_id? : String = "",
 ) -> IndexedDocument? {
   let workspace_target = resolve_ref_target_workspace_path(
-    target,
-    current_doc_id,
+    target, current_doc_id,
   )
   let normalized = ref_target_to_doc_id_candidate(workspace_target)
   let candidates : Array[String] = []
@@ -249,10 +252,7 @@ pub fn ProjectContext::get_metadata(
   ctx : ProjectContext,
   doc_id : String,
 ) -> RawMetadata? {
-  match ctx.docs.get(doc_id) {
-    Some(doc) => Some(doc.metadata)
-    None => None
-  }
+  ctx.docs.get(doc_id).map(doc => doc.metadata)
 }
 
 ///|
@@ -267,25 +267,24 @@ fn resolve_ref_target_doc_id(split : @core.SplitAppArgs) -> String? {
 
 ///|
 fn ref_values_to_text(values : Array[@core.Term]) -> String {
-  let mut out = ""
-  for value in values {
+  values
+  .map(value => {
     match value {
-      @core.Term::Text(text, _) => out = out + text
-      _ => ()
+      @core.Term::Text(text, _) => text
+      _ => ""
     }
-  }
-  out
+  })
+  .fold(init="", (out, text) => out + text)
 }
 
 ///|
 fn resolve_ref_text(split : @core.SplitAppArgs) -> String? {
-  match split.get_named(":text") {
-    Some(named) => {
-      let text = ref_values_to_text(named.values)
-      if text.is_empty() { None } else { Some(text) }
-    }
-    None => None
-  }
+  split
+  .get_named(":text")
+  .bind(named => {
+    let text = ref_values_to_text(named.values)
+    ite_eager(text.is_empty(), None, Some(text))
+  })
 }
 
 ///|
@@ -295,12 +294,9 @@ pub fn ProjectContext::resolve_ref_target_metadata(
   current_doc_id? : String = "",
 ) -> RawMetadata? {
   let split = @core.Stage2Chisel::split_app_args(args)
-  match resolve_ref_target_doc_id(split) {
-    Some(target_doc_id) =>
-      match ctx.resolve_target_document(target_doc_id, current_doc_id~) {
-        Some(doc) => Some(doc.metadata)
-        None => None
-      }
-    None => None
-  }
+  resolve_ref_target_doc_id(split)
+  .bind(target_doc_id => {
+    ctx.resolve_target_document(target_doc_id, current_doc_id~)
+  })
+  .map(doc => doc.metadata)
 }

@@ -75,7 +75,8 @@ pub fn Stage2::is_named_param(name : Name) -> Bool {
   name.has_prefix(":")
 }
 
-pub fn Stage2::extract_named_param(name : Name) -> Option[StringView] {
+///|
+pub fn Stage2::extract_named_param(name : Name) -> StringView? {
   name.strip_prefix(":")
 }
 

@@ -1,4 +1,3 @@
-
 ///|
 fn resolve_metadata_title(
   ctx : ProjectContext,
@@ -99,9 +98,9 @@ fn build_ref_anchor_shape(
   loc : @core.SourceLoc,
 ) -> @core.Term {
   let anchor_attrs : Array[@core.Term] = [hattr("href", href, loc)]
-  for value in title.iter() {
-    anchor_attrs.push(hattr("title", value, loc))
-  }
+  anchor_attrs.append(
+    title.map_or_else(() => [], value => [hattr("title", value, loc)]),
+  )
   hel("span", loc, attrs=[hclass(["link", "local"], loc)], children=[
     hel("a", loc, attrs=anchor_attrs, children=[content]),
   ])

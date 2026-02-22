@@ -26,7 +26,11 @@ pub fn html_named_attr_term(
 ///|
 /// Build a string-valued named argument term.
 #alias(hattr)
-pub fn html_attr(name : String, value : String, loc : @core.SourceLoc) -> @core.Term {
+pub fn html_attr(
+  name : String,
+  value : String,
+  loc : @core.SourceLoc,
+) -> @core.Term {
   html_named_attr_term(name, [@core.Term::Text(value, loc)], loc)
 }
 

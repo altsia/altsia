@@ -43,15 +43,19 @@ pub fn IndexedDocument::title_with_slug(doc : IndexedDocument) -> String {
 
 ///|
 pub fn IndexedDocument::title_text(doc : IndexedDocument) -> String {
-  for text in doc.metadata.get_plain_text(KEY_PAGE_TITLE).iter() {
-    return text
-  }
-  let plain = term_plain_text(doc.title)
-  if plain.is_empty() {
-    doc.title.to_string()
-  } else {
-    plain
-  }
+  doc.metadata
+  .get_plain_text(KEY_PAGE_TITLE)
+  .map_or_else(
+    () => {
+      let plain = term_plain_text(doc.title)
+      if plain.is_empty() {
+        doc.title.to_string()
+      } else {
+        plain
+      }
+    },
+    text => text,
+  )
 }
 
 ///|

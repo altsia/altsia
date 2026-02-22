@@ -150,9 +150,5 @@ pub fn RawMetadata::taxon_text(metadata : RawMetadata) -> String? {
 pub fn RawMetadata::custom_items(
   metadata : RawMetadata,
 ) -> Array[@core.NamedAppArg] {
-  let items : Array[@core.NamedAppArg] = []
-  for entry in metadata.custom.to_array() {
-    items.push(entry.1)
-  }
-  items
+  metadata.custom.to_array().map(entry => entry.1)
 }

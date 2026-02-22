@@ -36,11 +36,7 @@ pub fn Html::elaborate_inline(node : InlineNode) -> Html {
 pub fn Html::elaborate_block(node : BlockNode) -> Html {
   match node {
     Paragraph(xs) =>
-      Element({
-        name: "p",
-        attrs: [],
-        children: xs.map(Html::elaborate_inline),
-      })
+      Element({ name: "p", attrs: [], children: xs.map(Html::elaborate_inline) })
     Container({ name, attrs, children }) =>
       Element({ name, attrs, children: children.map(Html::elaborate_inline) })
   }
@@ -60,11 +56,7 @@ pub fn Html::from(
   doc : Doc,
   f? : (Array[Html]) -> Array[Html] = x => x,
 ) -> Html {
-  Element({
-    name: "div",
-    attrs: [],
-    children: f(doc.map(Html::elaborate_node)),
-  })
+  Element({ name: "div", attrs: [], children: f(doc.map(Html::elaborate_node)) })
 }
 
 ///|

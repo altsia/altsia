@@ -31,6 +31,8 @@ pub fn elaborate_name(S) -> String raise
 
 pub let empty_extern_api : ExternApi
 
+pub fn is_extern(String) -> Bool
+
 pub fn is_wide_east_asian(Char) -> Bool
 
 pub fn[E : Show] join_list(@list.List[E], separator? : String) -> String
@@ -218,6 +220,9 @@ pub impl Eq for S
 pub impl Show for S
 pub impl @debug.Debug for S
 
+pub type SmartPunctuation
+pub fn SmartPunctuation::pass(Array[Piece]) -> Array[Piece]
+
 pub(all) struct SourceLoc {
   start_offset : Int
   end_offset : Int
@@ -245,6 +250,8 @@ pub fn Stage1::parse_semantics(String) -> Array[ES] raise
 
 pub type Stage2
 pub fn Stage2::elaborate_node(S) -> Term raise
+pub fn Stage2::extract_named_param(String) -> StringView?
+pub fn Stage2::is_named_param(String) -> Bool
 pub fn Stage2::pass(Array[S]) -> Array[Term] raise
 
 pub type Stage2Chisel

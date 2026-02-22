@@ -20,6 +20,7 @@ fn kodama_to_html_impl(
   )
   |> apply_if(options.extern_api, rewriter)
   |> @core.Stage3::pass
+  |> @core.SmartPunctuation::pass
   |> apply_if(options.comment_strip, comment_strip)
   |> @core.Html::from_with(@kodama.outer_article)
   |> apply_if(options.markdown_abbrev, @core.MarkdownAbbrev::desugar)

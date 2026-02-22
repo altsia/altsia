@@ -27,9 +27,5 @@ pub fn char_display_width(ch : Char) -> Int {
 
 ///|
 pub fn string_display_width(s : String) -> Int {
-  let mut total = 0
-  for ch in s.iter() {
-    total += char_display_width(ch)
-  }
-  total
+  s.iter().map(char_display_width).fold(init=0, (s, t) => s + t)
 }

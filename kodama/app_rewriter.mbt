@@ -34,15 +34,6 @@ fn custom_item_term(named : @core.NamedAppArg) -> @core.Term {
 }
 
 ///|
-fn summary_custom_items(raw : RawMetadata) -> Array[@core.Term] {
-  let items : Array[@core.Term] = []
-  for item in raw.custom_items() {
-    items.push(custom_item_term(item))
-  }
-  items
-}
-
-///|
 /// Metadata is split into:
 /// - preset fields (`title`, `taxon`) with dedicated layout/semantics
 /// - `custom_items` for user-defined metadata entries
@@ -63,7 +54,7 @@ fn collect_metadata(
 ) -> Metadata {
   let title = resolve_metadata_title(ctx, current_doc_id, raw, loc)
   let taxon = resolve_metadata_taxon(raw)
-  let custom_items = summary_custom_items(raw)
+  let custom_items = raw.custom_items().map(custom_item_term)
   Metadata::{ title, taxon, custom_items }
 }
 

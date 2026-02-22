@@ -36,10 +36,8 @@ fn metadata_build_from_named_map(
       KEY_PAGE_TITLE => page_title = Some(value)
       KEY_TAXON => taxon = Some(value)
       _ => {
-        if MetadataKey::is_preset(key) {
-          continue
-        }
-        custom[entry.0] = value
+        guard MetadataKey::is_preset(key) else { custom[entry.0] = value }
+        continue
       }
     }
   }
@@ -59,24 +57,23 @@ pub fn extract_raw_metadata_from_metadata_args(
 }
 
 ///|
+fn raw_metadata_empty() -> RawMetadata {
+  metadata_build_from_named_map(Map::new())
+}
+
+///|
 pub fn extract_raw_metadata_from_terms(
   terms : Array[@core.Term],
 ) -> RawMetadata {
-  let named : Map[String, @core.NamedAppArg] = Map::new()
   for term in terms {
     match term {
-      @core.Term::App("metadata", args, _) => {
-        let split = @core.Stage2Chisel::split_app_args(args)
-        for entry in split.named.to_array() {
-          if named.get(entry.0) is None {
-            named[entry.0] = entry.1
-          }
-        }
-      }
+      @core.Term::App("metadata", args, _) =>
+        // Forester design rule: one document has at most one metadata app.
+        return extract_raw_metadata_from_metadata_args(args)
       _ => ()
     }
   }
-  metadata_build_from_named_map(named)
+  raw_metadata_empty()
 }
 
 ///|
@@ -85,14 +82,11 @@ pub fn RawMetadata::get(
   key : String,
 ) -> @core.NamedAppArg? {
   let lookup = normalize_named_arg_key(key)
-  if lookup == ":\{KEY_TITLE}" {
-    metadata.preset.title
-  } else if lookup == ":\{KEY_PAGE_TITLE}" {
-    metadata.preset.page_title
-  } else if lookup == ":\{KEY_TAXON}" {
-    metadata.preset.taxon
-  } else {
-    metadata.custom.get(lookup)
+  match lookup {
+    _ if lookup == ":\{KEY_TITLE}" => metadata.preset.title
+    _ if lookup == ":\{KEY_PAGE_TITLE}" => metadata.preset.page_title
+    _ if lookup == ":\{KEY_TAXON}" => metadata.preset.taxon
+    _ => metadata.custom.get(lookup)
   }
 }
 

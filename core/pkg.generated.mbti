@@ -229,9 +229,11 @@ pub impl Show for SourceLoc
 pub impl @debug.Debug for SourceLoc
 
 pub(all) struct SplitAppArgs {
-  named : Array[NamedAppArg]
+  named : Map[String, NamedAppArg]
+  named_entries : Array[NamedAppArg]
   positional : Array[Term]
 }
+pub fn SplitAppArgs::get_named(Self, String) -> NamedAppArg?
 pub impl Eq for SplitAppArgs
 pub impl Show for SplitAppArgs
 pub impl @debug.Debug for SplitAppArgs

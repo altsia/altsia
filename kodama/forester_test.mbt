@@ -9,7 +9,7 @@ test "Forester indexes top-level metadata into named entries" {
   assert_eq(indexed.slug, "demo-1")
   assert_eq(indexed.title, "Demo")
   assert_eq(indexed.title_with_slug(), "Demo [demo-1]")
-  assert_eq(indexed.metadata.named.length(), 2)
+  assert_eq(indexed.metadata.named_args.length(), 2)
   guard indexed.metadata.get("title") is Some(title) else {
     fail("expected :title metadata")
   }
@@ -151,5 +151,31 @@ test "Forester pass resolves parent relative ref target against current doc id" 
   assert_eq(
     html,
     "<div><p><span class=\"link local\"><a href=\"../b.alt\" title=\"B [b]\">B</a></span></p></div>",
+  )
+}
+
+///|
+test "Forester pass rewrites metadata app into summary structure" {
+  let source = "(metadata (:title Demo) (:taxon Lemma) (:id demo-1))"
+  let ctx = forester_build_project_context([
+    { id: "demo.alt", content: source },
+  ])
+  let html = forester_pass_with_context(source, ctx, "demo.alt")
+  assert_eq(
+    html,
+    "<div><summary><header><h1><span class=\"taxon\">Lemma</span>Demo</h1><div class=\"metadata\"><ul><li class=\"meta-item\">id: demo-1</li></ul></div></header></summary></div>",
+  )
+}
+
+///|
+test "Forester metadata summary omits metadata list when only fancy keys exist" {
+  let source = "(metadata (:title Demo) (:taxon Lemma))"
+  let ctx = forester_build_project_context([
+    { id: "demo.alt", content: source },
+  ])
+  let html = forester_pass_with_context(source, ctx, "demo.alt")
+  assert_eq(
+    html,
+    "<div><summary><header><h1><span class=\"taxon\">Lemma</span>Demo</h1></header></summary></div>",
   )
 }

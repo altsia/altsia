@@ -7,7 +7,15 @@ import {
 }
 
 // Values
+pub const KEY_SLUG : String = "slug"
+
+pub const KEY_TAXON : String = "taxon"
+
+pub const KEY_TITLE : String = "title"
+
 pub fn extract_doc_metadata_from_terms(Array[@core.Term]) -> DocMetadata
+
+pub let fancy_metadata_keys : Array[String]
 
 pub fn forester_app_rewriter(String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
 
@@ -27,9 +35,19 @@ pub fn html_element_node(String, attrs? : Array[(String, String)], children? : A
 #alias(htext)
 pub fn html_text_node(String) -> HtmlTermNode
 
+pub fn is_fancy_metadata(String) -> Bool
+
+pub fn[X] ite(Bool, () -> X, () -> X) -> X
+
 pub fn outer_article(Array[@core.Html]) -> @core.Html
 
+pub fn outer_section(Array[@core.Html]) -> @core.Html
+
 pub fn parse_terms_for_forester(String) -> Array[@core.Term] raise
+
+pub fn term_metadata(Array[HtmlTermNode]) -> HtmlTermNode
+
+pub fn term_section_summary(Taxon?, HtmlTermNode, Array[HtmlTermNode]) -> HtmlTermNode
 
 // Errors
 
@@ -109,6 +127,12 @@ pub(all) struct RefHrefPlan {
 pub impl Eq for RefHrefPlan
 pub impl Show for RefHrefPlan
 pub impl @debug.Debug for RefHrefPlan
+
+pub(all) struct Taxon {
+  numbering : String?
+  text : String
+}
+pub fn Taxon::display(Self) -> String
 
 // Type aliases
 

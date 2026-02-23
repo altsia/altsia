@@ -8,6 +8,10 @@ fn read_input(path : String) -> String? {
   }
 }
 
+fn read_relative_input(input : String, path : String) -> String? {
+  ...
+}
+
 ///|
 fn write_output(path : String, content : String) -> Bool {
   try {
@@ -19,6 +23,17 @@ fn write_output(path : String, content : String) -> Bool {
       false
     }
   }
+}
+
+///|
+fn default_output_path(
+  input_path : String,
+  origin_suffix~ : String,
+  target_suffix~ : String,
+) -> String {
+  let end = input_path.length() - origin_suffix.length()
+  let stem = input_path.unsafe_substring(start=0, end~)
+  stem + target_suffix
 }
 
 ///|

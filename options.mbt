@@ -15,7 +15,7 @@ fn html_compose_options_default() -> HtmlComposeOptions {
 }
 
 ///|
-fn html_compose_options_for_rewriter() -> HtmlComposeOptions {
+fn html_compose_enable_all() -> HtmlComposeOptions {
   HtmlComposeOptions::{
     extern_api: true,
     comment_strip: true,

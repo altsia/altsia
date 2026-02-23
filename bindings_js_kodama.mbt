@@ -5,18 +5,16 @@
 fn kodama_to_html_impl(
   source : String,
   context_api : @kodama.ContextApi,
-  options? : HtmlComposeOptions = html_compose_options_for_rewriter(),
+  options? : HtmlComposeOptions = html_compose_enable_all(),
   text_rewriter : (String) -> String,
-  extern_api? : @core.ExternApi = @core.empty_extern_api,
+  extern_api? : @core.ExternApi,
 ) -> String raise {
-  let rewriter = extern_api.to_rewriter()
-  let rewriter = terms => @core.Stage2Extern::rewrite_apps(terms, rewriter)
   let pctx = @kodama.forester_build_project_context(context_api.docs)
   let id = context_api.doc_workspace_path
 
   @kodama.parse_terms_for_forester(source)
   |> @core.Stage2Extern::rewrite_apps(pctx.to_forester_rewriter(id))
-  |> apply_if(options.extern_api, rewriter)
+  |> apply_extern_api(options.extern_api, extern_api?)
   |> @core.Stage3::pass
   |> @core.SmartPunctuation::pass
   |> apply_if(options.comment_strip, comment_strip)
@@ -31,9 +29,9 @@ pub fn kodama_to_html_raise(
   source : String,
   context_api : @kodama.ContextApi,
   text_rewriter : (String) -> String,
-  extern_api? : @core.ExternApi = @core.empty_extern_api,
+  extern_api? : @core.ExternApi,
 ) -> String raise {
-  kodama_to_html_impl(source, context_api, text_rewriter, extern_api~)
+  kodama_to_html_impl(source, context_api, text_rewriter, extern_api?)
 }
 
 ///|
@@ -41,11 +39,11 @@ pub fn kodama_to_html(
   source : String,
   context_api : @kodama.ContextApi,
   text_rewriter : (String) -> String,
-  extern_api? : @core.ExternApi = @core.empty_extern_api,
+  extern_api? : @core.ExternApi,
   language? : String = @core.default_language,
 ) -> String {
   try
-    kodama_to_html_impl(source, context_api, text_rewriter, extern_api~)
+    kodama_to_html_impl(source, context_api, text_rewriter, extern_api?)
   catch {
     err =>
       @core.render_error_to_string(@core.render_error(err, source, language))

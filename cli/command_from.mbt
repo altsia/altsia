@@ -45,14 +45,12 @@ fn run_from_command(input_path : String) -> Unit {
     }
   }
   guard altsia is Some(altsia) else { return }
-  let output_path = default_output_path(input_path)
+  let output_path = default_output_path(
+    input_path,
+    origin_suffix=".md",
+    target_suffix=".alt",
+  )
   if write_output(output_path, altsia) {
     println("done: \{output_path}")
   }
-}
-
-///|
-fn default_output_path(input_path : String) -> String {
-  let stem = input_path.unsafe_substring(start=0, end=input_path.length() - 3)
-  stem + ".alt"
 }

@@ -12,12 +12,10 @@ fn smart_punctuation_html(source : String) -> String raise {
 
 ///|
 fn smart_punctuation_html_with_extern(source : String) -> String raise {
-  let rewriter = empty_extern_api.to_rewriter()
   source
   |> Stage1::parse
   |> Stage2::pass
   |> Stage2Etale::expand_program
-  |> (terms => Stage2Extern::rewrite_apps(terms, rewriter))
   |> Stage3::pass
   |> SmartPunctuation::pass
   |> Html::from

@@ -2,15 +2,13 @@
 fn to_html_tree(
   source : String,
   options : HtmlComposeOptions,
-  extern_api? : @core.ExternApi = @core.empty_extern_api,
+  extern_api? : @core.ExternApi,
 ) -> @core.Html raise {
-  let rewriter = extern_api.to_rewriter()
-  let rewriter = terms => @core.Stage2Extern::rewrite_apps(terms, rewriter)
   source
   |> @core.Stage1::parse
   |> @core.Stage2::pass
   |> @core.Stage2Etale::expand_program
-  |> apply_if(options.extern_api, rewriter)
+  |> apply_extern_api(options.extern_api, extern_api?)
   |> @core.Stage3::pass
   |> @core.SmartPunctuation::pass
   |> apply_if(options.comment_strip, comment_strip)
@@ -19,15 +17,25 @@ fn to_html_tree(
 }
 
 ///|
-fn comment_strip(doc : Array[@core.Piece]) -> Array[@core.Piece] {
-  doc.filter(x => !(x is Comment(_)))
-}
-
-///|
 #inline
 fn[T] apply_if(value : T, enabled : Bool, transformer : (T) -> T) -> T {
   guard enabled else { value }
   transformer(value)
+}
+
+///|
+fn apply_extern_api(
+  terms : Array[@core.Term],
+  enable_extern_api : Bool,
+  extern_api? : @core.ExternApi,
+) -> Array[@core.Term] {
+  guard enable_extern_api && extern_api is Some(extern_api) else { terms }
+  @core.Stage2Extern::rewrite_apps(terms, extern_api.to_rewriter())
+}
+
+///|
+fn comment_strip(doc : Array[@core.Piece]) -> Array[@core.Piece] {
+  doc.filter(x => !(x is Comment(_)))
 }
 
 ///|
@@ -68,7 +76,7 @@ pub fn altsia_to_html_with_rewriter_raise(
     source,
     text_rewriter,
     extern_api?,
-    html_compose_options_for_rewriter(),
+    html_compose_enable_all(),
   )
 }
 
@@ -96,7 +104,7 @@ pub fn altsia_to_html_with_rewriter_diagnostics(
       source,
       text_rewriter,
       extern_api?,
-      html_compose_options_for_rewriter(),
+      html_compose_enable_all(),
     )
   catch {
     err => Err([@core.render_error(err, source, language)])

@@ -22,13 +22,6 @@ fn extern_term(content : String, loc : SourceLoc) -> Term {
 }
 
 ///|
-pub let empty_extern_api : ExternApi = ExternApi::{
-  read: x => x,
-  katex_render: x => x,
-  katex_display_render: x => x,
-}
-
-///|
 pub fn ExternApi::to_rewriter(api : ExternApi) -> AppRewriter {
   (name, args, loc) => {
     match name {

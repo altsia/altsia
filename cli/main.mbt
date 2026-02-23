@@ -23,6 +23,7 @@ fn usage_root() -> Unit {
 fn main {
   let args = @env.args()
   match args {
+    // from
     [_, COMMAND_FROM]
     | [_, COMMAND_FROM, "-h"]
     | [_, COMMAND_FROM, "--help"]
@@ -30,6 +31,8 @@ fn main {
     [_, COMMAND_FROM, input_path] => run_from_command(input_path)
     [_, COMMAND_FROM, ..] =>
       println("error: too many arguments for command '\{COMMAND_FROM}'")
+    // to
+
     [_, "help"] | [_, "-h"] | [_, "--help"] | [_] => usage_root()
     [_, "help", .. topic] => println("unknown command: help " + topic.join(" "))
     [_, .. cmd] => println("unknown command: " + cmd.join(" "))

@@ -55,7 +55,12 @@ fn extern_require_first_text_arg(
   match extern_first_text_arg(args) {
     Some(value) => value
     None =>
-      raise ExternApiError::InvalidExternArguments(app_name~, expected~, args~, loc~)
+      raise ExternApiError::InvalidExternArguments(
+        app_name~,
+        expected~,
+        args~,
+        loc~,
+      )
   }
 }
 
@@ -73,13 +78,13 @@ fn include_expand(
   path : String,
   source : String,
 ) -> Array[Term] raise {
-  try {
+  try
     source
     |> Stage1::parse
     |> Stage2::pass
     |> Stage2Etale::expand_program
     |> Stage2Extern::rewrite_apps_raise(api.to_rewriter_raise())
-  } catch {
+  catch {
     err => raise IncludeError::IncludeExpansionFailed(path~, source~, cause=err)
   }
 }
@@ -94,46 +99,25 @@ pub fn ExternApi::to_rewriter_raise(api : ExternApi) -> AppRewriterRaise {
       }
       "read" => {
         let path = extern_require_first_text_arg(
-          "read",
-          "[path: text]",
-          args,
-          loc,
+          "read", "[path: text]", args, loc,
         )
         [extern_term((api.read)(path), loc)]
       }
       // katex render
       "k" => {
         let raw_tex = extern_require_first_text_arg(
-          "k",
-          "[tex: text]",
-          args,
-          loc,
+          "k", "[tex: text]", args, loc,
         )
         [extern_term((api.katex_render)(raw_tex), loc)]
       }
       // katex display render
       "kd" => {
         let raw_tex = extern_require_first_text_arg(
-          "kd",
-          "[tex: text]",
-          args,
-          loc,
+          "kd", "[tex: text]", args, loc,
         )
         [extern_term((api.katex_display_render)(raw_tex), loc)]
       }
       _ => [Term::App(name, args, loc)]
-    }
-  }
-}
-
-///|
-pub fn ExternApi::to_rewriter(api : ExternApi) -> AppRewriter {
-  let rewriter = api.to_rewriter_raise()
-  (name, args, loc) => {
-    try {
-      rewriter(name, args, loc)
-    } catch {
-      err => [Text("[Error]: \{err}", loc)]
     }
   }
 }

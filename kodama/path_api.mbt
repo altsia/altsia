@@ -1,3 +1,4 @@
+///|
 pub fn path_to_slug(path : @path.Path) -> String {
   let text = path.as_string()
   let mut slash_index = -1

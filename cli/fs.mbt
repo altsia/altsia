@@ -8,6 +8,7 @@ fn read_input(path : String) -> String? {
   }
 }
 
+///|
 fn read_relative_input(input : String, path : String) -> String? {
   let input_dir = @path.Path::new(input).parent()
   let target_path = input_dir.join(@path.Path::new(path)).as_string()

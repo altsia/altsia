@@ -8,7 +8,5 @@ import {
 
 options(
   "is-main": true,
-  targets: {
-    "commands.mbt": ["native"]
-  }
+  targets: { "commands.mbt": [ "native" ] },
 )

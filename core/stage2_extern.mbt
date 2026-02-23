@@ -83,7 +83,9 @@ fn rewrite_apps_in_term_raise(
             rewritten_defaults.push(
               (
                 entry.0,
-                entry.1.map(t => rewrite_apps_in_term_raise(t, rewriter)).flatten(),
+                entry.1
+                .map(t => rewrite_apps_in_term_raise(t, rewriter))
+                .flatten(),
               ),
             )
           }

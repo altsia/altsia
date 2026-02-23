@@ -50,15 +50,10 @@ pub fn kodama_to_html(
         @kodama.ForesterProjectError::IndexDocumentFailed(
           doc_id~,
           source~,
-          cause~,
+          cause~
         ) =>
           @core.render_error_to_string(
-            @core.render_error(
-              cause,
-              source,
-              language,
-              doc_path=doc_id,
-            ),
+            @core.render_error(cause, source, language, doc_path=doc_id),
           )
         _ =>
           @core.render_error_to_string(

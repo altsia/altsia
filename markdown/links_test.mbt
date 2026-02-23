@@ -19,8 +19,7 @@ test "KoMarkdown converts footnotes and reference links together" {
     #|[ref]: /r
   let local_link_app_name = @kodama.LOCAL_LINK_APP_NAME
   let altsia = KoMarkdown::to_altsia(source, normalize=false)
-  let expected =
-    "(λ ref () /r)\n\n(λ md_footnote_ref_1 () (sup (a (:href #md-footnote-1)1)))\n\n(λ md_footnote_item_1 () (li (:id md-footnote-1)beta (\{local_link_app_name} (:text x) /r)))\n\n(p alpha(md_footnote_ref_1).)\n\n(section (:class footnotes) (ol (md_footnote_item_1)))"
+  let expected = "(λ ref () /r)\n\n(λ md_footnote_ref_1 () (sup (a (:href #md-footnote-1)1)))\n\n(λ md_footnote_item_1 () (li (:id md-footnote-1)beta (\{local_link_app_name} (:text x) /r)))\n\n(p alpha(md_footnote_ref_1).)\n\n(section (:class footnotes) (ol (md_footnote_item_1)))"
   assert_eq(altsia, expected)
 }
 

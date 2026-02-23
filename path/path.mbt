@@ -253,8 +253,7 @@ pub fn Path::strip_leading_slashes(self : Path) -> Path {
 ///|
 pub fn Path::is_relative(self : Path) -> Bool {
   match self.kind {
-    PathKind::Local(absolute, components) =>
-      !absolute && !components.is_empty()
+    PathKind::Local(absolute, components) => !absolute && !components.is_empty()
     PathKind::External(_) => false
   }
 }
@@ -263,7 +262,7 @@ pub fn Path::is_relative(self : Path) -> Bool {
 pub fn Path::parent(self : Path) -> Path {
   match self.kind {
     PathKind::External(raw) => Path::new(parent_string(raw))
-    PathKind::Local(absolute, components) => {
+    PathKind::Local(absolute, components) =>
       if components.is_empty() {
         local_path(absolute, [])
       } else {
@@ -273,7 +272,6 @@ pub fn Path::parent(self : Path) -> Path {
         }
         local_path(absolute, out)
       }
-    }
   }
 }
 
@@ -294,7 +292,9 @@ pub fn Path::join(base : Path, child : Path) -> Path {
         PathKind::Local(base_absolute, base_components) =>
           local_path(
             base_absolute,
-            join_local_components(base_absolute, base_components, child_components),
+            join_local_components(
+              base_absolute, base_components, child_components,
+            ),
           )
       }
     }

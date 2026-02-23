@@ -40,7 +40,6 @@ fn main {
     [_, COMMAND_TO, input_path] => run_to_command(input_path)
     [_, COMMAND_TO, ..] =>
       println("error: too many arguments for command '\{COMMAND_TO}'")
-
     [_, "help"] | [_, "-h"] | [_, "--help"] | [_] => usage_root()
     [_, "help", .. topic] => println("unknown command: help " + topic.join(" "))
     [_, .. cmd] => println("unknown command: " + cmd.join(" "))

@@ -117,8 +117,7 @@ pub fn render_error(
     message : String,
     loc : SourceLoc?,
     source : String,
-  ) =>
-    build_render_error(code, phase, message, loc, source, doc_path)
+  ) => build_render_error(code, phase, message, loc, source, doc_path)
 
   match err {
     ExternApiError::InvalidExternArguments(app_name~, expected~, args~, loc~) =>

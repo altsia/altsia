@@ -78,7 +78,13 @@ test "Forester project context resolves ref target metadata from ref args" {
     |> @core.Stage1::parse
     |> @core.Stage2::pass
   guard terms
-    is [@core.Term::App("p", [@core.Term::App(LOCAL_LINK_APP_NAME, ref_args, _)], _)] else {
+    is [
+      @core.Term::App(
+        "p",
+        [@core.Term::App(LOCAL_LINK_APP_NAME, ref_args, _)],
+        _
+      ),
+    ] else {
     fail("expected p(\{LOCAL_LINK_APP_NAME} b.alt)")
   }
   guard ctx.resolve_ref_target_metadata(ref_args) is Some(meta) else {
@@ -102,7 +108,13 @@ test "Forester resolves relative ref target metadata from current doc id" {
     |> @core.Stage1::parse
     |> @core.Stage2::pass
   guard terms
-    is [@core.Term::App("p", [@core.Term::App(LOCAL_LINK_APP_NAME, ref_args, _)], _)] else {
+    is [
+      @core.Term::App(
+        "p",
+        [@core.Term::App(LOCAL_LINK_APP_NAME, ref_args, _)],
+        _
+      ),
+    ] else {
     fail("expected p(\{LOCAL_LINK_APP_NAME} ./b.alt)")
   }
   guard ctx.resolve_ref_target_metadata(ref_args, current_id="notes/a.alt")

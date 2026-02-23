@@ -207,7 +207,10 @@ test "bindings text_rewriter skips extern api rendered text in altsia_to_html_wi
 
 ///|
 test "bindings text_rewriter skips extern api rendered text in kodama_to_html" {
-  let context = @kodama.ContextApi::{ doc_workspace_path: "notes/a.alt", docs: [] }
+  let context = @kodama.ContextApi::{
+    doc_workspace_path: "notes/a.alt",
+    docs: [],
+  }
   let html = kodama_to_html(
     "(p pre (k x) post)",
     context,
@@ -293,7 +296,10 @@ test "extern read invalid args reports structured extern error" {
 
 ///|
 test "kodama_to_html error string includes document path" {
-  let context = @kodama.ContextApi::{ doc_workspace_path: "notes/a.alt", docs: [] }
+  let context = @kodama.ContextApi::{
+    doc_workspace_path: "notes/a.alt",
+    docs: [],
+  }
   let rendered = kodama_to_html("oops", context, s => s)
   assert_true(rendered.contains("[stage1.parse]"))
   assert_true(rendered.contains("notes/a.alt:1:1:"))

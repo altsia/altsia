@@ -20,7 +20,7 @@ pub fn forester_build_project_context(
 ) -> ProjectContext raise {
   let indexed : Map[String, IndexedDocument] = Map::new()
   for entry in docs {
-    let doc = try forester_index_document(entry.id, entry.content) catch {
+    let doc = forester_index_document(entry.id, entry.content) catch {
       err =>
         raise ForesterProjectError::IndexDocumentFailed(
           doc_id=entry.id,

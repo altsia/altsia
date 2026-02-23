@@ -12,10 +12,10 @@ fn kodama_to_html_impl(
   let rewriter = extern_api.to_rewriter()
   let rewriter = terms => @core.Stage2Extern::rewrite_apps(terms, rewriter)
   let pctx = @kodama.forester_build_project_context(context_api.docs)
-  let doc_id = context_api.doc_workspace_path
+  let id = context_api.doc_workspace_path
 
   @kodama.parse_terms_for_forester(source)
-  |> @core.Stage2Extern::rewrite_apps(pctx.to_forester_rewriter(doc_id))
+  |> @core.Stage2Extern::rewrite_apps(pctx.to_forester_rewriter(id))
   |> apply_if(options.extern_api, rewriter)
   |> @core.Stage3::pass
   |> @core.SmartPunctuation::pass

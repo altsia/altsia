@@ -3,6 +3,7 @@ package "altsia/altsia/kodama"
 
 import {
   "altsia/altsia/core",
+  "altsia/altsia/path",
   "moonbitlang/core/debug",
   "moonbitlang/core/immut/hashset",
 }
@@ -53,8 +54,6 @@ pub fn html_named_attr_term(String, Array[@core.Term], @core.SourceLoc) -> @core
 #alias(htext)
 pub fn html_text_term(String, @core.SourceLoc) -> @core.Term
 
-pub fn[X] ite(Bool, () -> X, () -> X) -> X
-
 pub fn[X] ite_eager(Bool, X, X) -> X
 
 pub let metadata_preset_keys : @hashset.HashSet[String]
@@ -64,6 +63,8 @@ pub fn outer_article(Array[@core.Html]) -> @core.Html
 pub fn outer_section(Array[@core.Html]) -> @core.Html
 
 pub fn parse_terms_for_forester(String) -> Array[@core.Term] raise
+
+pub fn path_to_slug(@path.Path) -> String
 
 pub fn strip_named_key_prefix(String) -> String
 
@@ -101,11 +102,11 @@ pub impl Show for ForesterDeployOptions
 pub impl @debug.Debug for ForesterDeployOptions
 
 pub(all) struct IndexedDocument {
-  doc_id : String
-  slug : String
+  id : String
   title : @core.Term
   metadata : RawMetadata
 }
+pub fn IndexedDocument::slug(Self) -> String
 pub fn IndexedDocument::title_text(Self) -> String
 pub fn IndexedDocument::title_with_slug(Self) -> String
 pub impl Eq for IndexedDocument
@@ -126,8 +127,8 @@ pub(all) struct ProjectContext {
 }
 pub fn ProjectContext::get_document(Self, String) -> IndexedDocument?
 pub fn ProjectContext::get_metadata(Self, String) -> RawMetadata?
-pub fn ProjectContext::resolve_ref_target_metadata(Self, Array[@core.Term], current_doc_id? : String) -> RawMetadata?
-pub fn ProjectContext::resolve_target_document(Self, String, current_doc_id? : String) -> IndexedDocument?
+pub fn ProjectContext::resolve_ref_target_metadata(Self, Array[@core.Term], current_id? : String) -> RawMetadata?
+pub fn ProjectContext::resolve_target_document(Self, String, current_id? : String) -> IndexedDocument?
 pub fn ProjectContext::to_forester_rewriter(Self, String) -> (String, Array[@core.Term], @core.SourceLoc) -> Array[@core.Term]
 
 pub(all) struct RawMetadata {

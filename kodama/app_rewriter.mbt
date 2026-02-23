@@ -1,13 +1,13 @@
 ///|
 fn resolve_metadata_title(
   ctx : ProjectContext,
-  current_doc_id : String,
+  current_id : String,
   raw : RawMetadata,
   loc : @core.SourceLoc,
 ) -> @core.Term {
-  let fallback = match ctx.get_document(current_doc_id) {
+  let fallback = match ctx.get_document(current_id) {
     Some(doc) => doc.title
-    None => @core.Term::Text(current_doc_id, loc)
+    None => @core.Term::Text(current_id, loc)
   }
   raw.title_term(fallback)
 }
@@ -35,11 +35,11 @@ pub(all) struct Metadata {
 ///|
 fn collect_metadata(
   ctx : ProjectContext,
-  current_doc_id : String,
+  current_id : String,
   raw : RawMetadata,
   loc : @core.SourceLoc,
 ) -> Metadata {
-  let title = resolve_metadata_title(ctx, current_doc_id, raw, loc)
+  let title = resolve_metadata_title(ctx, current_id, raw, loc)
   let taxon = resolve_metadata_taxon(raw)
   let custom_items = raw.custom_items().map(custom_item_term)
   Metadata::{ title, taxon, custom_items }
@@ -53,12 +53,12 @@ fn resolve_metadata_taxon(raw : RawMetadata) -> Taxon? {
 ///|
 fn rewrite_metadata(
   ctx : ProjectContext,
-  current_doc_id : String,
+  current_id : String,
   args : Array[@core.Term],
   loc : @core.SourceLoc,
 ) -> Array[@core.Term] {
   let raw = extract_raw_metadata_from_metadata_args(args)
-  let metadata = collect_metadata(ctx, current_doc_id, raw, loc)
+  let metadata = collect_metadata(ctx, current_id, raw, loc)
   [
     term_section_summary(
       metadata.taxon,
@@ -70,20 +70,20 @@ fn rewrite_metadata(
 }
 
 ///|
-fn rewrite_ref(
+fn rewrite_local_link(
   ctx : ProjectContext,
-  current_doc_id : String,
+  current_id : String,
   args : Array[@core.Term],
   loc : @core.SourceLoc,
 ) -> Array[@core.Term] {
   let split = @core.Stage2Chisel::split_app_args(args)
-  let target_doc_id = resolve_ref_target_doc_id(split)
-  let target_doc = target_doc_id.bind(doc_id => {
-    ctx.resolve_target_document(doc_id, current_doc_id~)
+  let target_path = resolve_local_link_target_path(split)
+  let target_doc = target_path.bind(path => {
+    ctx.resolve_target_document(path, current_id~)
   })
-  let href = target_doc_id.unwrap_or("")
+  let href = target_path.unwrap_or("")
   let title = target_doc.map(doc => doc.title_with_slug())
-  let content = resolve_ref_text(split).map_or_else(
+  let content = resolve_local_link_text(split).map_or_else(
     () => target_doc.map_or(@core.Term::Text(href, loc), doc => doc.title),
     text => @core.Term::Text(text, loc),
   )

@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "altsia/altsia/path"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+type LocalPathParts
+pub impl Eq for LocalPathParts
+pub impl Show for LocalPathParts
+pub impl @debug.Debug for LocalPathParts
+
+pub struct Path {
+  kind : PathKind
+}
+pub fn Path::as_string(Self) -> String
+pub fn Path::has_leading_slash(Self) -> Bool
+pub fn Path::is_relative(Self) -> Bool
+pub fn Path::join(Self, Self) -> Self
+pub fn Path::new(String) -> Self
+pub fn Path::normalize(String) -> String
+pub fn Path::parent(Self) -> Self
+pub fn Path::strip_leading_slashes(Self) -> Self
+pub fn Path::to_string(Self) -> String
+pub impl Eq for Path
+pub impl Show for Path
+pub impl @debug.Debug for Path
+
+type PathKind
+pub impl Eq for PathKind
+pub impl Show for PathKind
+pub impl @debug.Debug for PathKind
+
+// Type aliases
+
+// Traits
+

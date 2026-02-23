@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "altsia/altsia/markdown",
+}
+
+options(
+  "is-main": true,
+  targets: {
+    "commands.mbt": ["native"]
+  }
+)

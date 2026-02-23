@@ -95,12 +95,7 @@ pub fn RawMetadata::get_plain_text(
   metadata : RawMetadata,
   key : String,
 ) -> String? {
-  metadata
-  .get(key)
-  .bind(named => {
-    let text = terms_plain_text(named.values)
-    ite_eager(text.is_empty(), None, Some(text))
-  })
+  metadata.get(key).bind(a => non_empty(terms_plain_text(a.values)))
 }
 
 ///|
@@ -137,13 +132,7 @@ fn metadata_values_text(values : Array[@core.Term]) -> String {
 
 ///|
 pub fn RawMetadata::taxon_text(metadata : RawMetadata) -> String? {
-  match metadata.preset.taxon {
-    Some(named) => {
-      let text = metadata_values_text(named.values)
-      ite_eager(text.is_empty(), None, Some(text))
-    }
-    None => None
-  }
+  metadata.preset.taxon.bind(a => non_empty(metadata_values_text(a.values)))
 }
 
 ///|

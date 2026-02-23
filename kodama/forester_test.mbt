@@ -5,8 +5,8 @@ test "Forester indexes top-level metadata into named entries" {
     #|
     #|(p body)
   let indexed = forester_index_document("demo-1.alt", source)
-  assert_eq(indexed.doc_id, "demo-1.alt")
-  assert_eq(indexed.slug, "demo-1")
+  assert_eq(indexed.id, "demo-1.alt")
+  assert_eq(indexed.slug(), "demo-1")
   guard indexed.title is @core.Term::Text("Demo", _) else {
     fail("expected indexed title term to be Demo")
   }
@@ -18,10 +18,10 @@ test "Forester indexes top-level metadata into named entries" {
   guard title.values is [@core.Term::Text("Demo", _)] else {
     fail("expected :title value to be Demo")
   }
-  guard indexed.metadata.get(":id") is Some(doc_id_meta) else {
+  guard indexed.metadata.get(":id") is Some(id_meta) else {
     fail("expected :id metadata")
   }
-  guard doc_id_meta.values is [@core.Term::Text("demo-1", _)] else {
+  guard id_meta.values is [@core.Term::Text("demo-1", _)] else {
     fail("expected :id value to be demo-1")
   }
 }
@@ -46,7 +46,7 @@ test "Forester ignores user-provided :slug metadata when indexing slug" {
     #|
     #|(p body)
   let indexed = forester_index_document("notes/demo-1.alt", source)
-  assert_eq(indexed.slug, "notes/demo-1")
+  assert_eq(indexed.slug(), "notes/demo-1")
   assert_eq(indexed.title_with_slug(), "Demo [notes/demo-1]")
 }
 
@@ -105,7 +105,7 @@ test "Forester resolves relative ref target metadata from current doc id" {
     is [@core.Term::App("p", [@core.Term::App(LOCAL_LINK_APP_NAME, ref_args, _)], _)] else {
     fail("expected p(\{LOCAL_LINK_APP_NAME} ./b.alt)")
   }
-  guard ctx.resolve_ref_target_metadata(ref_args, current_doc_id="notes/a.alt")
+  guard ctx.resolve_ref_target_metadata(ref_args, current_id="notes/a.alt")
     is Some(meta) else {
     fail("expected target metadata for notes/b.alt")
   }
@@ -121,10 +121,10 @@ test "Forester resolves relative ref target metadata from current doc id" {
 fn forester_pass_with_context(
   source : String,
   ctx : ProjectContext,
-  current_doc_id : String,
+  current_id : String,
 ) -> String raise {
   parse_terms_for_forester(source)
-  |> @core.Stage2Extern::rewrite_apps(ctx.to_forester_rewriter(current_doc_id))
+  |> @core.Stage2Extern::rewrite_apps(ctx.to_forester_rewriter(current_id))
   |> @core.Stage3::pass
   |> @core.Html::from(f=xs => xs.filter(x => !(x is Comment(_))))
   |> @core.MarkdownAbbrev::desugar

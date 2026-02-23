@@ -15,7 +15,7 @@ This file records package-level rules that should stay stable unless explicitly 
 
 ## Slug
 
-- Slug is auto-detected from `doc_id`.
+- Slug is auto-detected from `id`.
 - User-provided metadata `:slug` is not used as the document slug.
 - `slug` remains a reserved preset key.
 
@@ -32,3 +32,5 @@ This file records package-level rules that should stay stable unless explicitly 
 
 - Document id is workspace path (`doc_workspace_path`).
 - Relative local links (for example `./b.alt`, `../b.alt`) are resolved against current document id to workspace-absolute candidate paths for metadata/document lookup.
+- Generic path processing is centralized in `@path.Path::*` (`path/path.mbt`) to avoid duplicating local/external normalization and join logic.
+- Kodama-only path rules (slug derivation and ref-target resolution from current doc id) stay in `kodama/path_api.mbt`.

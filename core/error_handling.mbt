@@ -5,6 +5,7 @@ pub(all) struct RenderError {
   message : String
   loc : SourceLoc?
   source_excerpt : String?
+  doc_path : String?
 } derive(Eq, Show, Debug)
 
 ///|
@@ -85,14 +86,22 @@ fn source_excerpt_for(source : String, loc : SourceLoc?) -> String? {
 }
 
 ///|
-fn make_render_error(
+fn build_render_error(
   code : String,
   phase : String,
   message : String,
   loc : SourceLoc?,
   source : String,
+  doc_path : String?,
 ) -> RenderError {
-  { code, phase, message, loc, source_excerpt: source_excerpt_for(source, loc) }
+  {
+    code,
+    phase,
+    message,
+    loc,
+    source_excerpt: source_excerpt_for(source, loc),
+    doc_path,
+  }
 }
 
 ///|
@@ -100,7 +109,17 @@ pub fn render_error(
   err : Error,
   source : String,
   language : String,
+  doc_path? : String,
 ) -> RenderError {
+  let make_render_error = (
+    code : String,
+    phase : String,
+    message : String,
+    loc : SourceLoc?,
+    source : String,
+  ) =>
+    build_render_error(code, phase, message, loc, source, doc_path)
+
   match err {
     Stage1Error::InvalidQuoteBlockStart(loc~) =>
       make_render_error(
@@ -459,8 +478,17 @@ pub fn render_error(
 
 ///|
 pub fn render_error_to_string(err : RenderError) -> String {
-  match err.loc {
-    Some(loc) => "[\{err.phase}] \{loc.line}:\{loc.column}: \{err.message}"
-    None => "[\{err.phase}] \{err.message}"
+  match err.doc_path {
+    Some(doc_path) =>
+      match err.loc {
+        Some(loc) =>
+          "[\{err.phase}] \{doc_path}:\{loc.line}:\{loc.column}: \{err.message}"
+        None => "[\{err.phase}] \{doc_path}: \{err.message}"
+      }
+    None =>
+      match err.loc {
+        Some(loc) => "[\{err.phase}] \{loc.line}:\{loc.column}: \{err.message}"
+        None => "[\{err.phase}] \{err.message}"
+      }
   }
 }

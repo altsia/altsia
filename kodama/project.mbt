@@ -4,6 +4,11 @@ pub(all) struct ProjectContext {
 }
 
 ///|
+pub(all) suberror ForesterProjectError {
+  IndexDocumentFailed(doc_id~ : DocumentId, source~ : String, cause~ : Error)
+}
+
+///|
 pub(all) struct DocEntry {
   id : DocumentId
   content : String
@@ -15,7 +20,15 @@ pub fn forester_build_project_context(
 ) -> ProjectContext raise {
   let indexed : Map[String, IndexedDocument] = Map::new()
   for entry in docs {
-    indexed[entry.id] = forester_index_document(entry.id, entry.content)
+    let doc = try forester_index_document(entry.id, entry.content) catch {
+      err =>
+        raise ForesterProjectError::IndexDocumentFailed(
+          doc_id=entry.id,
+          source=entry.content,
+          cause=err,
+        )
+    }
+    indexed[entry.id] = doc
   }
   ProjectContext::{ docs: indexed }
 }

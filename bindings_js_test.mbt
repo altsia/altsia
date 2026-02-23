@@ -203,3 +203,28 @@ test "bindings text_rewriter skips extern api rendered text in kodama_to_html" {
   assert_true(html.contains("<k:x>"))
   assert_true(!html.contains("<K:X>"))
 }
+
+///|
+test "kodama_to_html error string includes document path" {
+  let context = @kodama.ContextApi::{ doc_workspace_path: "notes/a.alt", docs: [] }
+  let rendered = kodama_to_html("oops", context, s => s)
+  assert_true(rendered.contains("[stage1.parse]"))
+  assert_true(rendered.contains("notes/a.alt:1:1:"))
+  assert_true(rendered.contains("unexpected top-level token"))
+}
+
+///|
+test "kodama_to_html project indexing error points to failing doc path" {
+  let context = @kodama.ContextApi::{
+    doc_workspace_path: "notes/a.alt",
+    docs: [
+      { id: "notes/a.alt", content: "(p ok)" },
+      { id: "notes/b.alt", content: "oops" },
+    ],
+  }
+  let rendered = kodama_to_html("(p ok)", context, s => s)
+  assert_true(rendered.contains("[stage1.parse]"))
+  assert_true(rendered.contains("notes/b.alt:1:1:"))
+  assert_true(!rendered.contains("notes/a.alt:1:1:"))
+  assert_true(rendered.contains("unexpected top-level token"))
+}

@@ -46,7 +46,30 @@ pub fn kodama_to_html(
     kodama_to_html_impl(source, context_api, text_rewriter, extern_api?)
   catch {
     err =>
-      @core.render_error_to_string(@core.render_error(err, source, language))
+      match err {
+        @kodama.ForesterProjectError::IndexDocumentFailed(
+          doc_id~,
+          source~,
+          cause~,
+        ) =>
+          @core.render_error_to_string(
+            @core.render_error(
+              cause,
+              source,
+              language,
+              doc_path=doc_id,
+            ),
+          )
+        _ =>
+          @core.render_error_to_string(
+            @core.render_error(
+              err,
+              source,
+              language,
+              doc_path=context_api.doc_workspace_path,
+            ),
+          )
+      }
   } noraise {
     html => html
   }

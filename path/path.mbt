@@ -16,12 +16,17 @@ pub struct Path {
 } derive(Eq, Show, Debug)
 
 ///|
+fn is_path_separator(ch : Char) -> Bool {
+  ch == '/' || ch == '\\'
+}
+
+///|
 fn has_leading_slash_string(path : String) -> Bool {
   if path.is_empty() {
     return false
   }
   let ch = path.get_char(0).unwrap()
-  ch == '/' || ch == '\\'
+  is_path_separator(ch)
 }
 
 ///|
@@ -29,7 +34,7 @@ fn strip_leading_slashes_string(path : String) -> String {
   let mut start = 0
   while start < path.length() {
     let ch = path.get_char(start).unwrap()
-    if ch != '/' && ch != '\\' {
+    if !is_path_separator(ch) {
       break
     }
     start += 1
@@ -60,7 +65,7 @@ fn parse_local_path_parts(path : String) -> LocalPathParts {
   for i in 0..<=path.length() {
     let is_end = i == path.length()
     let ch = if is_end { '/' } else { path.get_char(i).unwrap() }
-    let is_sep = ch == '/' || ch == '\\'
+    let is_sep = is_path_separator(ch)
     if !is_sep {
       segment = segment + ch.to_string()
       continue
@@ -139,7 +144,7 @@ fn parent_string(path : String) -> String {
   let mut last_slash = -1
   for i in 0..<path.length() {
     let ch = path.get_char(i).unwrap()
-    if ch == '/' || ch == '\\' {
+    if is_path_separator(ch) {
       last_slash = i
     }
   }

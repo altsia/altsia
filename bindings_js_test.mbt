@@ -177,6 +177,22 @@ fn test_extern_api() -> @core.ExternApi {
 }
 
 ///|
+fn include_test_extern_api() -> @core.ExternApi {
+  @core.ExternApi::{
+    read: path => {
+      match path {
+        "a.alt" => "(p hello)"
+        "nested.alt" => "(include a.alt)"
+        "bad.alt" => "oops"
+        _ => ""
+      }
+    },
+    katex_render: tex => "<k:\{tex}>",
+    katex_display_render: tex => "<kd:\{tex}>",
+  }
+}
+
+///|
 test "bindings text_rewriter skips extern api rendered text in altsia_to_html_with_rewriter" {
   let html = altsia_to_html_with_rewriter(
     "(p pre (k x) post)",
@@ -202,6 +218,77 @@ test "bindings text_rewriter skips extern api rendered text in kodama_to_html" {
   assert_true(html.contains("POST"))
   assert_true(html.contains("<k:x>"))
   assert_true(!html.contains("<K:X>"))
+}
+
+///|
+test "extern include app can expand included altsia source recursively" {
+  let html = altsia_to_html_with_rewriter(
+    "(include nested.alt)",
+    s => s,
+    extern_api=include_test_extern_api(),
+  )
+  assert_true(html.contains("<p>hello</p>"))
+}
+
+///|
+test "extern include parse error reports included file doc path" {
+  let diagnostics = altsia_to_html_with_rewriter_diagnostics(
+    "(include bad.alt)",
+    s => s,
+    extern_api=include_test_extern_api(),
+  )
+  let diagnostic = first_collected_diagnostic(diagnostics)
+  assert_eq(diagnostic.phase, "stage1.parse")
+  assert_eq(diagnostic.code, "stage1.unexpected-top-level-token")
+  assert_eq(diagnostic.doc_path, Some("bad.alt"))
+  guard diagnostic.loc is Some(loc) else { fail("expected diagnostic loc") }
+  assert_eq(loc.line, 1)
+  assert_eq(loc.column, 1)
+  guard diagnostic.source_excerpt is Some(excerpt) else {
+    fail("expected source excerpt")
+  }
+  assert_true(excerpt.contains("oops"))
+
+  let rendered = first_collected_error(
+    altsia_to_html_with_rewriter_result(
+      "(include bad.alt)",
+      s => s,
+      extern_api=include_test_extern_api(),
+    ),
+  )
+  assert_true(rendered.contains("bad.alt:1:1:"))
+}
+
+///|
+test "extern include invalid args reports IncludeError at callsite" {
+  let diagnostics = altsia_to_html_with_rewriter_diagnostics(
+    "(include (p x))",
+    s => s,
+    extern_api=include_test_extern_api(),
+  )
+  let diagnostic = first_collected_diagnostic(diagnostics)
+  assert_eq(diagnostic.phase, "stage2-extern.include")
+  assert_eq(diagnostic.code, "stage2-extern.include.invalid-arguments")
+  assert_eq(diagnostic.doc_path, None)
+  guard diagnostic.loc is Some(loc) else { fail("expected include loc") }
+  assert_eq(loc.line, 1)
+  assert_eq(loc.column, 1)
+}
+
+///|
+test "extern read invalid args reports structured extern error" {
+  let diagnostics = altsia_to_html_with_rewriter_diagnostics(
+    "(read (p x))",
+    s => s,
+    extern_api=include_test_extern_api(),
+  )
+  let diagnostic = first_collected_diagnostic(diagnostics)
+  assert_eq(diagnostic.phase, "stage2-extern.rewrite")
+  assert_eq(diagnostic.code, "stage2-extern.invalid-arguments")
+  assert_eq(diagnostic.doc_path, None)
+  guard diagnostic.loc is Some(loc) else { fail("expected read call loc") }
+  assert_eq(loc.line, 1)
+  assert_eq(loc.column, 1)
 }
 
 ///|

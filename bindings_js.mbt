@@ -28,9 +28,9 @@ fn apply_extern_api(
   terms : Array[@core.Term],
   enable_extern_api : Bool,
   extern_api? : @core.ExternApi,
-) -> Array[@core.Term] {
+) -> Array[@core.Term] raise {
   guard enable_extern_api && extern_api is Some(extern_api) else { terms }
-  @core.Stage2Extern::rewrite_apps(terms, extern_api.to_rewriter())
+  @core.Stage2Extern::rewrite_apps_raise(terms, extern_api.to_rewriter_raise())
 }
 
 ///|

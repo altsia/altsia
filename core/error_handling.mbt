@@ -121,6 +121,36 @@ pub fn render_error(
     build_render_error(code, phase, message, loc, source, doc_path)
 
   match err {
+    ExternApiError::InvalidExternArguments(app_name~, expected~, args~, loc~) =>
+      make_render_error(
+        "stage2-extern.invalid-arguments",
+        "stage2-extern.rewrite",
+        localized(
+          language,
+          "invalid extern app arguments: (\{app_name} ...) expects \{expected}, got: \{args}",
+          "外部 app 参数无效: (\{app_name} ...) 需要 \{expected}，实际为: \{args}",
+          "外部 app 參數無效: (\{app_name} ...) 需要 \{expected}，實際為: \{args}",
+          "外部 app 引数が不正です: (\{app_name} ...) は \{expected} が必要ですが、実際は \{args}",
+        ),
+        Some(loc),
+        source,
+      )
+    IncludeError::InvalidIncludeArguments(args~, loc~) =>
+      make_render_error(
+        "stage2-extern.include.invalid-arguments",
+        "stage2-extern.include",
+        localized(
+          language,
+          "include expects one plain-text path argument, got: \{args}",
+          "include 需要一个纯文本路径参数，实际为: \{args}",
+          "include 需要一個純文本路徑參數，實際為: \{args}",
+          "include は 1 つのプレーンテキストのパス引数を必要とします: \{args}",
+        ),
+        Some(loc),
+        source,
+      )
+    IncludeError::IncludeExpansionFailed(path~, source=include_source, cause~) =>
+      render_error(cause, include_source, language, doc_path=path)
     Stage1Error::InvalidQuoteBlockStart(loc~) =>
       make_render_error(
         "stage1.invalid-quote-block-start",

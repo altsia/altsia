@@ -11,6 +11,7 @@ fn usage_root() -> Unit {
     $|
     $|COMMANDS:
     $|  \{COMMAND_FROM}      Convert one Markdown file into one .alt file
+    $|  \{COMMAND_TO}        Convert one .alt file into one .html file
     $|  help      Print this message or the help of a subcommand
     $|
     $|OPTIONS:
@@ -32,6 +33,13 @@ fn main {
     [_, COMMAND_FROM, ..] =>
       println("error: too many arguments for command '\{COMMAND_FROM}'")
     // to
+    [_, COMMAND_TO]
+    | [_, COMMAND_TO, "-h"]
+    | [_, COMMAND_TO, "--help"]
+    | [_, "help", COMMAND_TO] => usage_to()
+    [_, COMMAND_TO, input_path] => run_to_command(input_path)
+    [_, COMMAND_TO, ..] =>
+      println("error: too many arguments for command '\{COMMAND_TO}'")
 
     [_, "help"] | [_, "-h"] | [_, "--help"] | [_] => usage_root()
     [_, "help", .. topic] => println("unknown command: help " + topic.join(" "))

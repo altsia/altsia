@@ -2,6 +2,32 @@
 const COMMAND_TO : String = "to"
 
 ///|
+fn usage_to() -> Unit {
+  let text =
+    $|
+    $|Convert one .alt file into one .html file.
+    $|
+    $|USAGE:
+    $|  altsia \{COMMAND_TO} <INPUT.alt>
+    $|  altsia \{COMMAND_TO} --help
+    $|
+    $|ARGS:
+    $|  <INPUT.alt>    Input Altsia file path (must end with .alt)
+    $|
+    $|OPTIONS:
+    $|  -h, --help    Print help information
+    $|
+    $|OUTPUT:
+    $|  Writes output next to input with same stem and .html suffix.
+    $|  Example: notes/a.alt -> notes/a.html
+    $|
+    $|EXAMPLES:
+    $|  altsia \{COMMAND_TO} notes/intro.alt
+    $|  altsia \{COMMAND_TO} --help
+  println(text)
+}
+
+///|
 fn run_to_command(input_path : String) -> Unit {
   if !input_path.has_suffix(".alt") {
     println("error: input file must have .alt suffix: \{input_path}")

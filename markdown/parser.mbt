@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 fn split_markdown_lines(source : String) -> Array[String] {
   let lines = source.split("\n").map(StringView::to_string).collect()

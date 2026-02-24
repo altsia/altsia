@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 test "format_unix_millis_date uses default long month format" {
   let unix_epoch : UInt64 = 0

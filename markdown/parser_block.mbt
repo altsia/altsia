@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 fn md_parse_heading_line(line : String) -> (String, String)? {
   let indent = md_leading_spaces_upto(line, 3)

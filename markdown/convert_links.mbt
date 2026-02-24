@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 fn make_footnote_ref_lambda_name(index : Int) -> String {
   "md_footnote_ref_\{index}"

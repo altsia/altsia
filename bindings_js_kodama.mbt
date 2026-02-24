@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 /// Render one document to HTML with project-level context.
 /// `source` may be unsaved in-memory content (for editor preview), so it

@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 fn inline_rule_code(state : InlineState, pos : Int) -> (MdToken, Int)? {
   if pos >= state.source.length() || md_char_at(state.source, pos) != '`' {

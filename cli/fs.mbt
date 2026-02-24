@@ -1,3 +1,7 @@
+// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 fn read_input(path : String) -> String? {
   Some(@fs.read_file_to_string(path)) catch {

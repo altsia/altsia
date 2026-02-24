@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 /// Deployment options for turning local `ref` targets into deployed hrefs.
 /// `base_url` is a deployment prefix (for example `/docs`).

@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 fn escape_shape_text(value : String) -> String {
   value.replace_all(old="(", new="\\(").replace_all(old=")", new="\\)")

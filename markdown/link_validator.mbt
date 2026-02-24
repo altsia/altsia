@@ -1,3 +1,7 @@
+﻿// Copyright (c) 2025 Altsia Project. All rights reserved.
+// Released under the GPL-3.0 license as described in the file LICENSE.
+// Authors: Kokic (@kokic)
+
 ///|
 fn has_any_prefix(link : String, prefixes : Array[String]) -> Bool {
   prefixes.iter().any(prefix => link.has_prefix(prefix))

@@ -63,3 +63,46 @@ test "bidirectional graph n=0 and negative" {
   let mapped_backward = g.n_links_forward("C", 2)
   assert_string_set_eq(mapped_backward, ["A"])
 }
+
+///|
+test "bidirectional graph bidirectional radius query follows both edge directions each step" {
+  let g : BidirectionalGraph[String] = BidirectionalGraph::new()
+  g.extend_edges([
+    ("A", "B"),
+    ("B", "C"),
+    ("A", "F"),
+    ("X", "B"),
+    ("D", "A"),
+    ("E", "D"),
+  ])
+
+  let distance2 = g.radius_links_bidirectional("A", 2)
+  assert_string_set_eq(distance2, ["B", "C", "D", "E", "F", "X"])
+}
+
+///|
+test "bidirectional graph bidirectional radius query uses absolute radius" {
+  let g : BidirectionalGraph[String] = BidirectionalGraph::new()
+  g.extend_edges([("A", "B"), ("B", "C"), ("D", "A")])
+
+  let zero = g.radius_links_bidirectional("A", 0)
+  assert_string_set_eq(zero, [])
+
+  let mapped_radius1 = g.radius_links_bidirectional("A", -1)
+  assert_string_set_eq(mapped_radius1, ["B", "D"])
+
+  let mapped_radius2 = g.radius_links_bidirectional("A", -2)
+  assert_string_set_eq(mapped_radius2, ["B", "C", "D"])
+}
+
+///|
+test "bidirectional graph fixed-point optimization keeps self-loop semantics" {
+  let g : BidirectionalGraph[String] = BidirectionalGraph::new()
+  g.add_edge("A", "A")
+
+  let forward = g.n_links_forward("A", 1_000_000)
+  assert_string_set_eq(forward, ["A"])
+
+  let backward = g.n_links_backward("A", 1_000_000)
+  assert_string_set_eq(backward, ["A"])
+}

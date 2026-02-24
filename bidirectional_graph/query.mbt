@@ -46,6 +46,23 @@ pub fn[Node : Hash + Eq] BidirectionalGraph::n_links_forward(
 }
 
 ///|
+fn[Node : Hash + Eq] hashset_eq(
+  lhs : @hashset.HashSet[Node],
+  rhs : @hashset.HashSet[Node],
+) -> Bool {
+  if lhs.length() != rhs.length() {
+    return false
+  }
+  let mut all_in_rhs = true
+  lhs.each(v => {
+    if !rhs.contains(v) {
+      all_in_rhs = false
+    }
+  })
+  all_in_rhs
+}
+
+///|
 pub fn[Node : Hash + Eq] BidirectionalGraph::n_links_backward(
   self : BidirectionalGraph[Node],
   node : Node,
@@ -71,6 +88,41 @@ pub fn[Node : Hash + Eq] BidirectionalGraph::n_links_backward(
 }
 
 ///|
+pub fn[Node : Hash + Eq] BidirectionalGraph::radius_links_bidirectional(
+  self : BidirectionalGraph[Node],
+  node : Node,
+  radius : Int,
+) -> @hashset.HashSet[Node] {
+  let steps = if radius < 0 { -radius } else { radius }
+  let result = @hashset.HashSet::new()
+
+  let mut frontier = singleton(node)
+  for _ in 0..<steps {
+    let next = @hashset.HashSet::new()
+    frontier.each(current => {
+      if self.out_edges.get(current) is Some(neighbors) {
+        neighbors.each(next_node => {
+          next.add(next_node)
+          result.add(next_node)
+        })
+      }
+      if self.in_edges.get(current) is Some(predecessors) {
+        predecessors.each(next_node => {
+          next.add(next_node)
+          result.add(next_node)
+        })
+      }
+    })
+    frontier = next
+    if frontier.is_empty() {
+      break
+    }
+  }
+  ignore(result.remove_and_check(node))
+  result
+}
+
+///|
 fn[Node : Hash + Eq] BidirectionalGraph::compute_forward(
   self : BidirectionalGraph[Node],
   start : Node,
@@ -84,6 +136,9 @@ fn[Node : Hash + Eq] BidirectionalGraph::compute_forward(
         neighbors.each(v => next.add(v))
       }
     })
+    if hashset_eq(next, frontier) {
+      break
+    }
     frontier = next
     if frontier.is_empty() {
       break
@@ -106,6 +161,9 @@ fn[Node : Hash + Eq] BidirectionalGraph::compute_backward(
         predecessors.each(u => next.add(u))
       }
     })
+    if hashset_eq(next, frontier) {
+      break
+    }
     frontier = next
     if frontier.is_empty() {
       break

@@ -26,6 +26,7 @@ pub fn[Node : Hash + Eq] BidirectionalGraph::n_links_backward(Self[Node], Node, 
 pub fn[Node : Hash + Eq] BidirectionalGraph::n_links_forward(Self[Node], Node, Int) -> @hashset.HashSet[Node]
 pub fn[Node] BidirectionalGraph::new(max_cache_n? : Int) -> Self[Node]
 pub fn[Node : Hash + Eq] BidirectionalGraph::out_neighbors(Self[Node], Node) -> @hashset.HashSet[Node]
+pub fn[Node : Hash + Eq] BidirectionalGraph::radius_links_bidirectional(Self[Node], Node, Int) -> @hashset.HashSet[Node]
 pub fn[Node : Hash + Eq] BidirectionalGraph::remove_edge(Self[Node], Node, Node) -> Bool
 
 // Type aliases

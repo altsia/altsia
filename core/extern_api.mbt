@@ -121,3 +121,12 @@ pub fn ExternApi::to_rewriter_raise(api : ExternApi) -> AppRewriterRaise {
     }
   }
 }
+
+///|
+pub fn test_extern_api() -> ExternApi {
+  ExternApi::{
+    read: path => "<read:\{path}>",
+    katex_render: tex => "<k:\{tex}>",
+    katex_display_render: tex => "<kd:\{tex}>",
+  }
+}

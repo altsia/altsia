@@ -73,3 +73,37 @@ pub fn kodama_to_html(
     html => html
   }
 }
+
+///|
+/// compile Markdown (kodama) source to html
+pub fn markdown_to_html(
+  source : String,
+  context_api : @kodama.ContextApi,
+  text_rewriter : (String) -> String,
+  extern_api? : @core.ExternApi,
+  language? : String = @core.default_language,
+) -> String {
+  try {
+    let altsia_source = @markdown.KoMarkdown::to_altsia(source)
+    let content = kodama_to_html(
+      altsia_source + "\n" + altsia_prelude,
+      context_api,
+      text_rewriter,
+      extern_api?,
+      language~,
+    )
+    "<style>\n\{main_vscode_css}\n</style>\n\{content}"
+  } catch {
+    err =>
+      @core.render_error_to_string(
+        @core.render_error(
+          err,
+          source,
+          language,
+          doc_path=context_api.doc_workspace_path,
+        ),
+      )
+  } noraise {
+    html => html
+  }
+}

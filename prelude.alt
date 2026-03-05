@@ -1,0 +1,17 @@
+
+(λ inline-section (taxon (title) content...)
+  (section (:class inline block) (:data-taxon)
+    (details (:open)
+      (summary (header (h1 (span (:class taxon) (taxon).) (~) (title)))) (content) ) ) )
+
+(λ theorem ((:title ()) content...)
+  (inline-section (_ Theorem) (:title) (content)) )
+
+(λ remark ((:title ()) content...)
+  (inline-section (_ Remark) (:title) (content)) )
+
+(λ proof ((:title ()) content...)
+  (inline-section (_ Proof) (:title) (_ (content))) )
+
+(λ observation ((:title ()) content...)
+  (inline-section (_ Observation) (:title) (_ (content))) )

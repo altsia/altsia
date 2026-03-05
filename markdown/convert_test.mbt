@@ -5,6 +5,7 @@
 ///|
 test "KoMarkdown converts front matter into structured metadata node" {
   let source =
+    #|
     #|---
     #|title: Demo
     #|author: You

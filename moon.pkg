@@ -1,6 +1,7 @@
 import {
   "altsia/altsia/core",
   "altsia/altsia/kodama",
+  "altsia/altsia/markdown", 
 }
 
 options(
@@ -20,7 +21,20 @@ options(
         "altsia_to_html_with_rewriter_raise",
         "kodama_to_html",
         "kodama_to_html_raise",
+        "markdown_to_html", 
       ],
     },
   },
+  "pre-build": [
+    // {
+    //   "command": ":embed -i $input -o $output",
+    //   "input": "main-vscode.css",
+    //   "output": "main-vscode.css.mbt",
+    // },
+    // {
+    //   "command": ":embed -i $input -o $output",
+    //   "input": "prelude.alt",
+    //   "output": "prelude.mbt",
+    // },
+  ],
 )

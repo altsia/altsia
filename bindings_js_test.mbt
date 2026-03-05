@@ -172,15 +172,6 @@ test "render_error localizes message with language parameter" {
 }
 
 ///|
-fn test_extern_api() -> @core.ExternApi {
-  @core.ExternApi::{
-    read: path => "<read:\{path}>",
-    katex_render: tex => "<k:\{tex}>",
-    katex_display_render: tex => "<kd:\{tex}>",
-  }
-}
-
-///|
 fn include_test_extern_api() -> @core.ExternApi {
   @core.ExternApi::{
     read: path => {
@@ -201,7 +192,7 @@ test "bindings text_rewriter skips extern api rendered text in altsia_to_html_wi
   let html = altsia_to_html_with_rewriter(
     "(p pre (k x) post)",
     s => s.to_upper(),
-    extern_api=test_extern_api(),
+    extern_api=@core.test_extern_api(),
   )
   assert_true(html.contains("PRE"))
   assert_true(html.contains("POST"))
@@ -219,7 +210,7 @@ test "bindings text_rewriter skips extern api rendered text in kodama_to_html" {
     "(p pre (k x) post)",
     context,
     s => s.to_upper(),
-    extern_api=test_extern_api(),
+    extern_api=@core.test_extern_api(),
   )
   assert_true(html.contains("PRE"))
   assert_true(html.contains("POST"))

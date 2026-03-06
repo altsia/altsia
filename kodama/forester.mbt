@@ -12,6 +12,7 @@ fn forester_app_rewriter_with_context(
 ) -> Array[@core.Term] {
   match name {
     "today" => [@core.Term::Text(@date.today(), loc)]
+    "taxon-display" => rewrite_taxon_display(ctx, current_id, args, loc)
     LOCAL_LINK_APP_NAME => rewrite_local_link(ctx, current_id, args, loc)
     METADATA_APP_NAME => rewrite_metadata(ctx, current_id, args, loc)
     _ => [@core.Term::App(name, args, loc)]

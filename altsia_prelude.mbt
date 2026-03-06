@@ -16,14 +16,14 @@ let template_anonymous_subtree : String =
   #|    (details (:open)
   #|      (summary (header (h1 (span (:class taxon) (taxon).) (~) (title)))) (content) ) ) )
   #|
-  #|(λ block ((:title ()) (taxon) content...)
-  #|  (inline-section (taxon) (:title) (content)) )
+  #|(λ block ((:title ()) (:taxon) content...)
+  #|  (inline-section (:taxon) (:title) (content)) )
 
 ///|
 fn builtin_anonymous_subtree(taxon : String) -> String {
-  let taxon = @kodama.Taxon::text_transform(taxon)
+  let taxon_display = @kodama.Taxon::text_transform(taxon)
   (
-    #|(λ theorem ((:title ()) content...)
-    $|  (inline-section (_ \{taxon}) (:title) (content)) )
+    $|(λ \{taxon} ((:title ()) content...)
+    $|  (inline-section (_ \{taxon_display}) (:title) (content)) )
   )
 }

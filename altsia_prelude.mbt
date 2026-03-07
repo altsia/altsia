@@ -17,7 +17,7 @@ let template_anonymous_subtree : String =
   #|      (summary (header (h1 (span (:class taxon) (taxon).) (~) (title)))) (content) ) ) )
   #|
   #|(λ block ((:title ()) (:taxon) content...)
-  #|  (inline-section (:taxon) (:title) (content)) )
+  #|  (inline-section (taxon-display (:taxon)) (:title) (content)) )
 
 ///|
 fn builtin_anonymous_subtree(taxon : String) -> String {

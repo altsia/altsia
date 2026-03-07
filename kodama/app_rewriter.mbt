@@ -10,7 +10,7 @@ fn rewrite_taxon_display(
   loc : @core.SourceLoc,
 ) -> Array[@core.Term] {
   let split = @core.Stage2Chisel::split_app_args(args)
-  let text = terms_plain_text(split.positional)
+  let text = Taxon::text_transform(terms_plain_text(split.positional))
   [@core.Term::Text(text, loc)]
 }
 

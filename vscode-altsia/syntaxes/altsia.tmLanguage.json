@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Altsia",
+  "scopeName": "source.altsia",
+  "patterns": [
+    {
+      "match": ";+",
+      "name": "punctuation.separator.altsia"
+    },
+    {
+      "include": "source.clojure"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+*.vsix
+
+.local/
+node_modules/
+media/
+out/

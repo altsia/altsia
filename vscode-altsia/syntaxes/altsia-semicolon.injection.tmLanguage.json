@@ -1,0 +1,12 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Altsia Semicolon Injection",
+  "scopeName": "altsia:semicolon.injection",
+  "injectionSelector": "L:source.altsia",
+  "patterns": [
+    {
+      "match": ";+",
+      "name": "punctuation.separator.altsia"
+    }
+  ]
+}

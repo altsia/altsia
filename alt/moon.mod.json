@@ -1,0 +1,13 @@
+{
+  "name": "kokic/alt",
+  "version": "0.1.0",
+  "deps": {
+    "kokic/tinymark": "0.1.5"
+  },
+  "readme": "README.md",
+  "repository": "https://github.com/kokic/alt",
+  "license": "AGPL-3.0",
+  "keywords": [],
+  "description": "",
+  "preferred-target": "native"
+}

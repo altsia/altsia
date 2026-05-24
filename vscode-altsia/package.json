@@ -1,0 +1,128 @@
+{
+  "name": "altsia-vscode",
+  "displayName": "Altsia",
+  "description": "Altsia language support & preview for VS Code",
+  "version": "0.1.7",
+  "publisher": "altsia",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "altsia",
+    "markup",
+    "document",
+    "preview"
+  ],
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/altsia/vscode-altsia.git"
+  },
+  "homepage": "https://github.com/altsia/altsia",
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "altsia",
+        "aliases": [
+          "Altsia",
+          "altsia"
+        ],
+        "extensions": [
+          ".alt"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "altsia",
+        "scopeName": "source.altsia",
+        "path": "./syntaxes/altsia.tmLanguage.json"
+      },
+      {
+        "scopeName": "altsia:semicolon.injection",
+        "path": "./syntaxes/altsia-semicolon.injection.tmLanguage.json",
+        "injectTo": [
+          "source.altsia"
+        ]
+      }
+    ],
+    "snippets": [
+      {
+        "language": "altsia",
+        "path": "./snippets/altsia.code-snippets"
+      }
+    ],
+    "commands": [
+      {
+        "command": "altsiaPreview.openPreviewToSide",
+        "title": "[Altsia] Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "altsia.commentLine",
+        "title": "Altsia: Comment Line"
+      },
+      {
+        "command": "altsia.displayLanguage.set",
+        "title": "Altsia: Set Display Language"
+      },
+      {
+        "command": "altsia.normalize",
+        "title": "Altsia: Normalize Document"
+      },
+      {
+        "command": "altsia.normalize.maxWidth.set",
+        "title": "Altsia: Set Normalize Max Width"
+      }
+    ],
+    "configuration": {
+      "title": "Altsia",
+      "properties": {
+        "altsia.normalize.maxWidth": {
+          "type": "integer",
+          "default": 80,
+          "minimum": 20,
+          "markdownDescription": "Maximum line width used by `Altsia: Normalize Document` (maps to `altsia_normalize` `max_width`)."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "altsia.commentLine",
+        "key": "ctrl+/",
+        "mac": "cmd+/",
+        "when": "editorTextFocus && editorLangId == altsia && !editorReadonly"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "altsiaPreview.openPreviewToSide",
+          "when": "resourceExtname == .alt || resourceExtname == .plt || resourceExtname == .md",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "copy:katex": "node scripts/copy-katex-assets.mjs",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile", 
+    "pkg": "npx @vscode/vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "altsia": "^0.1.4",
+    "katex": "^0.16.28"
+  }
+}

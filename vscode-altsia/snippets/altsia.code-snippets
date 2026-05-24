@@ -1,0 +1,12 @@
+{
+  "Altsia Lambda Template": {
+    "prefix": [
+      "lambda",
+      "template"
+    ],
+    "body": [
+      "(λ $1)"
+    ],
+    "description": "Insert Altsia lambda template: (λ ...)"
+  }
+}

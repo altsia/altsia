@@ -1,12 +1,32 @@
 {
-  "Altsia Lambda Template": {
-    "prefix": [
-      "lambda",
-      "template"
-    ],
+  "Element": {
+    "prefix": "el",
     "body": [
-      "(λ $1)"
+      "(${1:element} $0)"
     ],
-    "description": "Insert Altsia lambda template: (λ ...)"
+    "description": "Insert an Altsia element expression."
+  },
+  "Attributes": {
+    "prefix": ":",
+    "body": [
+      "(: :${1:name} ${2:value})"
+    ],
+    "description": "Insert an Altsia attribute list."
+  },
+  "Definition": {
+    "prefix": "def",
+    "body": [
+      "(def ${1:name}",
+      "  $0)"
+    ],
+    "description": "Insert an Altsia definition."
+  },
+  "Let": {
+    "prefix": "let",
+    "body": [
+      "(let ${1:name} ${2:value}",
+      "  $0)"
+    ],
+    "description": "Insert an Altsia let expression."
   }
 }

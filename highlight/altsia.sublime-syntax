@@ -1,0 +1,172 @@
+%YAML 1.2
+---
+name: Altsia
+file_extensions:
+  - alt
+  - altsia
+scope: source.altsia
+
+contexts:
+  main:
+    - include: comments
+    - include: fenced-block
+    - include: list-sugar
+    - include: special-form
+    - include: attribute-list
+    - include: element-or-reference
+    - include: inline
+    - include: parens
+
+  comments:
+    - match: ';;.*$'
+      scope: comment.line.double-semicolon.altsia
+
+  fenced-block:
+    - match: '^(```.*)$'
+      captures:
+        1: punctuation.definition.raw.begin.altsia
+      push:
+        - meta_scope: markup.raw.block.altsia
+        - match: '^\1$'
+          scope: punctuation.definition.raw.end.altsia
+          pop: true
+
+  list-sugar:
+    - match: '^(-)'
+      captures:
+        1: punctuation.definition.list.begin.altsia
+      scope: markup.list.unnumbered.altsia
+    - match: '^(\+)'
+      captures:
+        1: punctuation.definition.list.begin.altsia
+      scope: markup.list.numbered.altsia
+
+  special-form:
+    - match: '(\()(\s*)(def|let|meta|html\.head|when|unless)(?=\s|\))'
+      captures:
+        1: punctuation.section.expression.begin.altsia
+        3: keyword.control.altsia
+      push:
+        - meta_scope: meta.expression.special.altsia
+        - include: comments
+        - include: fenced-block
+        - include: special-form
+        - include: attribute-list
+        - include: element-or-reference
+        - include: inline
+        - include: symbols
+        - match: '\)'
+          scope: punctuation.section.expression.end.altsia
+          pop: true
+
+  attribute-list:
+    - match: '(\()(\s*)(:)'
+      captures:
+        1: punctuation.section.attributes.begin.altsia
+        3: punctuation.definition.attribute.altsia
+      push:
+        - meta_scope: meta.attributes.altsia
+        - include: comments
+        - match: '(:)([^\s()"`]+)'
+          captures:
+            1: punctuation.definition.attribute.altsia
+            2: entity.other.attribute-name.altsia
+        - include: values
+        - include: attribute-reference
+        - match: '\)'
+          scope: punctuation.section.attributes.end.altsia
+          pop: true
+
+  element-or-reference:
+    - match: '(\()(\s*)(?!:)([^\s()"`]+)'
+      captures:
+        1: punctuation.section.expression.begin.altsia
+        3: entity.name.tag.altsia
+      push:
+        - meta_scope: meta.expression.altsia
+        - include: comments
+        - include: fenced-block
+        - include: special-form
+        - include: attribute-list
+        - include: element-or-reference
+        - include: inline
+        - match: '\)'
+          scope: punctuation.section.expression.end.altsia
+          pop: true
+
+  attribute-reference:
+    - match: '(\()(\s*)([^\s()"`]+)(\s*)(\))'
+      scope: variable.other.reference.altsia
+      captures:
+        1: punctuation.section.reference.begin.altsia
+        3: variable.other.reference.name.altsia
+        5: punctuation.section.reference.end.altsia
+
+  inline:
+    - include: strings
+    - include: emphasis
+    - include: escapes
+
+  values:
+    - include: strings
+    - match: '\b(?:true|false)\b'
+      scope: constant.language.boolean.altsia
+    - include: escapes
+
+  strings:
+    - match: '`'
+      scope: punctuation.definition.string.begin.altsia
+      push:
+        - meta_scope: string.quoted.raw.altsia
+        - match: '\\`'
+          scope: constant.character.escape.altsia
+        - match: '`'
+          scope: punctuation.definition.string.end.altsia
+          pop: true
+    - match: '"'
+      scope: punctuation.definition.string.begin.altsia
+      push:
+        - meta_scope: string.quoted.double.altsia
+        - match: '\\.'
+          scope: constant.character.escape.altsia
+        - match: '(\()([^\s()"`]+)(\))'
+          scope: variable.other.interpolation.altsia
+          captures:
+            1: punctuation.section.interpolation.begin.altsia
+            2: variable.other.interpolation.name.altsia
+            3: punctuation.section.interpolation.end.altsia
+        - match: '"'
+          scope: punctuation.definition.string.end.altsia
+          pop: true
+
+  emphasis:
+    - match: '\*\*'
+      scope: punctuation.definition.bold.begin.altsia
+      push:
+        - meta_scope: markup.bold.altsia
+        - match: '\*\*'
+          scope: punctuation.definition.bold.end.altsia
+          pop: true
+    - match: '\*'
+      scope: punctuation.definition.italic.begin.altsia
+      push:
+        - meta_scope: markup.italic.altsia
+        - match: '\*'
+          scope: punctuation.definition.italic.end.altsia
+          pop: true
+
+  escapes:
+    - match: '\\[()`*\-+]'
+      scope: constant.character.escape.altsia
+
+  symbols:
+    - match: '\b(?:true|false)\b'
+      scope: constant.language.boolean.altsia
+    - match: '[^\s()"`]+'
+      scope: variable.other.symbol.altsia
+
+  parens:
+    - match: '\('
+      scope: punctuation.section.expression.begin.altsia
+    - match: '\)'
+      scope: punctuation.section.expression.end.altsia

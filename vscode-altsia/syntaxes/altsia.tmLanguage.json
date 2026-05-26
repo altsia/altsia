@@ -17,6 +17,9 @@
       "include": "#list-sugar"
     },
     {
+      "include": "#definition-form"
+    },
+    {
       "include": "#special-form"
     },
     {
@@ -82,6 +85,57 @@
         }
       ]
     },
+    "definition-form": {
+      "patterns": [
+        {
+          "name": "meta.expression.definition.altsia",
+          "begin": "(\\()(\\s*)(def)(\\s+)([^\\s()\"`]+)(\\s+)(\\()([^()\"`]*)(\\))",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.section.expression.begin.altsia"
+            },
+            "3": {
+              "name": "keyword.control.altsia"
+            },
+            "7": {
+              "name": "punctuation.section.parameters.begin.altsia"
+            },
+            "9": {
+              "name": "punctuation.section.parameters.end.altsia"
+            }
+          },
+          "end": "(\\))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.section.expression.end.altsia"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#fenced-block"
+            },
+            {
+              "include": "#definition-form"
+            },
+            {
+              "include": "#special-form"
+            },
+            {
+              "include": "#attribute-list"
+            },
+            {
+              "include": "#element-or-reference"
+            },
+            {
+              "include": "#inline"
+            }
+          ]
+        }
+      ]
+    },
     "special-form": {
       "patterns": [
         {
@@ -107,6 +161,9 @@
             },
             {
               "include": "#fenced-block"
+            },
+            {
+              "include": "#definition-form"
             },
             {
               "include": "#special-form"
@@ -155,9 +212,6 @@
               "captures": {
                 "1": {
                   "name": "punctuation.definition.attribute.altsia"
-                },
-                "2": {
-                  "name": "entity.other.attribute-name.altsia"
                 }
               }
             },
@@ -196,6 +250,9 @@
             },
             {
               "include": "#fenced-block"
+            },
+            {
+              "include": "#definition-form"
             },
             {
               "include": "#special-form"

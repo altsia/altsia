@@ -1,0 +1,27 @@
+{
+  "$schema": "https://raw.githubusercontent.com/sinelaw/fresh/main/crates/fresh-editor/plugins/schemas/package.schema.json",
+  "name": "altsia",
+  "version": "0.0.1",
+  "description": "Altsia programming language support - syntax highlighting, LSP integration, and document preview",
+  "type": "bundle",
+  "author": "kokic",
+  "license": "GPL-3.0",
+  "keywords": ["altsia"],
+  "fresh": {
+    "languages": [
+      {
+        "id": "altsia",
+        "grammar": {
+          "file": "grammars/altsia.sublime-syntax",
+          "extensions": ["alt", "altsia"]
+        },
+        "language": {
+          "commentPrefix": ";;",
+          "tabSize": 2,
+          "useTabs": false,
+          "autoIndent": true
+        }
+      }
+    ]
+  }
+}

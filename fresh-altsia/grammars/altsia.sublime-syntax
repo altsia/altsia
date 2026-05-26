@@ -11,6 +11,7 @@ contexts:
     - include: comments
     - include: fenced-block
     - include: list-sugar
+    - include: definition-form
     - include: special-form
     - include: attribute-list
     - include: element-or-reference
@@ -41,6 +42,26 @@ contexts:
         1: punctuation.definition.list.begin.altsia
       scope: markup.list.numbered.altsia
 
+  definition-form:
+    - match: '(\()(\s*)(def)(\s+)([^\s()"`]+)(\s+)(\()([^()"`]*)(\))'
+      captures:
+        1: punctuation.section.expression.begin.altsia
+        3: keyword.control.altsia
+        7: punctuation.section.parameters.begin.altsia
+        9: punctuation.section.parameters.end.altsia
+      push:
+        - meta_scope: meta.expression.definition.altsia
+        - include: comments
+        - include: fenced-block
+        - include: definition-form
+        - include: special-form
+        - include: attribute-list
+        - include: element-or-reference
+        - include: inline
+        - match: '\)'
+          scope: punctuation.section.expression.end.altsia
+          pop: true
+
   special-form:
     - match: '(\()(\s*)(def|let|meta|html\.head|when|unless)(?=\s|\))'
       captures:
@@ -50,6 +71,7 @@ contexts:
         - meta_scope: meta.expression.special.altsia
         - include: comments
         - include: fenced-block
+        - include: definition-form
         - include: special-form
         - include: attribute-list
         - include: element-or-reference
@@ -70,7 +92,6 @@ contexts:
         - match: '(:)([^\s()"`]+)'
           captures:
             1: punctuation.definition.attribute.altsia
-            2: entity.other.attribute-name.altsia
         - include: values
         - include: attribute-reference
         - match: '\)'
@@ -86,6 +107,7 @@ contexts:
         - meta_scope: meta.expression.altsia
         - include: comments
         - include: fenced-block
+        - include: definition-form
         - include: special-form
         - include: attribute-list
         - include: element-or-reference

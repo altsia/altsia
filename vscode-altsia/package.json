@@ -19,7 +19,8 @@
   "icon": "images/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/altsia/altsia/vscode-altsia"
+    "url": "https://github.com/altsia/altsia.git",
+    "directory": "vscode-altsia"
   },
   "homepage": "https://github.com/altsia/altsia",
   "contributes": {

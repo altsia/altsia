@@ -7,5 +7,5 @@ Syntax highlighting and LSP integration for [Altsia].
 Use Package: Install from URL in the command palette (`Ctrl+P`) and enter:
 
 ```
-https://github.com/altsia/altsia/fresh-altsia
+https://github.com/altsia/altsia#fresh-altsia
 ```

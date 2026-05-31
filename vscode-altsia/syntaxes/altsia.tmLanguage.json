@@ -4,6 +4,7 @@
   "scopeName": "source.altsia",
   "fileTypes": [
     "alt",
+    "sia",
     "altsia"
   ],
   "patterns": [

@@ -3,6 +3,7 @@
 name: Altsia
 file_extensions:
   - alt
+  - sia
   - altsia
 scope: source.altsia
 

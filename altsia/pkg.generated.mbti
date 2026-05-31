@@ -8,6 +8,10 @@ import {
 }
 
 // Values
+pub fn check_project(Project) -> Result[CompiledProject, @core.Diagnostic]
+
+pub fn check_snapshot(ProjectSnapshot) -> Result[CompiledProject, @core.Diagnostic]
+
 pub fn compile_alt_document(Array[SourceFile], String, options? : @backend_html.HtmlDocumentOptions) -> Result[String, @core.Diagnostic]
 
 pub fn compile_alt_fragment(Array[SourceFile], String) -> Result[String, @core.Diagnostic]
@@ -16,9 +20,15 @@ pub fn compile_content_chunks(@core.Document, env? : @core.CompileEnv) -> Result
 
 pub fn compile_project(Project, builtin_env? : @core.CompileEnv) -> Result[CompiledProject, @core.Diagnostic]
 
+pub fn compile_project_strict(Project, builtin_env? : @core.CompileEnv) -> Result[CompiledProject, @core.Diagnostic]
+
 pub fn discover_project(String) -> Result[Project, String]
 
 pub fn find_project_root(String) -> ProjectConfig?
+
+pub fn preview_project(Project, String, options? : @backend_html.HtmlDocumentOptions) -> Result[PreviewResult, @core.Diagnostic]
+
+pub fn preview_snapshot(ProjectSnapshot, String, options? : @backend_html.HtmlDocumentOptions) -> Result[PreviewResult, @core.Diagnostic]
 
 // Errors
 
@@ -32,7 +42,10 @@ pub enum CompiledContentChunk {
 pub(all) struct CompiledProject {
   root : String
   sections : Array[CompiledSection]
+  sections_by_id : Map[String, CompiledSection]
   diagnostics : Array[@core.Diagnostic]
+  dependencies : Array[SourceDependency]
+  missing_targets : Array[MissingTarget]
 }
 
 pub(all) struct CompiledSection {
@@ -44,6 +57,12 @@ pub(all) struct CompiledSection {
   backlinks : Array[String]
   parent : String?
 } derive(@debug.Debug)
+
+pub(all) enum DependencyKind {
+  UseLibrary
+  LocalLink
+  Embed
+} derive(Eq, @debug.Debug)
 
 pub(all) struct EmbedContent {
   target : String
@@ -74,6 +93,21 @@ pub(all) struct Metadata {
   internal_anon_section : Bool
 } derive(Eq, @debug.Debug)
 
+pub(all) struct MissingTarget {
+  source : String
+  target : String
+  kind : DependencyKind
+} derive(Eq, @debug.Debug)
+
+pub(all) struct PreviewResult {
+  html : String
+  diagnostics : Array[@core.Diagnostic]
+  dependencies : Array[SourceDependency]
+  missing_targets : Array[MissingTarget]
+  entry_section_id : String
+  title : String?
+}
+
 pub(all) struct Project {
   root : String
   sources : Array[SourceFile]
@@ -85,12 +119,24 @@ pub(all) struct ProjectConfig {
   config_path : String
 } derive(Eq, @debug.Debug)
 
+pub(all) struct ProjectSnapshot {
+  root : String
+  sources : Array[SourceFile]
+  open_file : String?
+} derive(Eq, @debug.Debug)
+
 pub(all) struct SectionOption {
   numbering : Bool
   details_open : Bool
   catalog : Bool
 } derive(Eq, @debug.Debug)
 pub fn SectionOption::default() -> Self
+
+pub(all) struct SourceDependency {
+  source : String
+  target : String
+  kind : DependencyKind
+} derive(Eq, @debug.Debug)
 
 pub(all) struct SourceFile {
   path : String
@@ -108,6 +154,7 @@ pub(all) struct UnresolvedSection {
   doc : @core.Document
   env : @core.CompileEnv
   metadata : Metadata
+  dependencies : Array[SourceDependency]
 }
 
 // Type aliases

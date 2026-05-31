@@ -1,12 +1,20 @@
 ///|
 priv struct CompileState {
   root : String
-  unresolved : Array[UnresolvedSection]
-  compiled : Array[CompiledSection]
+  unresolved_order : Array[String]
+  unresolved_by_id : Map[String, UnresolvedSection]
+  compiled_by_id : Map[String, CompiledSection]
   diagnostics : Array[@core.Diagnostic]
+  visiting : Set[String]
   active_stack : Array[String]
-  reference_edges : Array[(String, String)]
-  backlink_edges : Array[(String, String)]
+  references_by_source : Map[String, Array[String]]
+  reference_edge_keys : Set[String]
+  backlinks_by_target : Map[String, Array[String]]
+  backlink_edge_keys : Set[String]
+  dependencies : Array[SourceDependency]
+  dependency_keys : Set[String]
+  missing_targets : Array[MissingTarget]
+  missing_target_keys : Set[String]
 }
 
 ///|
@@ -14,14 +22,29 @@ fn CompileState::new(
   root : String,
   unresolved : Array[UnresolvedSection],
 ) -> CompileState {
+  let unresolved_order : Array[String] = []
+  let unresolved_by_id : Map[String, UnresolvedSection] = Map([])
+  for section in unresolved {
+    unresolved_order.push(section.id)
+    unresolved_by_id[section.id] = section
+  }
+  let dependencies = collect_initial_dependencies(unresolved)
   {
     root,
-    unresolved,
-    compiled: [],
+    unresolved_order,
+    unresolved_by_id,
+    compiled_by_id: Map([]),
     diagnostics: [],
+    visiting: Set([]),
     active_stack: [],
-    reference_edges: [],
-    backlink_edges: [],
+    references_by_source: Map([]),
+    reference_edge_keys: Set([]),
+    backlinks_by_target: Map([]),
+    backlink_edge_keys: Set([]),
+    dependencies,
+    dependency_keys: dependency_key_set(dependencies),
+    missing_targets: [],
+    missing_target_keys: Set([]),
   }
 }
 
@@ -29,15 +52,43 @@ fn CompileState::new(
 fn CompileState::compile_all(
   self : CompileState,
 ) -> Result[CompiledProject, @core.Diagnostic] {
-  for section in self.unresolved {
-    match self.compile_section(section.id) {
+  for id in self.unresolved_order {
+    match self.compile_section(id) {
       Ok(_) => ()
       Err(error) => return Err(error)
     }
   }
   self.apply_edges()
-  self.order_compiled_sections()
-  Ok({ root: self.root, sections: self.compiled, diagnostics: self.diagnostics })
+  Ok({
+    root: self.root,
+    sections: self.ordered_compiled_sections(),
+    sections_by_id: self.compiled_by_id,
+    diagnostics: self.diagnostics,
+    dependencies: self.dependencies,
+    missing_targets: self.missing_targets,
+  })
+}
+
+///|
+fn collect_initial_dependencies(
+  unresolved : Array[UnresolvedSection],
+) -> Array[SourceDependency] {
+  let dependencies : Array[SourceDependency] = []
+  for section in unresolved {
+    dependencies.append(section.dependencies)
+  }
+  dependencies
+}
+
+///|
+fn dependency_key_set(dependencies : Array[SourceDependency]) -> Set[String] {
+  let keys : Set[String] = Set([])
+  for dependency in dependencies {
+    keys.add(
+      dependency_key(dependency.source, dependency.target, dependency.kind),
+    )
+  }
+  keys
 }
 
 ///|
@@ -45,12 +96,7 @@ fn CompileState::find_unresolved(
   self : CompileState,
   id : String,
 ) -> UnresolvedSection? {
-  for section in self.unresolved {
-    if section.id == id {
-      return Some(section)
-    }
-  }
-  None
+  self.unresolved_by_id.get(id)
 }
 
 ///|
@@ -58,10 +104,7 @@ fn CompileState::find_compiled(
   self : CompileState,
   id : String,
 ) -> CompiledSection? {
-  match find_compiled_index(self.compiled, id) {
-    Some(index) => Some(self.compiled[index])
-    None => None
-  }
+  self.compiled_by_id.get(id)
 }
 
 ///|
@@ -73,21 +116,22 @@ fn CompileState::compile_section(
     Some(section) => return Ok(section)
     None => ()
   }
-  for active in self.active_stack {
-    if active == id {
-      return Err(self.cycle_diagnostic(id))
-    }
+  if self.visiting.contains(id) {
+    return Err(self.cycle_diagnostic(id))
   }
   let section = match self.find_unresolved(id) {
     Some(value) => value
     None => return Err(source_diagnostic(id, Binding, "missing section: " + id))
   }
+  self.visiting.add(id)
   self.active_stack.push(id)
-  let html = match self.compile_section_html(section) {
+  let result = self.compile_section_html(section)
+  let _ = self.active_stack.pop()
+  self.visiting.remove(id)
+  let html = match result {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let _ = self.active_stack.pop()
   let compiled = {
     id,
     path: section.path,
@@ -97,7 +141,7 @@ fn CompileState::compile_section(
     backlinks: [],
     parent: section.metadata.parent,
   }
-  self.compiled.push(compiled)
+  self.compiled_by_id[id] = compiled
   Ok(compiled)
 }
 
@@ -146,13 +190,14 @@ fn CompileState::resolve_link(
   let resolved_id = section_id_from_path(resolve_relative(source_path, target))
   match self.find_unresolved(resolved_id) {
     Some(target_section) => {
+      self.add_dependency(source_path, target_section.path, LocalLink)
       match self.find_unresolved(source_id) {
         Some(source_section) => {
           if target_section.metadata.asref && source_id != resolved_id {
-            self.reference_edges.push((source_id, resolved_id))
+            self.add_reference_edge(source_id, resolved_id)
           }
           if source_section.metadata.asback && source_id != resolved_id {
-            self.backlink_edges.push((source_id, resolved_id))
+            self.add_backlink_edge(resolved_id, source_id)
           }
         }
         None => ()
@@ -174,6 +219,7 @@ fn CompileState::resolve_link(
       )
     }
     None => {
+      self.add_missing_target(source_path, target, LocalLink)
       self.diagnostics.push(
         diagnostic(call.span, Binding, "dangling local link: " + target),
       )
@@ -210,7 +256,12 @@ fn CompileState::resolve_embed(
   }
   let resolved_id = section_id_from_path(resolve_relative(source_path, target))
   match self.find_unresolved(resolved_id) {
-    Some(_) =>
+    Some(target_section) => {
+      match self.find_unresolved(parent_id) {
+        Some(source_section) =>
+          self.add_dependency(source_section.path, target_section.path, Embed)
+        None => ()
+      }
       match self.compile_section(resolved_id) {
         Ok(section) => {
           self.set_inferred_parent(resolved_id, parent_id)
@@ -226,8 +277,63 @@ fn CompileState::resolve_embed(
         }
         Err(error) => Err(error)
       }
+    }
     None =>
       Err(diagnostic(call.span, Binding, "missing embed target: " + target))
+  }
+}
+
+///|
+fn CompileState::add_dependency(
+  self : CompileState,
+  source : String,
+  target : String,
+  kind : DependencyKind,
+) -> Unit {
+  let key = dependency_key(source, target, kind)
+  if !self.dependency_keys.contains(key) {
+    self.dependency_keys.add(key)
+    self.dependencies.push({ source, target, kind })
+  }
+}
+
+///|
+fn CompileState::add_missing_target(
+  self : CompileState,
+  source : String,
+  target : String,
+  kind : DependencyKind,
+) -> Unit {
+  let key = dependency_key(source, target, kind)
+  if !self.missing_target_keys.contains(key) {
+    self.missing_target_keys.add(key)
+    self.missing_targets.push({ source, target, kind })
+  }
+}
+
+///|
+fn CompileState::add_reference_edge(
+  self : CompileState,
+  source : String,
+  target : String,
+) -> Unit {
+  let key = edge_key(source, target)
+  if !self.reference_edge_keys.contains(key) {
+    self.reference_edge_keys.add(key)
+    push_map_array(self.references_by_source, source, target)
+  }
+}
+
+///|
+fn CompileState::add_backlink_edge(
+  self : CompileState,
+  target : String,
+  source : String,
+) -> Unit {
+  let key = edge_key(target, source)
+  if !self.backlink_edge_keys.contains(key) {
+    self.backlink_edge_keys.add(key)
+    push_map_array(self.backlinks_by_target, target, source)
   }
 }
 
@@ -237,13 +343,10 @@ fn CompileState::set_inferred_parent(
   id : String,
   parent_id : String,
 ) -> Unit {
-  match find_compiled_index(self.compiled, id) {
-    Some(index) =>
-      if self.compiled[index].metadata.parent == None {
-        self.compiled[index] = {
-          ..self.compiled[index],
-          parent: Some(parent_id),
-        }
+  match self.compiled_by_id.get(id) {
+    Some(section) =>
+      if section.metadata.parent == None {
+        self.compiled_by_id[id] = { ..section, parent: Some(parent_id) }
       }
     None => ()
   }
@@ -251,47 +354,75 @@ fn CompileState::set_inferred_parent(
 
 ///|
 fn CompileState::apply_edges(self : CompileState) -> Unit {
-  for i in 0..<self.compiled.length() {
-    let section = self.compiled[i]
+  for id in self.unresolved_order {
+    let section = match self.compiled_by_id.get(id) {
+      Some(section) => section
+      None => continue
+    }
     let references : Array[String] = []
     let backlinks : Array[String] = []
-    for edge in self.reference_edges {
-      let (source, target) = edge
-      if source == section.id && !contains_string(references, target) {
-        references.push(target)
-      }
+    match self.references_by_source.get(section.id) {
+      Some(values) => references.append(values)
+      None => ()
     }
-    for edge in self.backlink_edges {
-      let (source, target) = edge
-      if target == section.id && !contains_string(backlinks, source) {
-        backlinks.push(source)
-      }
+    match self.backlinks_by_target.get(section.id) {
+      Some(values) => backlinks.append(values)
+      None => ()
     }
-    self.compiled[i] = { ..section, references, backlinks }
+    self.compiled_by_id[id] = { ..section, references, backlinks }
   }
 }
 
 ///|
-fn CompileState::order_compiled_sections(self : CompileState) -> Unit {
+fn CompileState::ordered_compiled_sections(
+  self : CompileState,
+) -> Array[CompiledSection] {
   let ordered : Array[CompiledSection] = []
-  for unresolved in self.unresolved {
-    match self.find_compiled(unresolved.id) {
+  for id in self.unresolved_order {
+    match self.compiled_by_id.get(id) {
       Some(section) => ordered.push(section)
       None => ()
     }
   }
-  self.compiled.clear()
-  self.compiled.append(ordered)
+  ordered
 }
 
 ///|
-fn contains_string(items : Array[String], value : String) -> Bool {
-  for item in items {
-    if item == value {
-      return true
+fn push_map_array(
+  table : Map[String, Array[String]],
+  key : String,
+  value : String,
+) -> Unit {
+  match table.get(key) {
+    Some(values) => {
+      values.push(value)
+      table[key] = values
     }
+    None => table[key] = [value]
   }
-  false
+}
+
+///|
+fn dependency_key(
+  source : String,
+  target : String,
+  kind : DependencyKind,
+) -> String {
+  source + "\u{1f}" + target + "\u{1f}" + dependency_kind_key(kind)
+}
+
+///|
+fn edge_key(source : String, target : String) -> String {
+  source + "\u{1f}" + target
+}
+
+///|
+fn dependency_kind_key(kind : DependencyKind) -> String {
+  match kind {
+    UseLibrary => "use"
+    LocalLink => "link"
+    Embed => "embed"
+  }
 }
 
 ///|
@@ -403,14 +534,166 @@ pub fn compile_alt_fragment(
   match compile_project(project) {
     Err(error) => Err(error)
     Ok(compiled) =>
-      match
-        find_compiled_index(compiled.sections, section_id_from_path(entry)) {
-        Some(index) => Ok(compiled.sections[index].html)
+      match compiled.sections_by_id.get(section_id_from_path(entry)) {
+        Some(section) => Ok(section.html)
         None =>
           Err(
             source_diagnostic(entry, Binding, "missing entry section: " + entry),
           )
       }
+  }
+}
+
+///|
+pub fn preview_snapshot(
+  snapshot : ProjectSnapshot,
+  entry : String,
+  options? : @html.HtmlDocumentOptions,
+) -> Result[PreviewResult, @core.Diagnostic] {
+  match options {
+    Some(options) =>
+      preview_project(
+        Project::new(snapshot.root, snapshot.sources),
+        entry,
+        options~,
+      )
+    None =>
+      preview_project(Project::new(snapshot.root, snapshot.sources), entry)
+  }
+}
+
+///|
+pub fn preview_project(
+  project : Project,
+  entry : String,
+  options? : @html.HtmlDocumentOptions,
+) -> Result[PreviewResult, @core.Diagnostic] {
+  match compile_project(project) {
+    Err(error) => Err(error)
+    Ok(compiled) => {
+      let entry_section_id = section_id_from_path(entry)
+      match compiled.sections_by_id.get(entry_section_id) {
+        Some(section) => {
+          let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
+          let html = @sexp.render_html_document(
+            [],
+            opts.extra_head,
+            [RawHtml(section.html)],
+            opts.doctype,
+          )
+          Ok({
+            html,
+            diagnostics: compiled.diagnostics,
+            dependencies: dependencies_for_entry(
+              compiled.dependencies,
+              section.path,
+            ),
+            missing_targets: missing_targets_for_entry(
+              compiled.missing_targets,
+              compiled.dependencies,
+              section.path,
+            ),
+            entry_section_id,
+            title: section.metadata.title,
+          })
+        }
+        None =>
+          Err(
+            source_diagnostic(entry, Binding, "missing entry section: " + entry),
+          )
+      }
+    }
+  }
+}
+
+///|
+pub fn check_project(
+  project : Project,
+) -> Result[CompiledProject, @core.Diagnostic] {
+  compile_project_strict(project)
+}
+
+///|
+pub fn check_snapshot(
+  snapshot : ProjectSnapshot,
+) -> Result[CompiledProject, @core.Diagnostic] {
+  compile_project_strict(Project::new(snapshot.root, snapshot.sources))
+}
+
+///|
+fn dependencies_for_entry(
+  dependencies : Array[SourceDependency],
+  entry_path : String,
+) -> Array[SourceDependency] {
+  let by_source : Map[String, Array[SourceDependency]] = Map([])
+  for dependency in dependencies {
+    push_dependency_map_array(by_source, dependency.source, dependency)
+  }
+  let result : Array[SourceDependency] = []
+  let emitted : Set[String] = Set([])
+  let visited : Set[String] = Set([])
+  let queue : Array[String] = [entry_path]
+  let mut cursor = 0
+  visited.add(entry_path)
+  while cursor < queue.length() {
+    let source = queue[cursor]
+    cursor += 1
+    match by_source.get(source) {
+      Some(edges) =>
+        for dependency in edges {
+          let key = dependency_key(
+            dependency.source,
+            dependency.target,
+            dependency.kind,
+          )
+          if !emitted.contains(key) {
+            emitted.add(key)
+            result.push(dependency)
+          }
+          if !visited.contains(dependency.target) {
+            visited.add(dependency.target)
+            queue.push(dependency.target)
+          }
+        }
+      None => ()
+    }
+  }
+  result
+}
+
+///|
+fn missing_targets_for_entry(
+  missing_targets : Array[MissingTarget],
+  dependencies : Array[SourceDependency],
+  entry_path : String,
+) -> Array[MissingTarget] {
+  let result : Array[MissingTarget] = []
+  let reachable : Set[String] = Set([entry_path])
+  let deps = dependencies_for_entry(dependencies, entry_path)
+  for dep in deps {
+    reachable.add(dep.source)
+    reachable.add(dep.target)
+  }
+  for missing in missing_targets {
+    if reachable.contains(missing.source) {
+      result.push(missing)
+    }
+  }
+  result
+}
+
+///|
+fn push_dependency_map_array(
+  table : Map[String, Array[SourceDependency]],
+  key : String,
+  value : SourceDependency,
+) -> Unit {
+  match table.get(key) {
+    Some(values) => {
+      values.push(value)
+      table[key] = values
+    }
+    None => table[key] = [value]
   }
 }
 

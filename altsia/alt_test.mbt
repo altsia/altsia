@@ -34,6 +34,20 @@ test "uses .sia definitions through normalized module name" {
 }
 
 ///|
+test "records use library dependency" {
+  let project = compile_ok([
+    source("index.alt", "(use `lib.sia`)(p (lib.value))"),
+    source("lib.sia", "(let value `ok`)"),
+  ])
+  @test.assert_eq(project.dependencies.length(), 1)
+  @test.assert_eq(project.dependencies[0], {
+    source: "index.alt",
+    target: "lib.sia",
+    kind: UseLibrary,
+  })
+}
+
+///|
 test "use can only import sia" {
   match
     compile_project(
@@ -83,10 +97,30 @@ test "dangling local link is non fatal in normal build" {
     source("index.alt", "See (link `missing.alt` Missing)."),
   ])
   @test.assert_eq(project.diagnostics.length(), 1)
+  @test.assert_eq(project.missing_targets.length(), 1)
+  @test.assert_eq(project.missing_targets[0], {
+    source: "index.alt",
+    target: "missing.alt",
+    kind: LocalLink,
+  })
   @test.assert_eq(
     project.sections[0].html,
     "<p>See <a href=\"#\" data-missing-target=\"missing.alt\">Missing</a>.</p>",
   )
+}
+
+///|
+test "strict check fails on dangling local link" {
+  match
+    check_project(
+      Project::new("", [
+        source("index.alt", "See (link `missing.alt` Missing)."),
+      ]),
+    ) {
+    Ok(_) => abort("expected strict dangling link failure")
+    Err(error) =>
+      @test.assert_eq(error.message, "dangling local link: missing.alt")
+  }
 }
 
 ///|
@@ -100,6 +134,37 @@ test "embed expands target content and records inferred parent" {
     "<div class=\"embed\" data-section=\"child\"><p>Child.</p></div>",
   )
   @test.assert_eq(project.sections[1].parent, Some("index"))
+}
+
+///|
+test "preview snapshot returns html diagnostics and transitive dependencies" {
+  let snapshot : ProjectSnapshot = {
+    root: "",
+    open_file: Some("index.alt"),
+    sources: [
+      source("index.alt", "(embed `child.alt`)"),
+      source(
+        "child.alt", "(use `lib.sia`)Child (lib.value). (link `missing.alt` Missing)",
+      ),
+      source("lib.sia", "(let value `ok`)"),
+    ],
+  }
+  match preview_snapshot(snapshot, "index.alt") {
+    Err(error) => abort(error.render())
+    Ok(preview) => {
+      @test.assert_eq(preview.entry_section_id, "index")
+      @test.assert_eq(preview.diagnostics.length(), 1)
+      @test.assert_eq(preview.missing_targets.length(), 1)
+      @test.assert_eq(preview.dependencies, [
+        { source: "index.alt", target: "child.alt", kind: Embed },
+        { source: "child.alt", target: "lib.sia", kind: UseLibrary },
+      ])
+      @test.assert_eq(
+        preview.html.contains("<div class=\"embed\" data-section=\"child\">"),
+        true,
+      )
+    }
+  }
 }
 
 ///|

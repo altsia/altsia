@@ -7,6 +7,12 @@ priv struct ParsedSource {
 }
 
 ///|
+priv struct ParsedProject {
+  sources : Array[ParsedSource]
+  by_path : Map[String, ParsedSource]
+}
+
+///|
 fn parse_source_file(
   file : SourceFile,
 ) -> Result[ParsedSource, @core.Diagnostic] {
@@ -44,29 +50,32 @@ fn parse_source_file(
 ///|
 fn parse_project_sources(
   sources : Array[SourceFile],
-) -> Result[Array[ParsedSource], @core.Diagnostic] {
+) -> Result[ParsedProject, @core.Diagnostic] {
   let parsed : Array[ParsedSource] = []
+  let by_path : Map[String, ParsedSource] = Map([])
   for source in sources {
     match parse_source_file(source) {
-      Ok(item) => parsed.push(item)
+      Ok(item) => {
+        parsed.push(item)
+        by_path[normalize_path(item.file.path)] = item
+      }
       Err(error) => return Err(error)
     }
   }
   match check_duplicate_modules(parsed) {
     Some(error) => Err(error)
-    None => Ok(parsed)
+    None => Ok({ sources: parsed, by_path })
   }
 }
 
 ///|
 fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
-  let names : Array[(String, String)] = []
+  let names : Map[String, String] = Map([])
   for item in parsed {
     match item.module_name {
-      Some(name) => {
-        for existing in names {
-          let (existing_name, existing_path) = existing
-          if existing_name == name {
+      Some(name) =>
+        match names.get(name) {
+          Some(existing_path) =>
             return Some(
               source_diagnostic(
                 item.file.path,
@@ -75,10 +84,8 @@ fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
                 hint="previous .sia source: " + existing_path,
               ),
             )
-          }
+          None => names[name] = item.file.path
         }
-        names.push((name, item.file.path))
-      }
       None => ()
     }
   }
@@ -86,46 +93,18 @@ fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
 }
 
 ///|
-fn find_parsed_source(
-  parsed : Array[ParsedSource],
-  path : String,
-) -> ParsedSource? {
-  let normalized = normalize_path(path)
-  for item in parsed {
-    if normalize_path(item.file.path) == normalized {
-      return Some(item)
-    }
-  }
-  None
-}
-
-///|
-fn find_section_index(sections : Array[UnresolvedSection], id : String) -> Int? {
-  for i in 0..<sections.length() {
-    if sections[i].id == id {
-      return Some(i)
-    }
-  }
-  None
-}
-
-///|
-fn find_compiled_index(sections : Array[CompiledSection], id : String) -> Int? {
-  for i in 0..<sections.length() {
-    if sections[i].id == id {
-      return Some(i)
-    }
-  }
-  None
+fn find_parsed_source(parsed : ParsedProject, path : String) -> ParsedSource? {
+  parsed.by_path.get(normalize_path(path))
 }
 
 ///|
 fn build_import_env(
   current : ParsedSource,
-  parsed : Array[ParsedSource],
+  parsed : ParsedProject,
   builtin_env : @core.CompileEnv,
-) -> Result[@core.CompileEnv, @core.Diagnostic] {
+) -> Result[(@core.CompileEnv, Array[SourceDependency]), @core.Diagnostic] {
   let env = @core.CompileEnv::empty()
+  let dependencies : Array[SourceDependency] = []
   for directive in leading_use_directives(current.doc) {
     if !has_suffix(directive.target, ".sia") {
       return Err(
@@ -142,6 +121,11 @@ fn build_import_env(
       Some(library) =>
         match library.kind {
           Sia => {
+            dependencies.push({
+              source: current.file.path,
+              target: library.file.path,
+              kind: UseLibrary,
+            })
             let module_name = library.module_name.unwrap_or("")
             match
               collect_prefixed_library_env(
@@ -174,29 +158,31 @@ fn build_import_env(
         )
     }
   }
-  Ok(env)
+  Ok((env, dependencies))
 }
 
 ///|
 fn build_unresolved_sections(
-  parsed : Array[ParsedSource],
+  parsed : ParsedProject,
   builtin_env : @core.CompileEnv,
 ) -> Result[Array[UnresolvedSection], @core.Diagnostic] {
   let sections : Array[UnresolvedSection] = []
-  for item in parsed {
+  let section_ids : Set[String] = Set([])
+  for item in parsed.sources {
     match item.kind {
       Alt => {
-        let imported = match build_import_env(item, parsed, builtin_env) {
+        let import_result = match build_import_env(item, parsed, builtin_env) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
+        let (imported, dependencies) = import_result
         let env = builtin_env.copy()
         env.append(imported)
         let id = section_id_from_path(item.file.path)
         let doc = strip_leading_use_directives(item.doc)
         let metadata = metadata_from_doc(id, item.file.path, doc)
         let section_id = metadata.section_id
-        if find_section_index(sections, section_id) != None {
+        if section_ids.contains(section_id) {
           return Err(
             source_diagnostic(
               item.file.path,
@@ -205,12 +191,14 @@ fn build_unresolved_sections(
             ),
           )
         }
+        section_ids.add(section_id)
         sections.push({
           id: section_id,
           path: item.file.path,
           doc,
           env,
           metadata,
+          dependencies,
         })
       }
       Sia => ()
@@ -229,6 +217,31 @@ pub fn compile_project(
   project : Project,
   builtin_env? : @core.CompileEnv,
 ) -> Result[CompiledProject, @core.Diagnostic] {
+  match builtin_env {
+    Some(env) =>
+      compile_project_with_options(project, strict=false, builtin_env=env)
+    None => compile_project_with_options(project, strict=false)
+  }
+}
+
+///|
+pub fn compile_project_strict(
+  project : Project,
+  builtin_env? : @core.CompileEnv,
+) -> Result[CompiledProject, @core.Diagnostic] {
+  match builtin_env {
+    Some(env) =>
+      compile_project_with_options(project, strict=true, builtin_env=env)
+    None => compile_project_with_options(project, strict=true)
+  }
+}
+
+///|
+fn compile_project_with_options(
+  project : Project,
+  strict~ : Bool,
+  builtin_env? : @core.CompileEnv,
+) -> Result[CompiledProject, @core.Diagnostic] {
   let base_env = builtin_env.unwrap_or(@core.CompileEnv::empty())
   let parsed = match parse_project_sources(project.sources) {
     Ok(value) => value
@@ -239,5 +252,13 @@ pub fn compile_project(
     Err(error) => return Err(error)
   }
   let state = CompileState::new(project.root, unresolved)
-  state.compile_all()
+  match state.compile_all() {
+    Err(error) => Err(error)
+    Ok(compiled) =>
+      if strict && compiled.diagnostics.length() > 0 {
+        Err(compiled.diagnostics[0])
+      } else {
+        Ok(compiled)
+      }
+  }
 }

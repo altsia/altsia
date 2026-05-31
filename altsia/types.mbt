@@ -23,6 +23,13 @@ pub(all) struct Project {
 } derive(Eq, Debug)
 
 ///|
+pub(all) struct ProjectSnapshot {
+  root : String
+  sources : Array[SourceFile]
+  open_file : String?
+} derive(Eq, Debug)
+
+///|
 pub(all) struct SectionOption {
   numbering : Bool
   details_open : Bool
@@ -83,7 +90,29 @@ pub(all) struct UnresolvedSection {
   doc : @core.Document
   env : @core.CompileEnv
   metadata : Metadata
+  dependencies : Array[SourceDependency]
 }
+
+///|
+pub(all) enum DependencyKind {
+  UseLibrary
+  LocalLink
+  Embed
+} derive(Eq, Debug)
+
+///|
+pub(all) struct SourceDependency {
+  source : String
+  target : String
+  kind : DependencyKind
+} derive(Eq, Debug)
+
+///|
+pub(all) struct MissingTarget {
+  source : String
+  target : String
+  kind : DependencyKind
+} derive(Eq, Debug)
 
 ///|
 pub(all) struct CompiledSection {
@@ -100,5 +129,18 @@ pub(all) struct CompiledSection {
 pub(all) struct CompiledProject {
   root : String
   sections : Array[CompiledSection]
+  sections_by_id : Map[String, CompiledSection]
   diagnostics : Array[@core.Diagnostic]
+  dependencies : Array[SourceDependency]
+  missing_targets : Array[MissingTarget]
+}
+
+///|
+pub(all) struct PreviewResult {
+  html : String
+  diagnostics : Array[@core.Diagnostic]
+  dependencies : Array[SourceDependency]
+  missing_targets : Array[MissingTarget]
+  entry_section_id : String
+  title : String?
 }

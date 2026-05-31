@@ -1,0 +1,117 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "kokic/alt"
+
+import {
+  "kokic/tinymark/backend_html",
+  "kokic/tinymark/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn compile_alt_document(Array[SourceFile], String, options? : @backend_html.HtmlDocumentOptions) -> Result[String, @core.Diagnostic]
+
+pub fn compile_alt_fragment(Array[SourceFile], String) -> Result[String, @core.Diagnostic]
+
+pub fn compile_content_chunks(@core.Document, env? : @core.CompileEnv) -> Result[Array[CompiledContentChunk], @core.Diagnostic]
+
+pub fn compile_project(Project, builtin_env? : @core.CompileEnv) -> Result[CompiledProject, @core.Diagnostic]
+
+pub fn discover_project(String) -> Result[Project, String]
+
+pub fn find_project_root(String) -> ProjectConfig?
+
+// Errors
+
+// Types and methods
+pub enum CompiledContentChunk {
+  HtmlChunk(String)
+  LocalLinkChunk(LinkContent)
+  EmbedChunk(EmbedContent)
+}
+
+pub(all) struct CompiledProject {
+  root : String
+  sections : Array[CompiledSection]
+  diagnostics : Array[@core.Diagnostic]
+}
+
+pub(all) struct CompiledSection {
+  id : String
+  path : String
+  html : String
+  metadata : Metadata
+  references : Array[String]
+  backlinks : Array[String]
+  parent : String?
+} derive(@debug.Debug)
+
+pub(all) struct EmbedContent {
+  target : String
+  title : String?
+  option : SectionOption
+  span : @core.SourceSpan
+}
+
+pub(all) struct LinkContent {
+  target : String
+  text : String?
+  span : @core.SourceSpan
+}
+
+pub(all) struct Metadata {
+  section_id : String
+  source_id : String
+  title : String?
+  page_title : String?
+  taxon : String?
+  parent : String?
+  show_references : Bool
+  show_backlinks : Bool
+  asref : Bool
+  asback : Bool
+  footer_mode : String
+  footer_sort_by : String?
+  internal_anon_section : Bool
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Project {
+  root : String
+  sources : Array[SourceFile]
+} derive(Eq, @debug.Debug)
+pub fn Project::new(String, Array[SourceFile]) -> Self
+
+pub(all) struct ProjectConfig {
+  root : String
+  config_path : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SectionOption {
+  numbering : Bool
+  details_open : Bool
+  catalog : Bool
+} derive(Eq, @debug.Debug)
+pub fn SectionOption::default() -> Self
+
+pub(all) struct SourceFile {
+  path : String
+  source : String
+} derive(Eq, @debug.Debug)
+
+pub enum SourceKind {
+  Alt
+  Sia
+} derive(Eq, @debug.Debug)
+
+pub(all) struct UnresolvedSection {
+  id : String
+  path : String
+  doc : @core.Document
+  env : @core.CompileEnv
+  metadata : Metadata
+}
+
+// Type aliases
+pub type CompiledContent = Array[CompiledContentChunk]
+
+// Traits
+

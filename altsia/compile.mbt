@@ -2,14 +2,14 @@
 priv struct CompileState {
   root : String
   unresolved_order : Array[String]
-  unresolved_by_id : Map[String, UnresolvedSection]
-  compiled_by_id : Map[String, CompiledSection]
+  unresolved_by_slug : Map[String, UnresolvedTree]
+  compiled_by_slug : Map[String, CompiledTree]
   diagnostics : Array[@core.Diagnostic]
   visiting : Set[String]
   active_stack : Array[String]
-  references_by_source : Map[String, Array[String]]
+  references_by_source : Map[String, Array[TreeSlug]]
   reference_edge_keys : Set[String]
-  backlinks_by_target : Map[String, Array[String]]
+  backlinks_by_target : Map[String, Array[TreeSlug]]
   backlink_edge_keys : Set[String]
   dependencies : Array[SourceDependency]
   dependency_keys : Set[String]
@@ -20,20 +20,21 @@ priv struct CompileState {
 ///|
 fn CompileState::new(
   root : String,
-  unresolved : Array[UnresolvedSection],
+  unresolved : Array[UnresolvedTree],
 ) -> CompileState {
   let unresolved_order : Array[String] = []
-  let unresolved_by_id : Map[String, UnresolvedSection] = Map([])
-  for section in unresolved {
-    unresolved_order.push(section.id)
-    unresolved_by_id[section.id] = section
+  let unresolved_by_slug : Map[String, UnresolvedTree] = Map([])
+  for tree in unresolved {
+    let key = tree.slug.canonical()
+    unresolved_order.push(key)
+    unresolved_by_slug[key] = tree
   }
   let dependencies = collect_initial_dependencies(unresolved)
   {
     root,
     unresolved_order,
-    unresolved_by_id,
-    compiled_by_id: Map([]),
+    unresolved_by_slug,
+    compiled_by_slug: Map([]),
     diagnostics: [],
     visiting: Set([]),
     active_stack: [],
@@ -52,8 +53,8 @@ fn CompileState::new(
 fn CompileState::compile_all(
   self : CompileState,
 ) -> Result[CompiledProject, @core.Diagnostic] {
-  for id in self.unresolved_order {
-    match self.compile_section(id) {
+  for slug in self.unresolved_order {
+    match self.compile_tree(slug) {
       Ok(_) => ()
       Err(error) => return Err(error)
     }
@@ -61,8 +62,8 @@ fn CompileState::compile_all(
   self.apply_edges()
   Ok({
     root: self.root,
-    sections: self.ordered_compiled_sections(),
-    sections_by_id: self.compiled_by_id,
+    trees: self.ordered_compiled_trees(),
+    trees_by_slug: self.compiled_by_slug,
     diagnostics: self.diagnostics,
     dependencies: self.dependencies,
     missing_targets: self.missing_targets,
@@ -71,11 +72,22 @@ fn CompileState::compile_all(
 
 ///|
 fn collect_initial_dependencies(
-  unresolved : Array[UnresolvedSection],
+  unresolved : Array[UnresolvedTree],
 ) -> Array[SourceDependency] {
   let dependencies : Array[SourceDependency] = []
-  for section in unresolved {
-    dependencies.append(section.dependencies)
+  let keys : Set[String] = Set([])
+  for tree in unresolved {
+    for dependency in tree.dependencies {
+      let key = dependency_key(
+        dependency.source,
+        dependency.target,
+        dependency.kind,
+      )
+      if !keys.contains(key) {
+        keys.add(key)
+        dependencies.push(dependency)
+      }
+    }
   }
   dependencies
 }
@@ -94,81 +106,83 @@ fn dependency_key_set(dependencies : Array[SourceDependency]) -> Set[String] {
 ///|
 fn CompileState::find_unresolved(
   self : CompileState,
-  id : String,
-) -> UnresolvedSection? {
-  self.unresolved_by_id.get(id)
+  slug : String,
+) -> UnresolvedTree? {
+  self.unresolved_by_slug.get(slug)
 }
 
 ///|
 fn CompileState::find_compiled(
   self : CompileState,
-  id : String,
-) -> CompiledSection? {
-  self.compiled_by_id.get(id)
+  slug : String,
+) -> CompiledTree? {
+  self.compiled_by_slug.get(slug)
 }
 
 ///|
-fn CompileState::compile_section(
+fn CompileState::compile_tree(
   self : CompileState,
-  id : String,
-) -> Result[CompiledSection, @core.Diagnostic] {
-  match self.find_compiled(id) {
-    Some(section) => return Ok(section)
+  slug : String,
+) -> Result[CompiledTree, @core.Diagnostic] {
+  match self.find_compiled(slug) {
+    Some(tree) => return Ok(tree)
     None => ()
   }
-  if self.visiting.contains(id) {
-    return Err(self.cycle_diagnostic(id))
+  if self.visiting.contains(slug) {
+    return Err(self.cycle_diagnostic(slug))
   }
-  let section = match self.find_unresolved(id) {
+  let tree = match self.find_unresolved(slug) {
     Some(value) => value
-    None => return Err(source_diagnostic(id, Binding, "missing section: " + id))
+    None =>
+      return Err(source_diagnostic(slug, Binding, "missing tree: " + slug))
   }
-  self.visiting.add(id)
-  self.active_stack.push(id)
-  let result = self.compile_section_html(section)
+  self.visiting.add(slug)
+  self.active_stack.push(slug)
+  let result = self.compile_tree_html(tree)
   let _ = self.active_stack.pop()
-  self.visiting.remove(id)
+  self.visiting.remove(slug)
   let html = match result {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   let compiled = {
-    id,
-    path: section.path,
+    slug: tree.slug,
+    path: tree.path,
     html,
-    metadata: section.metadata,
+    metadata: tree.metadata,
     references: [],
     backlinks: [],
-    parent: section.metadata.parent,
+    parent: tree.metadata.parent,
   }
-  self.compiled_by_id[id] = compiled
+  self.compiled_by_slug[slug] = compiled
   Ok(compiled)
 }
 
 ///|
 fn CompileState::cycle_diagnostic(
   self : CompileState,
-  id : String,
+  slug : String,
 ) -> @core.Diagnostic {
-  let chain = self.active_stack.join(" -> ") + " -> " + id
-  source_diagnostic(id, Binding, "cyclic embed", hint=chain)
+  let chain = self.active_stack.join(" -> ") + " -> " + slug
+  source_diagnostic(slug, Binding, "cyclic embed", hint=chain)
 }
 
 ///|
-fn CompileState::compile_section_html(
+fn CompileState::compile_tree_html(
   self : CompileState,
-  section : UnresolvedSection,
+  tree : UnresolvedTree,
 ) -> Result[String, @core.Diagnostic] {
+  let source_slug = tree.slug.canonical()
   let resolver : @html.ElementResolver = (call, _context) => {
     match call.tag {
-      "link" => self.resolve_link(call, section.id, section.path)
-      "embed" => self.resolve_embed(call, section.id)
+      "link" => self.resolve_link(call, source_slug, tree.path)
+      "embed" => self.resolve_embed(call, source_slug)
       _ => Ok(None)
     }
   }
   let options = @html.CompileOptions::document_body()
   let options = { ..options, extensions: [resolver] }
-  match @html.compile_fragment(section.doc, env=section.env, options~) {
+  match @html.compile_fragment(tree.doc, env=tree.env, options~) {
     Ok(nodes) => Ok(@sexp.render_html(nodes))
     Err(error) => Err(error)
   }
@@ -178,7 +192,7 @@ fn CompileState::compile_section_html(
 fn CompileState::resolve_link(
   self : CompileState,
   call : @html.ElementCall,
-  source_id : String,
+  source_slug : String,
   source_path : String,
 ) -> Result[Array[@sexp.SexpNode]?, @core.Diagnostic] {
   let target = match first_text_child(call.children) {
@@ -187,17 +201,18 @@ fn CompileState::resolve_link(
       return Err(diagnostic(call.span, Binding, "(link ...) requires a target"))
   }
   let text = rest_text(call.children, start=1)
-  let resolved_id = section_id_from_path(resolve_relative(source_path, target))
-  match self.find_unresolved(resolved_id) {
-    Some(target_section) => {
-      self.add_dependency(source_path, target_section.path, LocalLink)
-      match self.find_unresolved(source_id) {
-        Some(source_section) => {
-          if target_section.metadata.asref && source_id != resolved_id {
-            self.add_reference_edge(source_id, resolved_id)
+  let resolved_slug = tree_slug_from_target(source_path, target)
+  let resolved_key = resolved_slug.canonical()
+  match self.find_unresolved(resolved_key) {
+    Some(target_tree) => {
+      self.add_dependency(source_path, target_tree.path, LocalLink)
+      match self.find_unresolved(source_slug) {
+        Some(source_tree) => {
+          if target_tree.metadata.asref && source_slug != resolved_key {
+            self.add_reference_edge(source_slug, resolved_slug)
           }
-          if source_section.metadata.asback && source_id != resolved_id {
-            self.add_backlink_edge(resolved_id, source_id)
+          if source_tree.metadata.asback && source_slug != resolved_key {
+            self.add_backlink_edge(resolved_key, source_tree.slug)
           }
         }
         None => ()
@@ -205,14 +220,14 @@ fn CompileState::resolve_link(
       let title = match text {
         Some(value) => value
         None =>
-          match self.compile_section(resolved_id) {
-            Ok(section) => section_title(section)
-            Err(_) => resolved_id
+          match self.compile_tree(resolved_key) {
+            Ok(tree) => tree_title(tree)
+            Err(_) => resolved_key
           }
       }
       Ok(
         Some([
-          Element("a", [("href", Some(url_for_section(resolved_id)))], [
+          Element("a", [("href", Some(url_for_tree(resolved_slug)))], [
             Text(title),
           ]),
         ]),
@@ -241,7 +256,7 @@ fn CompileState::resolve_link(
 fn CompileState::resolve_embed(
   self : CompileState,
   call : @html.ElementCall,
-  parent_id : String,
+  parent_slug : String,
 ) -> Result[Array[@sexp.SexpNode]?, @core.Diagnostic] {
   let target = match embed_target(call.children) {
     Some(value) => value
@@ -250,27 +265,28 @@ fn CompileState::resolve_embed(
         diagnostic(call.span, Binding, "(embed ...) requires a target"),
       )
   }
-  let source_path = match self.find_unresolved(parent_id) {
-    Some(section) => section.path
-    None => parent_id
+  let source_path = match self.find_unresolved(parent_slug) {
+    Some(tree) => tree.path
+    None => parent_slug
   }
-  let resolved_id = section_id_from_path(resolve_relative(source_path, target))
-  match self.find_unresolved(resolved_id) {
-    Some(target_section) => {
-      match self.find_unresolved(parent_id) {
-        Some(source_section) =>
-          self.add_dependency(source_section.path, target_section.path, Embed)
+  let resolved_slug = tree_slug_from_target(source_path, target)
+  let resolved_key = resolved_slug.canonical()
+  match self.find_unresolved(resolved_key) {
+    Some(target_tree) => {
+      match self.find_unresolved(parent_slug) {
+        Some(source_tree) =>
+          self.add_dependency(source_tree.path, target_tree.path, Embed)
         None => ()
       }
-      match self.compile_section(resolved_id) {
-        Ok(section) => {
-          self.set_inferred_parent(resolved_id, parent_id)
+      match self.compile_tree(resolved_key) {
+        Ok(tree) => {
+          self.set_inferred_parent(resolved_key, parent_slug)
           Ok(
             Some([
               Element(
                 "div",
-                [("class", Some("embed")), ("data-section", Some(resolved_id))],
-                [RawHtml(section.html)],
+                [("class", Some("embed")), ("data-tree", Some(resolved_key))],
+                [RawHtml(tree.html)],
               ),
             ]),
           )
@@ -315,9 +331,9 @@ fn CompileState::add_missing_target(
 fn CompileState::add_reference_edge(
   self : CompileState,
   source : String,
-  target : String,
+  target : TreeSlug,
 ) -> Unit {
-  let key = edge_key(source, target)
+  let key = edge_key(source, target.canonical())
   if !self.reference_edge_keys.contains(key) {
     self.reference_edge_keys.add(key)
     push_map_array(self.references_by_source, source, target)
@@ -328,9 +344,9 @@ fn CompileState::add_reference_edge(
 fn CompileState::add_backlink_edge(
   self : CompileState,
   target : String,
-  source : String,
+  source : TreeSlug,
 ) -> Unit {
-  let key = edge_key(target, source)
+  let key = edge_key(target, source.canonical())
   if !self.backlink_edge_keys.contains(key) {
     self.backlink_edge_keys.add(key)
     push_map_array(self.backlinks_by_target, target, source)
@@ -340,13 +356,16 @@ fn CompileState::add_backlink_edge(
 ///|
 fn CompileState::set_inferred_parent(
   self : CompileState,
-  id : String,
-  parent_id : String,
+  slug : String,
+  parent_slug : String,
 ) -> Unit {
-  match self.compiled_by_id.get(id) {
-    Some(section) =>
-      if section.metadata.parent == None {
-        self.compiled_by_id[id] = { ..section, parent: Some(parent_id) }
+  match self.compiled_by_slug.get(slug) {
+    Some(tree) =>
+      if tree.metadata.parent == None {
+        self.compiled_by_slug[slug] = {
+          ..tree,
+          parent: Some(TreeSlug::parse(parent_slug)),
+        }
       }
     None => ()
   }
@@ -354,33 +373,33 @@ fn CompileState::set_inferred_parent(
 
 ///|
 fn CompileState::apply_edges(self : CompileState) -> Unit {
-  for id in self.unresolved_order {
-    let section = match self.compiled_by_id.get(id) {
-      Some(section) => section
+  for slug in self.unresolved_order {
+    let tree = match self.compiled_by_slug.get(slug) {
+      Some(tree) => tree
       None => continue
     }
-    let references : Array[String] = []
-    let backlinks : Array[String] = []
-    match self.references_by_source.get(section.id) {
+    let references : Array[TreeSlug] = []
+    let backlinks : Array[TreeSlug] = []
+    match self.references_by_source.get(slug) {
       Some(values) => references.append(values)
       None => ()
     }
-    match self.backlinks_by_target.get(section.id) {
+    match self.backlinks_by_target.get(slug) {
       Some(values) => backlinks.append(values)
       None => ()
     }
-    self.compiled_by_id[id] = { ..section, references, backlinks }
+    self.compiled_by_slug[slug] = { ..tree, references, backlinks }
   }
 }
 
 ///|
-fn CompileState::ordered_compiled_sections(
+fn CompileState::ordered_compiled_trees(
   self : CompileState,
-) -> Array[CompiledSection] {
-  let ordered : Array[CompiledSection] = []
-  for id in self.unresolved_order {
-    match self.compiled_by_id.get(id) {
-      Some(section) => ordered.push(section)
+) -> Array[CompiledTree] {
+  let ordered : Array[CompiledTree] = []
+  for slug in self.unresolved_order {
+    match self.compiled_by_slug.get(slug) {
+      Some(tree) => ordered.push(tree)
       None => ()
     }
   }
@@ -389,9 +408,9 @@ fn CompileState::ordered_compiled_sections(
 
 ///|
 fn push_map_array(
-  table : Map[String, Array[String]],
+  table : Map[String, Array[TreeSlug]],
   key : String,
-  value : String,
+  value : TreeSlug,
 ) -> Unit {
   match table.get(key) {
     Some(values) => {
@@ -469,7 +488,7 @@ pub fn compile_content_chunks(
           EmbedChunk({
             target,
             title: rest_text(children, start=1),
-            option: SectionOption::default(),
+            option: EmbedOption::default(),
             span,
           }),
         )
@@ -534,12 +553,10 @@ pub fn compile_alt_fragment(
   match compile_project(project) {
     Err(error) => Err(error)
     Ok(compiled) =>
-      match compiled.sections_by_id.get(section_id_from_path(entry)) {
-        Some(section) => Ok(section.html)
+      match compiled.trees_by_slug.get(tree_slug_from_path(entry).canonical()) {
+        Some(tree) => Ok(tree.html)
         None =>
-          Err(
-            source_diagnostic(entry, Binding, "missing entry section: " + entry),
-          )
+          Err(source_diagnostic(entry, Binding, "missing entry tree: " + entry))
       }
   }
 }
@@ -571,14 +588,14 @@ pub fn preview_project(
   match compile_project(project) {
     Err(error) => Err(error)
     Ok(compiled) => {
-      let entry_section_id = section_id_from_path(entry)
-      match compiled.sections_by_id.get(entry_section_id) {
-        Some(section) => {
+      let entry_tree_slug = tree_slug_from_path(entry)
+      match compiled.trees_by_slug.get(entry_tree_slug.canonical()) {
+        Some(tree) => {
           let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
           let html = @sexp.render_html_document(
             [],
             opts.extra_head,
-            [RawHtml(section.html)],
+            [RawHtml(tree.html)],
             opts.doctype,
           )
           Ok({
@@ -586,21 +603,19 @@ pub fn preview_project(
             diagnostics: compiled.diagnostics,
             dependencies: dependencies_for_entry(
               compiled.dependencies,
-              section.path,
+              tree.path,
             ),
             missing_targets: missing_targets_for_entry(
               compiled.missing_targets,
               compiled.dependencies,
-              section.path,
+              tree.path,
             ),
-            entry_section_id,
-            title: section.metadata.title,
+            entry_tree_slug,
+            title: tree.metadata.title,
           })
         }
         None =>
-          Err(
-            source_diagnostic(entry, Binding, "missing entry section: " + entry),
-          )
+          Err(source_diagnostic(entry, Binding, "missing entry tree: " + entry))
       }
     }
   }

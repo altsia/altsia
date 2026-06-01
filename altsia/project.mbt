@@ -13,6 +13,13 @@ priv struct ParsedProject {
 }
 
 ///|
+priv struct TreeExtraction {
+  visible_nodes : Array[@core.Node]
+  trees : Array[UnresolvedTree]
+  next_anonymous_index : Int
+}
+
+///|
 fn parse_source_file(
   file : SourceFile,
 ) -> Result[ParsedSource, @core.Diagnostic] {
@@ -162,12 +169,12 @@ fn build_import_env(
 }
 
 ///|
-fn build_unresolved_sections(
+fn build_unresolved_trees(
   parsed : ParsedProject,
   builtin_env : @core.CompileEnv,
-) -> Result[Array[UnresolvedSection], @core.Diagnostic] {
-  let sections : Array[UnresolvedSection] = []
-  let section_ids : Set[String] = Set([])
+) -> Result[Array[UnresolvedTree], @core.Diagnostic] {
+  let trees : Array[UnresolvedTree] = []
+  let tree_sources_by_slug : Map[String, String] = Map([])
   for item in parsed.sources {
     match item.kind {
       Alt => {
@@ -178,33 +185,222 @@ fn build_unresolved_sections(
         let (imported, dependencies) = import_result
         let env = builtin_env.copy()
         env.append(imported)
-        let id = section_id_from_path(item.file.path)
-        let doc = strip_leading_use_directives(item.doc)
-        let metadata = metadata_from_doc(id, item.file.path, doc)
-        let section_id = metadata.section_id
-        if section_ids.contains(section_id) {
-          return Err(
-            source_diagnostic(
-              item.file.path,
-              Binding,
-              "duplicate section id: " + section_id,
-            ),
-          )
-        }
-        section_ids.add(section_id)
-        sections.push({
-          id: section_id,
-          path: item.file.path,
-          doc,
+        let default_slug = tree_slug_from_path(item.file.path)
+        let source_doc = strip_leading_use_directives(item.doc)
+        let root_metadata = metadata_from_doc(
+          default_slug,
+          item.file.path,
+          source_doc,
+        )
+        let top_level_slug = root_metadata.slug
+        let extraction = extract_tree_nodes(
+          source_doc.nodes,
+          top_level_slug,
+          item.file.path,
           env,
-          metadata,
           dependencies,
-        })
+          next_anonymous_index=0,
+        )
+        let root_doc : @core.Document = {
+          source: source_doc.source,
+          nodes: extraction.visible_nodes,
+        }
+        let root_tree = {
+          slug: top_level_slug,
+          path: item.file.path,
+          doc: root_doc,
+          env,
+          metadata: root_metadata,
+          dependencies,
+        }
+        match add_unresolved_tree(trees, tree_sources_by_slug, root_tree) {
+          Some(error) => return Err(error)
+          None => ()
+        }
+        for tree in extraction.trees {
+          match add_unresolved_tree(trees, tree_sources_by_slug, tree) {
+            Some(error) => return Err(error)
+            None => ()
+          }
+        }
       }
       Sia => ()
     }
   }
-  Ok(sections)
+  Ok(trees)
+}
+
+///|
+fn add_unresolved_tree(
+  trees : Array[UnresolvedTree],
+  tree_sources_by_slug : Map[String, String],
+  tree : UnresolvedTree,
+) -> @core.Diagnostic? {
+  let key = tree.slug.canonical()
+  match tree_sources_by_slug.get(key) {
+    Some(existing_path) =>
+      Some(
+        source_diagnostic(
+          tree.path,
+          Binding,
+          "duplicate tree slug: " + key,
+          hint="previous tree source: " + existing_path,
+        ),
+      )
+    None => {
+      tree_sources_by_slug[key] = tree.path
+      trees.push(tree)
+      None
+    }
+  }
+}
+
+///|
+fn extract_tree_nodes(
+  nodes : Array[@core.Node],
+  top_level_slug : TreeSlug,
+  source_path : String,
+  env : @core.CompileEnv,
+  dependencies : Array[SourceDependency],
+  next_anonymous_index~ : Int,
+) -> TreeExtraction {
+  let visible_nodes : Array[@core.Node] = []
+  let trees : Array[UnresolvedTree] = []
+  let mut next_index = next_anonymous_index
+  for node in nodes {
+    match node {
+      Element("tree", attrs, children, span) =>
+        match tree_slug_attr(attrs) {
+          Some(local_slug) => {
+            let slug = child_tree_slug(top_level_slug, local_slug)
+            let child = extract_tree_nodes(
+              children,
+              top_level_slug,
+              source_path,
+              env,
+              dependencies,
+              next_anonymous_index=next_index,
+            )
+            next_index = child.next_anonymous_index
+            let doc : @core.Document = {
+              source: {
+                id: Some(source_path),
+                line_offset: 0,
+                column_offset: 0,
+              },
+              nodes: child.visible_nodes,
+            }
+            trees.push({
+              slug,
+              path: source_path,
+              doc,
+              env,
+              metadata: metadata_from_tree(slug, source_path, attrs, doc),
+              dependencies,
+            })
+            trees.append(child.trees)
+          }
+          None => {
+            next_index += 1
+            let anchor = anonymous_tree_anchor(top_level_slug, next_index)
+            let child = extract_tree_nodes(
+              children,
+              top_level_slug,
+              source_path,
+              env,
+              dependencies,
+              next_anonymous_index=next_index,
+            )
+            next_index = child.next_anonymous_index
+            trees.append(child.trees)
+            visible_nodes.push(
+              Element(
+                "section",
+                [html_attr("id", anchor, span)],
+                child.visible_nodes,
+                span,
+              ),
+            )
+          }
+        }
+      Element(tag, attrs, children, span) => {
+        let child = extract_tree_nodes(
+          children,
+          top_level_slug,
+          source_path,
+          env,
+          dependencies,
+          next_anonymous_index=next_index,
+        )
+        next_index = child.next_anonymous_index
+        trees.append(child.trees)
+        visible_nodes.push(Element(tag, attrs, child.visible_nodes, span))
+      }
+      HtmlHead(attrs, children, span) => {
+        let child = extract_tree_nodes(
+          children,
+          top_level_slug,
+          source_path,
+          env,
+          dependencies,
+          next_anonymous_index=next_index,
+        )
+        next_index = child.next_anonymous_index
+        trees.append(child.trees)
+        visible_nodes.push(HtmlHead(attrs, child.visible_nodes, span))
+      }
+      When(name, children, span) => {
+        let child = extract_tree_nodes(
+          children,
+          top_level_slug,
+          source_path,
+          env,
+          dependencies,
+          next_anonymous_index=next_index,
+        )
+        next_index = child.next_anonymous_index
+        trees.append(child.trees)
+        visible_nodes.push(When(name, child.visible_nodes, span))
+      }
+      Unless(name, children, span) => {
+        let child = extract_tree_nodes(
+          children,
+          top_level_slug,
+          source_path,
+          env,
+          dependencies,
+          next_anonymous_index=next_index,
+        )
+        next_index = child.next_anonymous_index
+        trees.append(child.trees)
+        visible_nodes.push(Unless(name, child.visible_nodes, span))
+      }
+      _ => visible_nodes.push(node)
+    }
+  }
+  { visible_nodes, trees, next_anonymous_index: next_index }
+}
+
+///|
+fn tree_slug_attr(attrs : Array[@core.Attr]) -> String? {
+  for attr in attrs {
+    if attr.name == "slug" {
+      match attr_scalar(attr) {
+        Some(value) => return Some(value)
+        None => ()
+      }
+    }
+  }
+  None
+}
+
+///|
+fn html_attr(
+  name : String,
+  value : String,
+  span : @core.SourceSpan,
+) -> @core.Attr {
+  { name, value: Some(Scalar(value, span)), span }
 }
 
 ///|
@@ -247,7 +443,7 @@ fn compile_project_with_options(
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let unresolved = match build_unresolved_sections(parsed, base_env) {
+  let unresolved = match build_unresolved_trees(parsed, base_env) {
     Ok(value) => value
     Err(error) => return Err(error)
   }

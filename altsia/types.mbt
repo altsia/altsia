@@ -30,14 +30,14 @@ pub(all) struct ProjectSnapshot {
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct SectionOption {
+pub(all) struct EmbedOption {
   numbering : Bool
   details_open : Bool
   catalog : Bool
 } derive(Eq, Debug)
 
 ///|
-pub fn SectionOption::default() -> SectionOption {
+pub fn EmbedOption::default() -> EmbedOption {
   { numbering: false, details_open: true, catalog: true }
 }
 
@@ -52,7 +52,7 @@ pub(all) struct LinkContent {
 pub(all) struct EmbedContent {
   target : String
   title : String?
-  option : SectionOption
+  option : EmbedOption
   span : @core.SourceSpan
 }
 
@@ -68,24 +68,24 @@ pub type CompiledContent = Array[CompiledContentChunk]
 
 ///|
 pub(all) struct Metadata {
-  section_id : String
+  slug : TreeSlug
   source_id : String
+  lang : String?
   title : String?
   page_title : String?
-  taxon : String?
-  parent : String?
+  taxon : Taxon?
+  parent : TreeSlug?
   show_references : Bool
   show_backlinks : Bool
   asref : Bool
   asback : Bool
   footer_mode : String
   footer_sort_by : String?
-  internal_anon_section : Bool
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct UnresolvedSection {
-  id : String
+pub(all) struct UnresolvedTree {
+  slug : TreeSlug
   path : String
   doc : @core.Document
   env : @core.CompileEnv
@@ -115,21 +115,21 @@ pub(all) struct MissingTarget {
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct CompiledSection {
-  id : String
+pub(all) struct CompiledTree {
+  slug : TreeSlug
   path : String
   html : String
   metadata : Metadata
-  references : Array[String]
-  backlinks : Array[String]
-  parent : String?
+  references : Array[TreeSlug]
+  backlinks : Array[TreeSlug]
+  parent : TreeSlug?
 } derive(Debug)
 
 ///|
 pub(all) struct CompiledProject {
   root : String
-  sections : Array[CompiledSection]
-  sections_by_id : Map[String, CompiledSection]
+  trees : Array[CompiledTree]
+  trees_by_slug : Map[String, CompiledTree]
   diagnostics : Array[@core.Diagnostic]
   dependencies : Array[SourceDependency]
   missing_targets : Array[MissingTarget]
@@ -141,6 +141,6 @@ pub(all) struct PreviewResult {
   diagnostics : Array[@core.Diagnostic]
   dependencies : Array[SourceDependency]
   missing_targets : Array[MissingTarget]
-  entry_section_id : String
+  entry_tree_slug : TreeSlug
   title : String?
 }

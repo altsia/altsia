@@ -49,8 +49,34 @@ fn source_kind(path : String) -> SourceKind? {
 }
 
 ///|
-fn section_id_from_path(path : String) -> String {
-  strip_extension(normalize_path(path), ".alt")
+fn tree_slug_from_path(path : String) -> TreeSlug {
+  TreeSlug::from_file_path(path)
+}
+
+///|
+fn tree_slug_from_target(current_path : String, target : String) -> TreeSlug {
+  if target.length() > 0 && target.unsafe_substring(start=0, end=1) == "/" {
+    TreeSlug::parse(target.unsafe_substring(start=1, end=target.length()))
+  } else {
+    tree_slug_from_path(resolve_relative(current_path, target))
+  }
+}
+
+///|
+fn child_tree_slug(top_level_slug : TreeSlug, child_slug : String) -> TreeSlug {
+  if child_slug.length() > 0 &&
+    child_slug.unsafe_substring(start=0, end=1) == "/" {
+    TreeSlug::parse(
+      child_slug.unsafe_substring(start=1, end=child_slug.length()),
+    )
+  } else {
+    top_level_slug.sibling(tree_slug_from_path(child_slug))
+  }
+}
+
+///|
+fn anonymous_tree_anchor(top_level_slug : TreeSlug, index : Int) -> String {
+  top_level_slug.canonical() + "-" + index.to_string()
 }
 
 ///|
@@ -64,10 +90,11 @@ fn resolve_relative(current_path : String, target : String) -> String {
 }
 
 ///|
-fn url_for_section(id : String) -> String {
-  if id == "index" {
+fn url_for_tree(slug : TreeSlug) -> String {
+  let key = slug.canonical()
+  if key == "index" {
     "index.html"
   } else {
-    id + ".html"
+    key + ".html"
   }
 }

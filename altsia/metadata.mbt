@@ -18,10 +18,11 @@ fn attr_bool(attr : @core.Attr) -> Bool? {
 }
 
 ///|
-fn default_metadata(id : String, source_id : String) -> Metadata {
+fn default_metadata(slug : TreeSlug, source_id : String) -> Metadata {
   {
-    section_id: id,
+    slug,
     source_id,
+    lang: None,
     title: None,
     page_title: None,
     taxon: None,
@@ -32,25 +33,99 @@ fn default_metadata(id : String, source_id : String) -> Metadata {
     asback: true,
     footer_mode: "link",
     footer_sort_by: None,
-    internal_anon_section: false,
   }
 }
 
 ///|
 fn metadata_from_doc(
-  id : String,
+  slug : TreeSlug,
   source_id : String,
   doc : @core.Document,
+  allow_slug_override? : Bool = true,
 ) -> Metadata {
-  let mut metadata = default_metadata(id, source_id)
-  for node in doc.nodes {
+  let mut metadata = default_metadata(slug, source_id)
+  metadata = apply_metadata_attrs(metadata, doc.nodes, allow_slug_override~)
+  metadata
+}
+
+///|
+fn metadata_from_tree(
+  slug : TreeSlug,
+  source_id : String,
+  attrs : Array[@core.Attr],
+  doc : @core.Document,
+) -> Metadata {
+  let mut metadata = default_metadata(slug, source_id)
+  metadata = apply_tree_attrs(metadata, attrs)
+  metadata = apply_metadata_attrs(
+    metadata,
+    doc.nodes,
+    allow_slug_override=false,
+  )
+  metadata
+}
+
+///|
+fn apply_tree_attrs(metadata : Metadata, attrs : Array[@core.Attr]) -> Metadata {
+  let mut result = metadata
+  for attr in attrs {
+    match attr.name {
+      "lang" =>
+        match attr_scalar(attr) {
+          Some(value) => result = { ..result, lang: Some(value) }
+          None => ()
+        }
+      "title" =>
+        match attr_scalar(attr) {
+          Some(value) => result = { ..result, title: Some(value) }
+          None => ()
+        }
+      "page-title" =>
+        match attr_scalar(attr) {
+          Some(value) => result = { ..result, page_title: Some(value) }
+          None => ()
+        }
+      "taxon" =>
+        match attr_scalar(attr) {
+          Some(value) =>
+            result = { ..result, taxon: Some(taxon_from_attrs(value, attrs)) }
+          None => ()
+        }
+      "parent" =>
+        match attr_scalar(attr) {
+          Some(value) =>
+            result = { ..result, parent: Some(TreeSlug::parse(value)) }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  result
+}
+
+///|
+fn apply_metadata_attrs(
+  metadata : Metadata,
+  nodes : Array[@core.Node],
+  allow_slug_override~ : Bool,
+) -> Metadata {
+  let mut metadata = metadata
+  for node in nodes {
     match node {
       Meta(attrs, _) =>
         for attr in attrs {
           match attr.name {
-            "slug" | "section-id" =>
+            "slug" =>
+              if allow_slug_override {
+                match attr_scalar(attr) {
+                  Some(value) =>
+                    metadata = { ..metadata, slug: TreeSlug::parse(value) }
+                  None => ()
+                }
+              }
+            "lang" =>
               match attr_scalar(attr) {
-                Some(value) => metadata = { ..metadata, section_id: value }
+                Some(value) => metadata = { ..metadata, lang: Some(value) }
                 None => ()
               }
             "title" =>
@@ -66,12 +141,33 @@ fn metadata_from_doc(
               }
             "taxon" =>
               match attr_scalar(attr) {
-                Some(value) => metadata = { ..metadata, taxon: Some(value) }
+                Some(value) =>
+                  metadata = {
+                    ..metadata,
+                    taxon: Some(taxon_from_attrs(value, attrs)),
+                  }
+                None => ()
+              }
+            "taxon-display" =>
+              match attr_scalar(attr) {
+                Some(value) =>
+                  match metadata.taxon {
+                    Some(taxon) =>
+                      metadata = {
+                        ..metadata,
+                        taxon: Some({ ..taxon, display: Some(value) }),
+                      }
+                    None => ()
+                  }
                 None => ()
               }
             "parent" =>
               match attr_scalar(attr) {
-                Some(value) => metadata = { ..metadata, parent: Some(value) }
+                Some(value) =>
+                  metadata = {
+                    ..metadata,
+                    parent: Some(TreeSlug::parse(value)),
+                  }
                 None => ()
               }
             "references" =>
@@ -105,12 +201,6 @@ fn metadata_from_doc(
                   metadata = { ..metadata, footer_sort_by: Some(value) }
                 None => ()
               }
-            "internal-anon-section" =>
-              match attr_bool(attr) {
-                Some(value) =>
-                  metadata = { ..metadata, internal_anon_section: value }
-                None => ()
-              }
             _ => ()
           }
         }
@@ -121,13 +211,27 @@ fn metadata_from_doc(
 }
 
 ///|
-fn section_title(section : CompiledSection) -> String {
-  match section.metadata.title {
+fn taxon_from_attrs(key : String, attrs : Array[@core.Attr]) -> Taxon {
+  let mut display : String? = None
+  for attr in attrs {
+    if attr.name == "taxon-display" {
+      match attr_scalar(attr) {
+        Some(value) => display = Some(value)
+        None => ()
+      }
+    }
+  }
+  Taxon::new(key, display?)
+}
+
+///|
+fn tree_title(tree : CompiledTree) -> String {
+  match tree.metadata.title {
     Some(value) => value
     None =>
-      match section.metadata.page_title {
+      match tree.metadata.page_title {
         Some(value) => value
-        None => section.id
+        None => tree.slug.canonical()
       }
   }
 }

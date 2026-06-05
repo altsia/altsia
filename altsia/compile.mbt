@@ -138,7 +138,7 @@ fn CompileState::compile_tree(
   }
   self.visiting.add(slug)
   self.active_stack.push(slug)
-  let result = self.compile_tree_html(tree)
+  let result = self.render_tree_content(tree)
   let _ = self.active_stack.pop()
   self.visiting.remove(slug)
   let html = match result {
@@ -168,39 +168,57 @@ fn CompileState::cycle_diagnostic(
 }
 
 ///|
-fn CompileState::compile_tree_html(
+fn CompileState::render_tree_content(
   self : CompileState,
   tree : UnresolvedTree,
 ) -> Result[String, @core.Diagnostic] {
-  let source_slug = tree.slug.canonical()
-  let resolver : @html.ElementResolver = (call, _context) => {
-    match call.tag {
-      "link" => self.resolve_link(call, source_slug, tree.path)
-      "embed" => self.resolve_embed(call, source_slug)
-      _ => Ok(None)
+  self.render_graph_content(tree.content, tree.slug.canonical(), tree.path)
+}
+
+///|
+fn CompileState::render_graph_content(
+  self : CompileState,
+  content : GraphContent,
+  source_slug : String,
+  source_path : String,
+) -> Result[String, @core.Diagnostic] {
+  let chunks : Array[String] = []
+  for chunk in content {
+    match chunk {
+      HtmlContent(html) => chunks.push(html)
+      CallbackContent(callback) =>
+        match self.resolve_graph_callback(callback, source_slug, source_path) {
+          Ok(html) => chunks.push(html)
+          Err(error) => return Err(error)
+        }
     }
   }
-  let options = @html.CompileOptions::document_body()
-  let options = { ..options, extensions: [resolver] }
-  match @html.compile_fragment(tree.doc, env=tree.env, options~) {
-    Ok(nodes) => Ok(@sexp.render_html(nodes))
-    Err(error) => Err(error)
+  Ok(chunks.join(""))
+}
+
+///|
+fn CompileState::resolve_graph_callback(
+  self : CompileState,
+  callback : GraphCallback,
+  source_slug : String,
+  source_path : String,
+) -> Result[String, @core.Diagnostic] {
+  match callback {
+    LinkCallback(link) =>
+      self.resolve_link_content(link, source_slug, source_path)
+    EmbedCallback(embed) =>
+      self.resolve_embed_content(embed, source_slug, source_path)
   }
 }
 
 ///|
-fn CompileState::resolve_link(
+fn CompileState::resolve_link_content(
   self : CompileState,
-  call : @html.ElementCall,
+  link : LinkContent,
   source_slug : String,
   source_path : String,
-) -> Result[Array[@sexp.SexpNode]?, @core.Diagnostic] {
-  let target = match first_text_child(call.children) {
-    Some(value) => value
-    None =>
-      return Err(diagnostic(call.span, Binding, "(link ...) requires a target"))
-  }
-  let text = rest_text(call.children, start=1)
+) -> Result[String, @core.Diagnostic] {
+  let target = link.target
   let resolved_slug = tree_slug_from_target(source_path, target)
   let resolved_key = resolved_slug.canonical()
   match self.find_unresolved(resolved_key) {
@@ -217,18 +235,18 @@ fn CompileState::resolve_link(
         }
         None => ()
       }
-      let title = match text {
-        Some(value) => value
+      let title = match link.text {
+        Some(value) => @sexp.render_html([Text(value)])
         None =>
           match self.compile_tree(resolved_key) {
-            Ok(tree) => tree_title(tree)
-            Err(_) => resolved_key
+            Ok(tree) => self.render_link_fallback_title(tree, resolved_key)
+            Err(_) => @sexp.render_html([Text(resolved_key)])
           }
       }
       Ok(
-        Some([
+        @sexp.render_html([
           Element("a", [("href", Some(url_for_tree(resolved_slug)))], [
-            Text(title),
+            RawHtml(title),
           ]),
         ]),
       )
@@ -236,11 +254,11 @@ fn CompileState::resolve_link(
     None => {
       self.add_missing_target(source_path, target, LocalLink)
       self.diagnostics.push(
-        diagnostic(call.span, Binding, "dangling local link: " + target),
+        diagnostic(link.span, Binding, "dangling local link: " + target),
       )
-      let label = text.unwrap_or(target)
+      let label = link.text.unwrap_or(target)
       Ok(
-        Some([
+        @sexp.render_html([
           Element(
             "a",
             [("href", Some("#")), ("data-missing-target", Some(target))],
@@ -253,22 +271,35 @@ fn CompileState::resolve_link(
 }
 
 ///|
-fn CompileState::resolve_embed(
+fn CompileState::render_link_fallback_title(
   self : CompileState,
-  call : @html.ElementCall,
-  parent_slug : String,
-) -> Result[Array[@sexp.SexpNode]?, @core.Diagnostic] {
-  let target = match embed_target(call.children) {
-    Some(value) => value
+  tree : CompiledTree,
+  fallback : String,
+) -> String {
+  match tree.metadata.title {
+    Some((content, _)) =>
+      match
+        self.render_graph_content(
+          content,
+          tree.slug.canonical(),
+          tree.path,
+        ) {
+        Ok(html) => html
+        Err(_) => @sexp.render_html([Text(tree_title(tree))])
+      }
     None =>
-      return Err(
-        diagnostic(call.span, Binding, "(embed ...) requires a target"),
-      )
+      @sexp.render_html([Text(tree.metadata.page_title.unwrap_or(fallback))])
   }
-  let source_path = match self.find_unresolved(parent_slug) {
-    Some(tree) => tree.path
-    None => parent_slug
-  }
+}
+
+///|
+fn CompileState::resolve_embed_content(
+  self : CompileState,
+  embed : EmbedContent,
+  parent_slug : String,
+  source_path : String,
+) -> Result[String, @core.Diagnostic] {
+  let target = embed.target
   let resolved_slug = tree_slug_from_target(source_path, target)
   let resolved_key = resolved_slug.canonical()
   match self.find_unresolved(resolved_key) {
@@ -282,7 +313,7 @@ fn CompileState::resolve_embed(
         Ok(tree) => {
           self.set_inferred_parent(resolved_key, parent_slug)
           Ok(
-            Some([
+            @sexp.render_html([
               Element(
                 "div",
                 [("class", Some("embed")), ("data-tree", Some(resolved_key))],
@@ -295,7 +326,7 @@ fn CompileState::resolve_embed(
       }
     }
     None =>
-      Err(diagnostic(call.span, Binding, "missing embed target: " + target))
+      Err(diagnostic(embed.span, Binding, "missing embed target: " + target))
   }
 }
 
@@ -445,61 +476,130 @@ fn dependency_kind_key(kind : DependencyKind) -> String {
 }
 
 ///|
+pub fn compile_graph_content(
+  doc : @core.Document,
+  env? : @core.CompileEnv,
+) -> Result[GraphContent, @core.Diagnostic] {
+  match env {
+    Some(env) => compile_graph_content_with_wrap(doc, env, wrap_paragraphs=true)
+    None =>
+      compile_graph_content_with_wrap(
+        doc,
+        @core.CompileEnv::empty(),
+        wrap_paragraphs=true,
+      )
+  }
+}
+
+///|
+fn compile_inline_graph_content(
+  doc : @core.Document,
+  env : @core.CompileEnv,
+) -> Result[GraphContent, @core.Diagnostic] {
+  compile_graph_content_with_wrap(doc, env, wrap_paragraphs=false)
+}
+
+///|
+fn compile_graph_content_with_wrap(
+  doc : @core.Document,
+  compile_env : @core.CompileEnv,
+  wrap_paragraphs~ : Bool,
+) -> Result[GraphContent, @core.Diagnostic] {
+  let captured : Array[GraphCallback] = []
+  let resolver : @html.ElementResolver = (call, _context) => {
+    match call.tag {
+      "link" => {
+        let target = match first_text_child(call.children) {
+          Some(value) => value
+          None =>
+            return Err(
+              diagnostic(call.span, Binding, "(link ...) requires a target"),
+            )
+        }
+        let index = captured.length()
+        captured.push(
+          LinkCallback({
+            target,
+            text: rest_text(call.children, start=1),
+            span: call.span,
+          }),
+        )
+        Ok(Some([Text(chunk_marker(index))]))
+      }
+      "embed" => {
+        let target = match embed_target(call.children) {
+          Some(value) => value
+          None =>
+            return Err(
+              diagnostic(call.span, Binding, "(embed ...) requires a target"),
+            )
+        }
+        let index = captured.length()
+        captured.push(
+          EmbedCallback({
+            target,
+            title: rest_text(call.children, start=1),
+            option: EmbedOption::default(),
+            span: call.span,
+          }),
+        )
+        Ok(Some([RawHtml(chunk_marker(index))]))
+      }
+      _ => Ok(None)
+    }
+  }
+  let options = @html.CompileOptions::fragment()
+  let options = { ..options, wrap_paragraphs, extensions: [resolver] }
+  match @html.compile_fragment(doc, env=compile_env, options~) {
+    Ok(nodes) =>
+      Ok(graph_content_from_marked_html(@sexp.render_html(nodes), captured))
+    Err(error) => Err(error)
+  }
+}
+
+///|
 pub fn compile_content_chunks(
   doc : @core.Document,
   env? : @core.CompileEnv,
-) -> Result[CompiledContent, @core.Diagnostic] {
-  let chunks : CompiledContent = []
-  let pending : Array[@core.Node] = []
-  fn flush() -> Result[Unit, @core.Diagnostic] {
-    if pending.length() > 0 {
-      let fragment_doc : @core.Document = {
-        source: doc.source,
-        nodes: pending.copy(),
-      }
-      let compile_env = env.unwrap_or(@core.CompileEnv::empty())
-      match @html.compile_fragment(fragment_doc, env=compile_env) {
-        Ok(nodes) => chunks.push(HtmlChunk(@sexp.render_html(nodes)))
-        Err(error) => return Err(error)
-      }
-      pending.clear()
-    }
-    Ok(())
+) -> Result[GraphContent, @core.Diagnostic] {
+  match env {
+    Some(env) => compile_graph_content(doc, env~)
+    None => compile_graph_content(doc)
   }
-  for node in doc.nodes {
-    match node {
-      Element("link", _, children, span) => {
-        match flush() {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        let target = first_text_child(children).unwrap_or("")
-        chunks.push(
-          LocalLinkChunk({ target, text: rest_text(children, start=1), span }),
-        )
+}
+
+///|
+fn chunk_marker(index : Int) -> String {
+  "\u{1f}altsia:" + index.to_string() + "\u{1f}"
+}
+
+///|
+fn graph_content_from_marked_html(
+  html : String,
+  captured : Array[GraphCallback],
+) -> GraphContent {
+  let result : GraphContent = []
+  let mut remainder = html
+  for i in 0..<captured.length() {
+    let marker = chunk_marker(i)
+    let parts = remainder.split(marker).to_array()
+    if parts.length() > 1 {
+      let before = parts[0].to_owned()
+      if before != "" {
+        result.push(HtmlContent(before))
       }
-      Element("embed", _, children, span) => {
-        match flush() {
-          Err(error) => return Err(error)
-          Ok(_) => ()
-        }
-        let target = embed_target(children).unwrap_or("")
-        chunks.push(
-          EmbedChunk({
-            target,
-            title: rest_text(children, start=1),
-            option: EmbedOption::default(),
-            span,
-          }),
-        )
+      result.push(CallbackContent(captured[i]))
+      let rest : Array[String] = []
+      for j in 1..<parts.length() {
+        rest.push(parts[j].to_owned())
       }
-      _ => pending.push(node)
+      remainder = rest.join(marker)
     }
   }
-  match flush() {
-    Err(error) => Err(error)
-    Ok(_) => Ok(chunks)
+  if remainder != "" {
+    result.push(HtmlContent(remainder))
   }
+  result
 }
 
 ///|
@@ -611,7 +711,7 @@ pub fn preview_project(
               tree.path,
             ),
             entry_tree_slug,
-            title: tree.metadata.title,
+            title: tree_page_title(tree),
           })
         }
         None =>

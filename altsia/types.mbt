@@ -57,21 +57,29 @@ pub(all) struct EmbedContent {
 }
 
 ///|
-pub enum CompiledContentChunk {
-  HtmlChunk(String)
-  LocalLinkChunk(LinkContent)
-  EmbedChunk(EmbedContent)
+pub enum GraphCallback {
+  LinkCallback(LinkContent)
+  EmbedCallback(EmbedContent)
 }
 
 ///|
-pub type CompiledContent = Array[CompiledContentChunk]
+pub enum GraphContentChunk {
+  HtmlContent(String)
+  CallbackContent(GraphCallback)
+}
+
+///|
+pub type GraphContent = Array[GraphContentChunk]
+
+///|
+pub type CompiledContent = GraphContent
 
 ///|
 pub(all) struct Metadata {
   slug : TreeSlug
   source_id : String
   lang : String?
-  title : String?
+  title : (GraphContent, String)?
   page_title : String?
   taxon : Taxon?
   parent : TreeSlug?
@@ -81,13 +89,13 @@ pub(all) struct Metadata {
   asback : Bool
   footer_mode : String
   footer_sort_by : String?
-} derive(Eq, Debug)
+}
 
 ///|
 pub(all) struct UnresolvedTree {
   slug : TreeSlug
   path : String
-  doc : @core.Document
+  content : GraphContent
   env : @core.CompileEnv
   metadata : Metadata
   dependencies : Array[SourceDependency]
@@ -123,7 +131,7 @@ pub(all) struct CompiledTree {
   references : Array[TreeSlug]
   backlinks : Array[TreeSlug]
   parent : TreeSlug?
-} derive(Debug)
+}
 
 ///|
 pub(all) struct CompiledProject {

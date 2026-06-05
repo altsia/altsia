@@ -16,7 +16,9 @@ pub fn compile_alt_document(Array[SourceFile], String, options? : @backend_html.
 
 pub fn compile_alt_fragment(Array[SourceFile], String) -> Result[String, @core.Diagnostic]
 
-pub fn compile_content_chunks(@core.Document, env? : @core.CompileEnv) -> Result[Array[CompiledContentChunk], @core.Diagnostic]
+pub fn compile_content_chunks(@core.Document, env? : @core.CompileEnv) -> Result[Array[GraphContentChunk], @core.Diagnostic]
+
+pub fn compile_graph_content(@core.Document, env? : @core.CompileEnv) -> Result[Array[GraphContentChunk], @core.Diagnostic]
 
 pub fn compile_project(Project, builtin_env? : @core.CompileEnv) -> Result[CompiledProject, @core.Diagnostic]
 
@@ -33,12 +35,6 @@ pub fn preview_snapshot(ProjectSnapshot, String, options? : @backend_html.HtmlDo
 // Errors
 
 // Types and methods
-pub enum CompiledContentChunk {
-  HtmlChunk(String)
-  LocalLinkChunk(LinkContent)
-  EmbedChunk(EmbedContent)
-}
-
 pub(all) struct CompiledProject {
   root : String
   trees : Array[CompiledTree]
@@ -56,7 +52,7 @@ pub(all) struct CompiledTree {
   references : Array[TreeSlug]
   backlinks : Array[TreeSlug]
   parent : TreeSlug?
-} derive(@debug.Debug)
+}
 
 pub(all) enum DependencyKind {
   UseLibrary
@@ -78,6 +74,16 @@ pub(all) struct EmbedOption {
 } derive(Eq, @debug.Debug)
 pub fn EmbedOption::default() -> Self
 
+pub enum GraphCallback {
+  LinkCallback(LinkContent)
+  EmbedCallback(EmbedContent)
+}
+
+pub enum GraphContentChunk {
+  HtmlContent(String)
+  CallbackContent(GraphCallback)
+}
+
 pub(all) struct LinkContent {
   target : String
   text : String?
@@ -88,7 +94,7 @@ pub(all) struct Metadata {
   slug : TreeSlug
   source_id : String
   lang : String?
-  title : String?
+  title : (Array[GraphContentChunk], String)?
   page_title : String?
   taxon : Taxon?
   parent : TreeSlug?
@@ -98,7 +104,7 @@ pub(all) struct Metadata {
   asback : Bool
   footer_mode : String
   footer_sort_by : String?
-} derive(Eq, @debug.Debug)
+}
 
 pub(all) struct MissingTarget {
   source : String
@@ -173,14 +179,16 @@ pub fn TreeSlug::sibling(Self, Self) -> Self
 pub(all) struct UnresolvedTree {
   slug : TreeSlug
   path : String
-  doc : @core.Document
+  content : Array[GraphContentChunk]
   env : @core.CompileEnv
   metadata : Metadata
   dependencies : Array[SourceDependency]
 }
 
 // Type aliases
-pub type CompiledContent = Array[CompiledContentChunk]
+pub type CompiledContent = Array[GraphContentChunk]
+
+pub type GraphContent = Array[GraphContentChunk]
 
 // Traits
 

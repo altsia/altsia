@@ -187,28 +187,45 @@ fn build_unresolved_trees(
         env.append(imported)
         let default_slug = tree_slug_from_path(item.file.path)
         let source_doc = strip_leading_use_directives(item.doc)
-        let root_metadata = metadata_from_doc(
-          default_slug,
-          item.file.path,
-          source_doc,
-        )
+        let metadata_env = match collect_document_env(source_doc, env) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
+        let root_metadata = match
+          metadata_from_doc(
+            default_slug,
+            item.file.path,
+            source_doc,
+            metadata_env,
+          ) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
         let top_level_slug = root_metadata.slug
-        let extraction = extract_tree_nodes(
-          source_doc.nodes,
-          top_level_slug,
-          item.file.path,
-          env,
-          dependencies,
-          next_anonymous_index=0,
-        )
+        let extraction = match
+          extract_tree_nodes(
+            source_doc.nodes,
+            top_level_slug,
+            item.file.path,
+            env,
+            dependencies,
+            next_anonymous_index=0,
+          ) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
         let root_doc : @core.Document = {
           source: source_doc.source,
           nodes: extraction.visible_nodes,
         }
+        let root_content = match compile_graph_content(root_doc, env~) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
         let root_tree = {
           slug: top_level_slug,
           path: item.file.path,
-          doc: root_doc,
+          content: root_content,
           env,
           metadata: root_metadata,
           dependencies,
@@ -228,6 +245,19 @@ fn build_unresolved_trees(
     }
   }
   Ok(trees)
+}
+
+///|
+fn collect_document_env(
+  doc : @core.Document,
+  base_env : @core.CompileEnv,
+) -> Result[@core.CompileEnv, @core.Diagnostic] {
+  let options : @core.BindingCollectOptions = {
+    include_meta: false,
+    include_let: true,
+    include_def: true,
+  }
+  @core.collect_bindings(doc, base=base_env, options~)
 }
 
 ///|
@@ -263,7 +293,7 @@ fn extract_tree_nodes(
   env : @core.CompileEnv,
   dependencies : Array[SourceDependency],
   next_anonymous_index~ : Int,
-) -> TreeExtraction {
+) -> Result[TreeExtraction, @core.Diagnostic] {
   let visible_nodes : Array[@core.Node] = []
   let trees : Array[UnresolvedTree] = []
   let mut next_index = next_anonymous_index
@@ -273,14 +303,18 @@ fn extract_tree_nodes(
         match tree_slug_attr(attrs) {
           Some(local_slug) => {
             let slug = child_tree_slug(top_level_slug, local_slug)
-            let child = extract_tree_nodes(
-              children,
-              top_level_slug,
-              source_path,
-              env,
-              dependencies,
-              next_anonymous_index=next_index,
-            )
+            let child = match
+              extract_tree_nodes(
+                children,
+                top_level_slug,
+                source_path,
+                env,
+                dependencies,
+                next_anonymous_index=next_index,
+              ) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
             next_index = child.next_anonymous_index
             let doc : @core.Document = {
               source: {
@@ -290,27 +324,44 @@ fn extract_tree_nodes(
               },
               nodes: child.visible_nodes,
             }
+            let metadata_env = match collect_document_env(doc, env) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
+            let content = match compile_graph_content(doc, env~) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
             trees.push({
               slug,
               path: source_path,
-              doc,
+              content,
               env,
-              metadata: metadata_from_tree(slug, source_path, attrs, doc),
+              metadata: match
+                metadata_from_tree(slug, source_path, attrs, doc, metadata_env) {
+                Ok(value) => value
+                Err(error) => return Err(error)
+              },
               dependencies,
             })
             trees.append(child.trees)
+            visible_nodes.push(tree_embed_node(slug, attrs, span))
           }
           None => {
             next_index += 1
             let anchor = anonymous_tree_anchor(top_level_slug, next_index)
-            let child = extract_tree_nodes(
-              children,
-              top_level_slug,
-              source_path,
-              env,
-              dependencies,
-              next_anonymous_index=next_index,
-            )
+            let child = match
+              extract_tree_nodes(
+                children,
+                top_level_slug,
+                source_path,
+                env,
+                dependencies,
+                next_anonymous_index=next_index,
+              ) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
             next_index = child.next_anonymous_index
             trees.append(child.trees)
             visible_nodes.push(
@@ -324,53 +375,52 @@ fn extract_tree_nodes(
           }
         }
       Element(tag, attrs, children, span) => {
-        let child = extract_tree_nodes(
-          children,
-          top_level_slug,
-          source_path,
-          env,
-          dependencies,
-          next_anonymous_index=next_index,
-        )
+        let child = match
+          extract_tree_nodes(
+            children,
+            top_level_slug,
+            source_path,
+            env,
+            dependencies,
+            next_anonymous_index=next_index,
+          ) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
         next_index = child.next_anonymous_index
         trees.append(child.trees)
         visible_nodes.push(Element(tag, attrs, child.visible_nodes, span))
       }
-      HtmlHead(attrs, children, span) => {
-        let child = extract_tree_nodes(
-          children,
-          top_level_slug,
-          source_path,
-          env,
-          dependencies,
-          next_anonymous_index=next_index,
-        )
-        next_index = child.next_anonymous_index
-        trees.append(child.trees)
-        visible_nodes.push(HtmlHead(attrs, child.visible_nodes, span))
-      }
       When(name, children, span) => {
-        let child = extract_tree_nodes(
-          children,
-          top_level_slug,
-          source_path,
-          env,
-          dependencies,
-          next_anonymous_index=next_index,
-        )
+        let child = match
+          extract_tree_nodes(
+            children,
+            top_level_slug,
+            source_path,
+            env,
+            dependencies,
+            next_anonymous_index=next_index,
+          ) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
         next_index = child.next_anonymous_index
         trees.append(child.trees)
         visible_nodes.push(When(name, child.visible_nodes, span))
       }
       Unless(name, children, span) => {
-        let child = extract_tree_nodes(
-          children,
-          top_level_slug,
-          source_path,
-          env,
-          dependencies,
-          next_anonymous_index=next_index,
-        )
+        let child = match
+          extract_tree_nodes(
+            children,
+            top_level_slug,
+            source_path,
+            env,
+            dependencies,
+            next_anonymous_index=next_index,
+          ) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
         next_index = child.next_anonymous_index
         trees.append(child.trees)
         visible_nodes.push(Unless(name, child.visible_nodes, span))
@@ -378,7 +428,7 @@ fn extract_tree_nodes(
       _ => visible_nodes.push(node)
     }
   }
-  { visible_nodes, trees, next_anonymous_index: next_index }
+  Ok({ visible_nodes, trees, next_anonymous_index: next_index })
 }
 
 ///|
@@ -401,6 +451,33 @@ fn html_attr(
   span : @core.SourceSpan,
 ) -> @core.Attr {
   { name, value: Some(Scalar(value, span)), span }
+}
+
+///|
+fn tree_embed_node(
+  slug : TreeSlug,
+  attrs : Array[@core.Attr],
+  span : @core.SourceSpan,
+) -> @core.Node {
+  let children : Array[@core.Node] = [Text("/" + slug.canonical(), span)]
+  match tree_title_attr(attrs) {
+    Some(title) => children.push(Text(title, span))
+    None => ()
+  }
+  Element("embed", [], children, span)
+}
+
+///|
+fn tree_title_attr(attrs : Array[@core.Attr]) -> String? {
+  for attr in attrs {
+    if attr.name == "title" {
+      match attr_scalar(attr) {
+        Some(value) => return Some(value)
+        None => ()
+      }
+    }
+  }
+  None
 }
 
 ///|

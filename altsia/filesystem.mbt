@@ -1,12 +1,12 @@
 ///|
-pub fn find_project_root(start : String) -> ProjectConfig? {
-  let mut current = normalize_path(start)
+pub fn find_project_root(start : String) -> ProjectRoot? {
+  let mut current = @model.normalize_path(start)
   while true {
-    let config_path = join_path(current, "altsia.toml")
+    let config_path = @model.join_path(current, "altsia.toml")
     if @fs.path_exists(config_path) {
       return Some({ root: current, config_path })
     }
-    let parent = dirname(current)
+    let parent = @model.dirname(current)
     if parent == current || parent == "" {
       return None
     }
@@ -39,7 +39,7 @@ fn collect_source_files(
     IOError(message) => return Err(message)
   }
   for entry in entries {
-    let path = join_path(dir, entry)
+    let path = @model.join_path(dir, entry)
     let is_dir = @fs.is_dir(path) catch { IOError(_) => false }
     if is_dir {
       if entry != ".mooncakes" && entry != "_build" && entry != ".git" {
@@ -49,7 +49,7 @@ fn collect_source_files(
         }
       }
     } else {
-      match source_kind(path) {
+      match @model.source_file_kind(path) {
         Some(_) => {
           let source = @fs.read_file_to_string(path) catch {
             IOError(message) => return Err(message)

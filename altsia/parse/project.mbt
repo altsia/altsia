@@ -1,29 +1,29 @@
 ///|
 priv struct ParsedSource {
   file : SourceFile
-  kind : SourceKind
+  kind : SourceFileKind
   doc : @core.Document
   module_name : String?
 }
 
 ///|
-priv struct ParsedProject {
+priv struct ParsedSourceSet {
   sources : Array[ParsedSource]
-  by_path : Map[String, ParsedSource]
+  sources_by_path : Map[String, ParsedSource]
 }
 
 ///|
-priv struct TreeExtraction {
-  visible_nodes : Array[@core.Node]
-  trees : Array[UnresolvedTree]
-  next_anonymous_index : Int
+priv struct TreeLowering {
+  inline_nodes : Array[@core.Node]
+  trees : Array[ParsedTree]
+  next_section_index : Int
 }
 
 ///|
 fn parse_source_file(
   file : SourceFile,
 ) -> Result[ParsedSource, @core.Diagnostic] {
-  let kind = match source_kind(file.path) {
+  let kind = match source_file_kind(file.path) {
     Some(value) => value
     None =>
       return Err(
@@ -57,21 +57,21 @@ fn parse_source_file(
 ///|
 fn parse_project_sources(
   sources : Array[SourceFile],
-) -> Result[ParsedProject, @core.Diagnostic] {
+) -> Result[ParsedSourceSet, @core.Diagnostic] {
   let parsed : Array[ParsedSource] = []
-  let by_path : Map[String, ParsedSource] = Map([])
+  let sources_by_path : Map[String, ParsedSource] = Map([])
   for source in sources {
     match parse_source_file(source) {
       Ok(item) => {
         parsed.push(item)
-        by_path[normalize_path(item.file.path)] = item
+        sources_by_path[normalize_path(item.file.path)] = item
       }
       Err(error) => return Err(error)
     }
   }
   match check_duplicate_modules(parsed) {
     Some(error) => Err(error)
-    None => Ok({ sources: parsed, by_path })
+    None => Ok({ sources: parsed, sources_by_path })
   }
 }
 
@@ -100,18 +100,18 @@ fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
 }
 
 ///|
-fn find_parsed_source(parsed : ParsedProject, path : String) -> ParsedSource? {
-  parsed.by_path.get(normalize_path(path))
+fn find_parsed_source(parsed : ParsedSourceSet, path : String) -> ParsedSource? {
+  parsed.sources_by_path.get(normalize_path(path))
 }
 
 ///|
-fn build_import_env(
+fn resolve_use_directives(
   current : ParsedSource,
-  parsed : ParsedProject,
+  parsed : ParsedSourceSet,
   builtin_env : @core.CompileEnv,
-) -> Result[(@core.CompileEnv, Array[SourceDependency]), @core.Diagnostic] {
+) -> Result[(@core.CompileEnv, Array[SourceFileDependency]), @core.Diagnostic] {
   let env = @core.CompileEnv::empty()
-  let dependencies : Array[SourceDependency] = []
+  let source_file_dependencies : Array[SourceFileDependency] = []
   for directive in leading_use_directives(current.doc) {
     if !has_suffix(directive.target, ".sia") {
       return Err(
@@ -128,10 +128,10 @@ fn build_import_env(
       Some(library) =>
         match library.kind {
           Sia => {
-            dependencies.push({
+            source_file_dependencies.push({
               source: current.file.path,
               target: library.file.path,
-              kind: UseLibrary,
+              kind: LibraryUse,
             })
             let module_name = library.module_name.unwrap_or("")
             match
@@ -165,29 +165,30 @@ fn build_import_env(
         )
     }
   }
-  Ok((env, dependencies))
+  Ok((env, source_file_dependencies))
 }
 
 ///|
-fn build_unresolved_trees(
-  parsed : ParsedProject,
+fn lower_parsed_sources(
+  parsed : ParsedSourceSet,
   builtin_env : @core.CompileEnv,
-) -> Result[Array[UnresolvedTree], @core.Diagnostic] {
-  let trees : Array[UnresolvedTree] = []
+) -> Result[Array[ParsedTree], @core.Diagnostic] {
+  let trees : Array[ParsedTree] = []
   let tree_sources_by_slug : Map[String, String] = Map([])
   for item in parsed.sources {
     match item.kind {
       Alt => {
-        let import_result = match build_import_env(item, parsed, builtin_env) {
+        let import_result = match
+          resolve_use_directives(item, parsed, builtin_env) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
-        let (imported, dependencies) = import_result
+        let (imported, source_file_dependencies) = import_result
         let env = builtin_env.copy()
         env.append(imported)
         let default_slug = tree_slug_from_path(item.file.path)
         let source_doc = strip_leading_use_directives(item.doc)
-        let metadata_env = match collect_document_env(source_doc, env) {
+        let metadata_env = match collect_local_bindings(source_doc, env) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
@@ -203,39 +204,38 @@ fn build_unresolved_trees(
         }
         let top_level_slug = root_metadata.slug
         let extraction = match
-          extract_tree_nodes(
+          lower_tree_nodes(
             source_doc.nodes,
             top_level_slug,
             item.file.path,
             env,
-            dependencies,
-            next_anonymous_index=0,
+            source_file_dependencies,
+            next_section_index=0,
           ) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
         let root_doc : @core.Document = {
           source: source_doc.source,
-          nodes: extraction.visible_nodes,
+          nodes: extraction.inline_nodes,
         }
-        let root_content = match compile_graph_content(root_doc, env~) {
+        let root_content = match compile_rich_content(root_doc, env~) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
-        let root_tree = {
+        let root_tree : @model.ParsedTree = {
           slug: top_level_slug,
           path: item.file.path,
           content: root_content,
-          env,
           metadata: root_metadata,
-          dependencies,
+          source_file_dependencies,
         }
-        match add_unresolved_tree(trees, tree_sources_by_slug, root_tree) {
+        match add_parsed_tree(trees, tree_sources_by_slug, root_tree) {
           Some(error) => return Err(error)
           None => ()
         }
         for tree in extraction.trees {
-          match add_unresolved_tree(trees, tree_sources_by_slug, tree) {
+          match add_parsed_tree(trees, tree_sources_by_slug, tree) {
             Some(error) => return Err(error)
             None => ()
           }
@@ -248,7 +248,7 @@ fn build_unresolved_trees(
 }
 
 ///|
-fn collect_document_env(
+fn collect_local_bindings(
   doc : @core.Document,
   base_env : @core.CompileEnv,
 ) -> Result[@core.CompileEnv, @core.Diagnostic] {
@@ -261,10 +261,10 @@ fn collect_document_env(
 }
 
 ///|
-fn add_unresolved_tree(
-  trees : Array[UnresolvedTree],
+fn add_parsed_tree(
+  trees : Array[ParsedTree],
   tree_sources_by_slug : Map[String, String],
-  tree : UnresolvedTree,
+  tree : ParsedTree,
 ) -> @core.Diagnostic? {
   let key = tree.slug.canonical()
   match tree_sources_by_slug.get(key) {
@@ -286,17 +286,17 @@ fn add_unresolved_tree(
 }
 
 ///|
-fn extract_tree_nodes(
+fn lower_tree_nodes(
   nodes : Array[@core.Node],
   top_level_slug : TreeSlug,
   source_path : String,
   env : @core.CompileEnv,
-  dependencies : Array[SourceDependency],
-  next_anonymous_index~ : Int,
-) -> Result[TreeExtraction, @core.Diagnostic] {
-  let visible_nodes : Array[@core.Node] = []
-  let trees : Array[UnresolvedTree] = []
-  let mut next_index = next_anonymous_index
+  source_file_dependencies : Array[SourceFileDependency],
+  next_section_index~ : Int,
+) -> Result[TreeLowering, @core.Diagnostic] {
+  let inline_nodes : Array[@core.Node] = []
+  let trees : Array[ParsedTree] = []
+  let mut next_index = next_section_index
   for node in nodes {
     match node {
       Element("tree", attrs, children, span) =>
@@ -304,71 +304,71 @@ fn extract_tree_nodes(
           Some(local_slug) => {
             let slug = child_tree_slug(top_level_slug, local_slug)
             let child = match
-              extract_tree_nodes(
+              lower_tree_nodes(
                 children,
                 top_level_slug,
                 source_path,
                 env,
-                dependencies,
-                next_anonymous_index=next_index,
+                source_file_dependencies,
+                next_section_index=next_index,
               ) {
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            next_index = child.next_anonymous_index
+            next_index = child.next_section_index
             let doc : @core.Document = {
               source: {
                 id: Some(source_path),
                 line_offset: 0,
                 column_offset: 0,
               },
-              nodes: child.visible_nodes,
+              nodes: child.inline_nodes,
             }
-            let metadata_env = match collect_document_env(doc, env) {
+            let metadata_env = match collect_local_bindings(doc, env) {
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            let content = match compile_graph_content(doc, env~) {
+            let content = match compile_rich_content(doc, env~) {
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            trees.push({
+            let extracted_tree : @model.ParsedTree = {
               slug,
               path: source_path,
               content,
-              env,
               metadata: match
                 metadata_from_tree(slug, source_path, attrs, doc, metadata_env) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               },
-              dependencies,
-            })
+              source_file_dependencies,
+            }
+            trees.push(extracted_tree)
             trees.append(child.trees)
-            visible_nodes.push(tree_embed_node(slug, attrs, span))
+            inline_nodes.push(embedded_tree_reference_node(slug, attrs, span))
           }
           None => {
             next_index += 1
             let anchor = anonymous_tree_anchor(top_level_slug, next_index)
             let child = match
-              extract_tree_nodes(
+              lower_tree_nodes(
                 children,
                 top_level_slug,
                 source_path,
                 env,
-                dependencies,
-                next_anonymous_index=next_index,
+                source_file_dependencies,
+                next_section_index=next_index,
               ) {
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            next_index = child.next_anonymous_index
+            next_index = child.next_section_index
             trees.append(child.trees)
-            visible_nodes.push(
+            inline_nodes.push(
               Element(
                 "section",
                 [html_attr("id", anchor, span)],
-                child.visible_nodes,
+                child.inline_nodes,
                 span,
               ),
             )
@@ -376,59 +376,59 @@ fn extract_tree_nodes(
         }
       Element(tag, attrs, children, span) => {
         let child = match
-          extract_tree_nodes(
+          lower_tree_nodes(
             children,
             top_level_slug,
             source_path,
             env,
-            dependencies,
-            next_anonymous_index=next_index,
+            source_file_dependencies,
+            next_section_index=next_index,
           ) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
-        next_index = child.next_anonymous_index
+        next_index = child.next_section_index
         trees.append(child.trees)
-        visible_nodes.push(Element(tag, attrs, child.visible_nodes, span))
+        inline_nodes.push(Element(tag, attrs, child.inline_nodes, span))
       }
       When(name, children, span) => {
         let child = match
-          extract_tree_nodes(
+          lower_tree_nodes(
             children,
             top_level_slug,
             source_path,
             env,
-            dependencies,
-            next_anonymous_index=next_index,
+            source_file_dependencies,
+            next_section_index=next_index,
           ) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
-        next_index = child.next_anonymous_index
+        next_index = child.next_section_index
         trees.append(child.trees)
-        visible_nodes.push(When(name, child.visible_nodes, span))
+        inline_nodes.push(When(name, child.inline_nodes, span))
       }
       Unless(name, children, span) => {
         let child = match
-          extract_tree_nodes(
+          lower_tree_nodes(
             children,
             top_level_slug,
             source_path,
             env,
-            dependencies,
-            next_anonymous_index=next_index,
+            source_file_dependencies,
+            next_section_index=next_index,
           ) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
-        next_index = child.next_anonymous_index
+        next_index = child.next_section_index
         trees.append(child.trees)
-        visible_nodes.push(Unless(name, child.visible_nodes, span))
+        inline_nodes.push(Unless(name, child.inline_nodes, span))
       }
-      _ => visible_nodes.push(node)
+      _ => inline_nodes.push(node)
     }
   }
-  Ok({ visible_nodes, trees, next_anonymous_index: next_index })
+  Ok({ inline_nodes, trees, next_section_index: next_index })
 }
 
 ///|
@@ -454,7 +454,7 @@ fn html_attr(
 }
 
 ///|
-fn tree_embed_node(
+fn embedded_tree_reference_node(
   slug : TreeSlug,
   attrs : Array[@core.Attr],
   span : @core.SourceSpan,
@@ -481,57 +481,14 @@ fn tree_title_attr(attrs : Array[@core.Attr]) -> String? {
 }
 
 ///|
-pub fn Project::new(root : String, sources : Array[SourceFile]) -> Project {
-  { root, sources }
-}
-
-///|
-pub fn compile_project(
+pub fn parse_project_trees(
   project : Project,
   builtin_env? : @core.CompileEnv,
-) -> Result[CompiledProject, @core.Diagnostic] {
-  match builtin_env {
-    Some(env) =>
-      compile_project_with_options(project, strict=false, builtin_env=env)
-    None => compile_project_with_options(project, strict=false)
-  }
-}
-
-///|
-pub fn compile_project_strict(
-  project : Project,
-  builtin_env? : @core.CompileEnv,
-) -> Result[CompiledProject, @core.Diagnostic] {
-  match builtin_env {
-    Some(env) =>
-      compile_project_with_options(project, strict=true, builtin_env=env)
-    None => compile_project_with_options(project, strict=true)
-  }
-}
-
-///|
-fn compile_project_with_options(
-  project : Project,
-  strict~ : Bool,
-  builtin_env? : @core.CompileEnv,
-) -> Result[CompiledProject, @core.Diagnostic] {
+) -> Result[Array[ParsedTree], @core.Diagnostic] {
   let base_env = builtin_env.unwrap_or(@core.CompileEnv::empty())
   let parsed = match parse_project_sources(project.sources) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let unresolved = match build_unresolved_trees(parsed, base_env) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let state = CompileState::new(project.root, unresolved)
-  match state.compile_all() {
-    Err(error) => Err(error)
-    Ok(compiled) =>
-      if strict && compiled.diagnostics.length() > 0 {
-        Err(compiled.diagnostics[0])
-      } else {
-        Ok(compiled)
-      }
-  }
+  lower_parsed_sources(parsed, base_env)
 }

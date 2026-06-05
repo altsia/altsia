@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "kokic/altsia/compile"
+
+import {
+  "kokic/altsia/model",
+  "kokic/tinymark/core",
+}
+
+// Values
+pub fn compile_parsed_project(String, Array[@model.ParsedTree]) -> Result[@model.CompiledProject, @core.Diagnostic]
+
+pub fn dangling_tree_links_for_entry(Array[@model.DanglingTreeLink], Array[@model.SourceFileDependency], String) -> Array[@model.DanglingTreeLink]
+
+pub fn expand_dirty_sources(@model.CompiledProject, Array[String]) -> Array[String]
+
+pub fn source_file_dependencies_for_entry(Array[@model.SourceFileDependency], String) -> Array[@model.SourceFileDependency]
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

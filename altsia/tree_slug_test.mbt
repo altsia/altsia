@@ -7,7 +7,7 @@ test "extracts explicit tree as independent output with sibling slug" {
   @test.assert_eq(project.trees[0].slug, slug("math/a"))
   @test.assert_eq(
     project.trees[0].html,
-    "<p>Root. </p><div class=\"embed\" data-tree=\"math/b\"><p>Child.</p></div>",
+    "<p>Root. </p><details class=\"embed\" data-tree=\"math/b\" open><summary>B</summary><p>Child.</p></details>",
   )
   @test.assert_eq(project.trees[1].slug, slug("math/b"))
   @test.assert_eq(project.trees[1].html, "<p>Child.</p>")

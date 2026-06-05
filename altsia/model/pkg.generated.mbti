@@ -1,0 +1,199 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "kokic/altsia/model"
+
+import {
+  "kokic/tinymark/core",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn anonymous_tree_anchor(TreeSlug, Int) -> String
+
+pub fn basename(String) -> String
+
+pub fn child_tree_slug(TreeSlug, String) -> TreeSlug
+
+pub fn compiled_tree_by_slug(CompiledProject, TreeSlug) -> CompiledTree?
+
+pub fn diagnostic(@core.SourceSpan, @core.DiagnosticPhase, String, hint? : String) -> @core.Diagnostic
+
+pub fn dirname(String) -> String
+
+pub fn has_suffix(String, String) -> Bool
+
+pub fn join_path(String, String) -> String
+
+pub fn module_name_from_path(String) -> String
+
+pub fn normalize_path(String) -> String
+
+pub fn resolve_relative(String, String) -> String
+
+pub fn source_diagnostic(String, @core.DiagnosticPhase, String, hint? : String) -> @core.Diagnostic
+
+pub fn source_file_kind(String) -> SourceFileKind?
+
+pub fn source_span(String, message_line? : String) -> @core.SourceSpan
+
+pub fn strip_extension(String, String) -> String
+
+pub fn tree_page_title(CompiledTree) -> String?
+
+pub fn tree_slug_from_path(String) -> TreeSlug
+
+pub fn tree_slug_from_target(String, String) -> TreeSlug
+
+pub fn tree_title(CompiledTree) -> String
+
+pub fn url_for_tree(TreeSlug) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct CompiledProject {
+  root : String
+  trees : Array[CompiledTree]
+  diagnostics : Array[@core.Diagnostic]
+  source_file_dependencies : Array[SourceFileDependency]
+  dangling_tree_links : Array[DanglingTreeLink]
+}
+
+pub(all) struct CompiledTree {
+  slug : TreeSlug
+  path : String
+  html : String
+  metadata : Metadata
+  references : Array[TreeSlug]
+  backlinks : Array[TreeSlug]
+  parent : TreeSlug?
+}
+
+pub(all) struct DanglingTreeLink {
+  source : String
+  target : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct EmbedDirective {
+  target : String
+  title : String?
+  option : EmbedOption
+  span : @core.SourceSpan
+}
+
+pub(all) struct EmbedOption {
+  numbering : Bool
+  details_open : Bool
+  catalog : Bool
+} derive(Eq, @debug.Debug)
+pub fn EmbedOption::default() -> Self
+
+pub(all) struct LinkDirective {
+  target : String
+  text : String?
+  span : @core.SourceSpan
+}
+
+pub(all) struct Metadata {
+  slug : TreeSlug
+  source_id : String
+  lang : String?
+  title : (Array[RichContentChunk], String)?
+  page_title : String?
+  taxon : Taxon?
+  parent : TreeSlug?
+  show_references : Bool
+  show_backlinks : Bool
+  asref : Bool
+  asback : Bool
+  footer_mode : String
+  footer_sort_by : String?
+}
+
+pub(all) struct ParsedTree {
+  slug : TreeSlug
+  path : String
+  content : Array[RichContentChunk]
+  metadata : Metadata
+  source_file_dependencies : Array[SourceFileDependency]
+}
+
+pub(all) struct PreviewResult {
+  html : String
+  diagnostics : Array[@core.Diagnostic]
+  source_file_dependencies : Array[SourceFileDependency]
+  dangling_tree_links : Array[DanglingTreeLink]
+  entry_tree_slug : TreeSlug
+  title : String?
+}
+
+pub(all) struct Project {
+  root : String
+  sources : Array[SourceFile]
+} derive(Eq, @debug.Debug)
+pub fn Project::new(String, Array[SourceFile]) -> Self
+
+pub(all) struct ProjectRoot {
+  root : String
+  config_path : String
+} derive(Eq, @debug.Debug)
+
+pub(all) enum RichContentChunk {
+  HtmlChunk(String)
+  DirectiveChunk(RichContentDirective)
+}
+
+pub(all) enum RichContentDirective {
+  RichLinkDirective(LinkDirective)
+  RichEmbedDirective(EmbedDirective)
+}
+
+pub(all) struct SourceFile {
+  path : String
+  source : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct SourceFileDependency {
+  source : String
+  target : String
+  kind : SourceFileDependencyKind
+} derive(Eq, @debug.Debug)
+
+pub(all) enum SourceFileDependencyKind {
+  LibraryUse
+  TreeLink
+  TreeEmbed
+} derive(Eq, @debug.Debug)
+
+pub enum SourceFileKind {
+  Alt
+  Sia
+} derive(Eq, @debug.Debug)
+
+pub struct Taxon {
+  key : TaxonKey
+  display : String?
+} derive(Eq, @debug.Debug)
+pub fn Taxon::data_key(Self) -> String
+pub fn Taxon::display(Self, String?) -> String
+pub fn Taxon::is_reference(Self) -> Bool
+pub fn Taxon::new(String, display? : String) -> Self
+pub fn Taxon::with_display(Self, String) -> Self
+
+pub struct TaxonKey {
+  value : String
+} derive(Eq, @debug.Debug)
+pub fn TaxonKey::new(String) -> Self
+
+pub struct TreeSlug {
+  segments : Array[String]
+} derive(Eq, @debug.Debug)
+pub fn TreeSlug::canonical(Self) -> String
+pub fn TreeSlug::from_file_path(String) -> Self
+pub fn TreeSlug::parse(String) -> Self
+pub fn TreeSlug::sibling(Self, Self) -> Self
+
+// Type aliases
+pub type RichContent = Array[RichContentChunk]
+
+// Traits
+

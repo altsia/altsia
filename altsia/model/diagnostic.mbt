@@ -1,5 +1,5 @@
 ///|
-fn diagnostic(
+pub fn diagnostic(
   span : @core.SourceSpan,
   phase : @core.DiagnosticPhase,
   message : String,
@@ -12,7 +12,10 @@ fn diagnostic(
 }
 
 ///|
-fn source_span(source_id : String, message_line? : String) -> @core.SourceSpan {
+pub fn source_span(
+  source_id : String,
+  message_line? : String,
+) -> @core.SourceSpan {
   {
     source_id: Some(source_id),
     line: 1,
@@ -23,7 +26,7 @@ fn source_span(source_id : String, message_line? : String) -> @core.SourceSpan {
 }
 
 ///|
-fn source_diagnostic(
+pub fn source_diagnostic(
   source_id : String,
   phase : @core.DiagnosticPhase,
   message : String,

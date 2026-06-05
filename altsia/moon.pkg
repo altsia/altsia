@@ -1,4 +1,8 @@
 import {
+  "kokic/altsia/model",
+  "kokic/altsia/content",
+  "kokic/altsia/parse",
+  "kokic/altsia/compile",
   "kokic/tinymark/core",
   "kokic/tinymark/backend_html" @html,
   "kokic/sexp-html" @sexp,

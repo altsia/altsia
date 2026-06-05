@@ -1,0 +1,5 @@
+import {
+  "kokic/altsia/model",
+  "kokic/altsia/content",
+  "kokic/tinymark/core",
+}

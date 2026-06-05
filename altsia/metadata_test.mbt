@@ -25,8 +25,8 @@ test "title is rich content with plain text fallback" {
       @test.assert_eq(fallback_text, "Important")
       @test.assert_eq(content.length(), 1)
       match content[0] {
-        HtmlContent(html) => @test.assert_eq(html, "<em>Important</em>")
-        CallbackContent(_) => abort("expected title html")
+        HtmlChunk(html) => @test.assert_eq(html, "<em>Important</em>")
+        DirectiveChunk(_) => abort("expected title html")
       }
     }
     None => abort("expected rich title")

@@ -2,193 +2,78 @@
 package "kokic/altsia"
 
 import {
+  "kokic/altsia/model",
   "kokic/tinymark/backend_html",
   "kokic/tinymark/core",
-  "moonbitlang/core/debug",
 }
 
 // Values
-pub fn check_project(Project) -> Result[CompiledProject, @core.Diagnostic]
+pub fn check_project(@model.Project) -> Result[@model.CompiledProject, @core.Diagnostic]
 
-pub fn check_snapshot(ProjectSnapshot) -> Result[CompiledProject, @core.Diagnostic]
+pub fn compile_alt_document(Array[@model.SourceFile], String, options? : @backend_html.HtmlDocumentOptions) -> Result[String, @core.Diagnostic]
 
-pub fn compile_alt_document(Array[SourceFile], String, options? : @backend_html.HtmlDocumentOptions) -> Result[String, @core.Diagnostic]
+pub fn compile_alt_fragment(Array[@model.SourceFile], String) -> Result[String, @core.Diagnostic]
 
-pub fn compile_alt_fragment(Array[SourceFile], String) -> Result[String, @core.Diagnostic]
+pub fn compile_project(@model.Project, builtin_env? : @core.CompileEnv) -> Result[@model.CompiledProject, @core.Diagnostic]
 
-pub fn compile_content_chunks(@core.Document, env? : @core.CompileEnv) -> Result[Array[GraphContentChunk], @core.Diagnostic]
+pub fn compile_project_strict(@model.Project, builtin_env? : @core.CompileEnv) -> Result[@model.CompiledProject, @core.Diagnostic]
 
-pub fn compile_graph_content(@core.Document, env? : @core.CompileEnv) -> Result[Array[GraphContentChunk], @core.Diagnostic]
+pub fn compile_rich_content(@core.Document, env? : @core.CompileEnv) -> Result[Array[@model.RichContentChunk], @core.Diagnostic]
 
-pub fn compile_project(Project, builtin_env? : @core.CompileEnv) -> Result[CompiledProject, @core.Diagnostic]
+pub fn discover_project(String) -> Result[@model.Project, String]
 
-pub fn compile_project_strict(Project, builtin_env? : @core.CompileEnv) -> Result[CompiledProject, @core.Diagnostic]
+pub fn expand_dirty_sources(@model.CompiledProject, Array[String]) -> Array[String]
 
-pub fn discover_project(String) -> Result[Project, String]
+pub fn find_project_root(String) -> @model.ProjectRoot?
 
-pub fn find_project_root(String) -> ProjectConfig?
-
-pub fn preview_project(Project, String, options? : @backend_html.HtmlDocumentOptions) -> Result[PreviewResult, @core.Diagnostic]
-
-pub fn preview_snapshot(ProjectSnapshot, String, options? : @backend_html.HtmlDocumentOptions) -> Result[PreviewResult, @core.Diagnostic]
+pub fn preview_project(@model.Project, String, options? : @backend_html.HtmlDocumentOptions) -> Result[@model.PreviewResult, @core.Diagnostic]
 
 // Errors
 
 // Types and methods
-pub(all) struct CompiledProject {
-  root : String
-  trees : Array[CompiledTree]
-  trees_by_slug : Map[String, CompiledTree]
-  diagnostics : Array[@core.Diagnostic]
-  dependencies : Array[SourceDependency]
-  missing_targets : Array[MissingTarget]
-}
-
-pub(all) struct CompiledTree {
-  slug : TreeSlug
-  path : String
-  html : String
-  metadata : Metadata
-  references : Array[TreeSlug]
-  backlinks : Array[TreeSlug]
-  parent : TreeSlug?
-}
-
-pub(all) enum DependencyKind {
-  UseLibrary
-  LocalLink
-  Embed
-} derive(Eq, @debug.Debug)
-
-pub(all) struct EmbedContent {
-  target : String
-  title : String?
-  option : EmbedOption
-  span : @core.SourceSpan
-}
-
-pub(all) struct EmbedOption {
-  numbering : Bool
-  details_open : Bool
-  catalog : Bool
-} derive(Eq, @debug.Debug)
-pub fn EmbedOption::default() -> Self
-
-pub enum GraphCallback {
-  LinkCallback(LinkContent)
-  EmbedCallback(EmbedContent)
-}
-
-pub enum GraphContentChunk {
-  HtmlContent(String)
-  CallbackContent(GraphCallback)
-}
-
-pub(all) struct LinkContent {
-  target : String
-  text : String?
-  span : @core.SourceSpan
-}
-
-pub(all) struct Metadata {
-  slug : TreeSlug
-  source_id : String
-  lang : String?
-  title : (Array[GraphContentChunk], String)?
-  page_title : String?
-  taxon : Taxon?
-  parent : TreeSlug?
-  show_references : Bool
-  show_backlinks : Bool
-  asref : Bool
-  asback : Bool
-  footer_mode : String
-  footer_sort_by : String?
-}
-
-pub(all) struct MissingTarget {
-  source : String
-  target : String
-  kind : DependencyKind
-} derive(Eq, @debug.Debug)
-
-pub(all) struct PreviewResult {
-  html : String
-  diagnostics : Array[@core.Diagnostic]
-  dependencies : Array[SourceDependency]
-  missing_targets : Array[MissingTarget]
-  entry_tree_slug : TreeSlug
-  title : String?
-}
-
-pub(all) struct Project {
-  root : String
-  sources : Array[SourceFile]
-} derive(Eq, @debug.Debug)
-pub fn Project::new(String, Array[SourceFile]) -> Self
-
-pub(all) struct ProjectConfig {
-  root : String
-  config_path : String
-} derive(Eq, @debug.Debug)
-
-pub(all) struct ProjectSnapshot {
-  root : String
-  sources : Array[SourceFile]
-  open_file : String?
-} derive(Eq, @debug.Debug)
-
-pub(all) struct SourceDependency {
-  source : String
-  target : String
-  kind : DependencyKind
-} derive(Eq, @debug.Debug)
-
-pub(all) struct SourceFile {
-  path : String
-  source : String
-} derive(Eq, @debug.Debug)
-
-pub enum SourceKind {
-  Alt
-  Sia
-} derive(Eq, @debug.Debug)
-
-pub struct Taxon {
-  key : TaxonKey
-  display : String?
-} derive(Eq, @debug.Debug)
-pub fn Taxon::data_key(Self) -> String
-pub fn Taxon::display(Self, String?) -> String
-pub fn Taxon::is_reference(Self) -> Bool
-pub fn Taxon::new(String, display? : String) -> Self
-
-pub struct TaxonKey {
-  value : String
-} derive(Eq, @debug.Debug)
-pub fn TaxonKey::new(String) -> Self
-
-pub struct TreeSlug {
-  segments : Array[String]
-} derive(Eq, @debug.Debug)
-pub fn TreeSlug::canonical(Self) -> String
-pub fn TreeSlug::from_file_path(String) -> Self
-pub fn TreeSlug::parse(String) -> Self
-pub fn TreeSlug::sibling(Self, Self) -> Self
-
-pub(all) struct UnresolvedTree {
-  slug : TreeSlug
-  path : String
-  content : Array[GraphContentChunk]
-  env : @core.CompileEnv
-  metadata : Metadata
-  dependencies : Array[SourceDependency]
-}
 
 // Type aliases
-pub type CompiledContent = Array[GraphContentChunk]
+pub using @model {type CompiledProject}
 
-pub type GraphContent = Array[GraphContentChunk]
+pub using @model {type CompiledTree}
+
+pub using @model {type DanglingTreeLink}
+
+pub using @model {type EmbedDirective}
+
+pub using @model {type EmbedOption}
+
+pub using @model {type LinkDirective}
+
+pub using @model {type Metadata}
+
+pub using @model {type ParsedTree}
+
+pub using @model {type PreviewResult}
+
+pub using @model {type Project}
+
+pub using @model {type ProjectRoot}
+
+pub type RichContent = Array[@model.RichContentChunk]
+
+pub using @model {type RichContentChunk}
+
+pub using @model {type RichContentDirective}
+
+pub using @model {type SourceFile}
+
+pub using @model {type SourceFileDependency}
+
+pub using @model {type SourceFileDependencyKind}
+
+pub using @model {type SourceFileKind}
+
+pub using @model {type Taxon}
+
+pub using @model {type TaxonKey}
+
+pub using @model {type TreeSlug}
 
 // Traits
 

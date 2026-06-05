@@ -5,29 +5,12 @@ priv struct UseDirective {
 }
 
 ///|
-fn text_from_node(node : @core.Node) -> String? {
-  match node {
-    Text(text, _) | TextInterp(text, _) => Some(text)
-    _ => None
-  }
-}
-
-///|
-fn use_target(children : Array[@core.Node]) -> String? {
-  if children.length() == 0 {
-    None
-  } else {
-    text_from_node(children[0])
-  }
-}
-
-///|
 fn leading_use_directives(doc : @core.Document) -> Array[UseDirective] {
   let uses : Array[UseDirective] = []
   for node in doc.nodes {
     match node {
       Element("use", _, children, span) =>
-        match use_target(children) {
+        match children.get(0).bind(node => text_from_node(node)) {
           Some(target) => uses.push({ target, span })
           None => ()
         }

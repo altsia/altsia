@@ -1,18 +1,22 @@
 ///|
-fn attr_scalar(attr : @core.Attr) -> String? {
+fn attr_scalar(attr : @core.Attr, env? : @core.CompileEnv) -> String? {
   match attr.value {
-    Some(Scalar(text, _)) => Some(text)
-    Some(Bool(value, _)) => Some(value.to_string())
-    _ => None
+    Some(value) => {
+      let text_env = env.unwrap_or(@core.CompileEnv::empty())
+      match @core.value_to_scalar(value, text_env) {
+        Ok(text) => Some(text)
+        Err(_) => None
+      }
+    }
+    None => None
   }
 }
 
 ///|
-fn attr_bool(attr : @core.Attr) -> Bool? {
-  match attr.value {
-    Some(Bool(value, _)) => Some(value)
-    Some(Scalar("true", _)) => Some(true)
-    Some(Scalar("false", _)) => Some(false)
+fn attr_bool(attr : @core.Attr, env? : @core.CompileEnv) -> Bool? {
+  match attr_scalar(attr, env?) {
+    Some("true") => Some(true)
+    Some("false") => Some(false)
     _ => None
   }
 }
@@ -84,7 +88,7 @@ fn apply_tree_attrs(
   for attr in attrs {
     match attr.name {
       "lang" =>
-        match attr_scalar(attr) {
+        match attr_scalar(attr, env~) {
           Some(value) => result = { ..result, lang: Some(value) }
           None => ()
         }
@@ -95,18 +99,21 @@ fn apply_tree_attrs(
           Err(error) => return Err(error)
         }
       "page-title" =>
-        match attr_scalar(attr) {
+        match attr_scalar(attr, env~) {
           Some(value) => result = { ..result, page_title: Some(value) }
           None => ()
         }
       "taxon" =>
-        match attr_scalar(attr) {
+        match attr_scalar(attr, env~) {
           Some(value) =>
-            result = { ..result, taxon: Some(taxon_from_attrs(value, attrs)) }
+            result = {
+              ..result,
+              taxon: Some(taxon_from_attrs(value, attrs, env)),
+            }
           None => ()
         }
       "parent" =>
-        match attr_scalar(attr) {
+        match attr_scalar(attr, env~) {
           Some(value) =>
             result = { ..result, parent: Some(TreeSlug::parse(value)) }
           None => ()
@@ -132,14 +139,14 @@ fn apply_metadata_attrs(
           match attr.name {
             "slug" =>
               if allow_slug_override {
-                match attr_scalar(attr) {
+                match attr_scalar(attr, env~) {
                   Some(value) =>
                     metadata = { ..metadata, slug: TreeSlug::parse(value) }
                   None => ()
                 }
               }
             "lang" =>
-              match attr_scalar(attr) {
+              match attr_scalar(attr, env~) {
                 Some(value) => metadata = { ..metadata, lang: Some(value) }
                 None => ()
               }
@@ -150,35 +157,35 @@ fn apply_metadata_attrs(
                 Err(error) => return Err(error)
               }
             "page-title" =>
-              match attr_scalar(attr) {
+              match attr_scalar(attr, env~) {
                 Some(value) =>
                   metadata = { ..metadata, page_title: Some(value) }
                 None => ()
               }
             "taxon" =>
-              match attr_scalar(attr) {
+              match attr_scalar(attr, env~) {
                 Some(value) =>
                   metadata = {
                     ..metadata,
-                    taxon: Some(taxon_from_attrs(value, attrs)),
+                    taxon: Some(taxon_from_attrs(value, attrs, env)),
                   }
                 None => ()
               }
             "taxon-display" =>
-              match attr_scalar(attr) {
+              match attr_scalar(attr, env~) {
                 Some(value) =>
                   match metadata.taxon {
                     Some(taxon) =>
                       metadata = {
                         ..metadata,
-                        taxon: Some({ ..taxon, display: Some(value) }),
+                        taxon: Some(taxon.with_display(value)),
                       }
                     None => ()
                   }
                 None => ()
               }
             "parent" =>
-              match attr_scalar(attr) {
+              match attr_scalar(attr, env~) {
                 Some(value) =>
                   metadata = {
                     ..metadata,
@@ -187,32 +194,32 @@ fn apply_metadata_attrs(
                 None => ()
               }
             "references" =>
-              match attr_bool(attr) {
+              match attr_bool(attr, env~) {
                 Some(value) => metadata = { ..metadata, show_references: value }
                 None => ()
               }
             "backlinks" =>
-              match attr_bool(attr) {
+              match attr_bool(attr, env~) {
                 Some(value) => metadata = { ..metadata, show_backlinks: value }
                 None => ()
               }
             "asref" =>
-              match attr_bool(attr) {
+              match attr_bool(attr, env~) {
                 Some(value) => metadata = { ..metadata, asref: value }
                 None => ()
               }
             "asback" =>
-              match attr_bool(attr) {
+              match attr_bool(attr, env~) {
                 Some(value) => metadata = { ..metadata, asback: value }
                 None => ()
               }
             "footer-mode" =>
-              match attr_scalar(attr) {
+              match attr_scalar(attr, env~) {
                 Some(value) => metadata = { ..metadata, footer_mode: value }
                 None => ()
               }
             "footer-sort-by" =>
-              match attr_scalar(attr) {
+              match attr_scalar(attr, env~) {
                 Some(value) =>
                   metadata = { ..metadata, footer_sort_by: Some(value) }
                 None => ()
@@ -230,7 +237,7 @@ fn apply_metadata_attrs(
 fn rich_text_from_attr(
   attr : @core.Attr,
   env : @core.CompileEnv,
-) -> Result[(GraphContent, String)?, @core.Diagnostic] {
+) -> Result[(RichContent, String)?, @core.Diagnostic] {
   match attr.value {
     Some(value) => {
       let nodes = title_nodes_from_value(value, env)
@@ -238,11 +245,11 @@ fn rich_text_from_attr(
         source: { id: attr.span.source_id, line_offset: 0, column_offset: 0 },
         nodes,
       }
-      match compile_inline_graph_content(doc, env) {
-        Ok(content) =>
-          Ok(Some((content, value_fallback_text(value, env))))
-        Err(error) => Err(error)
-      }
+      compile_inline_rich_content(doc, env).bind(content => {
+        @core.value_to_plain_text(value, env~).map(fallback_text => {
+          Some((content, fallback_text))
+        })
+      })
     }
     None => Ok(None)
   }
@@ -258,144 +265,38 @@ fn title_nodes_from_value(
     Bool(value, span) => [Text(value.to_string(), span)]
     Fragment(nodes, _) => nodes
     Interp(template, span) =>
-      match exact_interpolation_name(template) {
-        Some(name) =>
-          match env.lookup_value(name) {
-            Some(value) => title_nodes_from_value(value, env)
-            None => [TextInterp(template, span)]
-          }
+      match referenced_title_value(template, env) {
+        Some(value) => title_nodes_from_value(value, env)
         None => [TextInterp(template, span)]
       }
   }
 }
 
 ///|
-fn value_fallback_text(value : @core.Value, env : @core.CompileEnv) -> String {
-  match value {
-    Scalar(text, _) => text
-    Bool(value, _) => value.to_string()
-    Fragment(nodes, _) => nodes_fallback_text(nodes, env)
-    Interp(template, _) => interpolate_fallback_text(template, env)
-  }
-}
-
-///|
-fn nodes_fallback_text(
-  nodes : Array[@core.Node],
+fn referenced_title_value(
+  template : @core.Interpolation,
   env : @core.CompileEnv,
-) -> String {
-  let parts : Array[String] = []
-  for node in nodes {
-    match node {
-      Text(text, _) => parts.push(text)
-      TextInterp(template, _) =>
-        parts.push(interpolate_fallback_text(template, env))
-      Element(_, _, children, _) =>
-        parts.push(nodes_fallback_text(children, env))
-      Ref(name, _) =>
-        match env.lookup_value(name) {
-          Some(value) => parts.push(value_fallback_text(value, env))
-          None => parts.push(name)
-        }
-      _ => ()
-    }
+) -> @core.Value? {
+  match template {
+    [Name(name)] => env.lookup_value(name)
+    _ => None
   }
-  normalize_fallback_text(parts.join(""))
 }
 
 ///|
-fn normalize_fallback_text(text : String) -> String {
-  let mut result = text.trim().to_owned()
-  while result.contains("  ") {
-    result = result.replace(old="  ", new=" ")
-  }
-  result
-}
-
-///|
-fn interpolate_fallback_text(
-  template : String,
+fn taxon_from_attrs(
+  key : String,
+  attrs : Array[@core.Attr],
   env : @core.CompileEnv,
-) -> String {
-  let chars = template.to_array()
-  let parts : Array[String] = []
-  let mut index = 0
-  while index < chars.length() {
-    if chars[index] == '(' {
-      let mut end = index + 1
-      while end < chars.length() && chars[end] != ')' {
-        end += 1
-      }
-      if end >= chars.length() {
-        parts.push(String::from_array(chars.view(start=index)))
-        index = chars.length()
-      } else {
-        let name = String::from_array(chars.view(start=index + 1, end~))
-        match env.lookup_value(name) {
-          Some(value) => parts.push(value_fallback_text(value, env))
-          None => parts.push("(" + name + ")")
-        }
-        index = end + 1
-      }
-    } else {
-      let start = index
-      while index < chars.length() && chars[index] != '(' {
-        index += 1
-      }
-      parts.push(String::from_array(chars.view(start~, end=index)))
-    }
-  }
-  parts.join("")
-}
-
-///|
-fn exact_interpolation_name(template : String) -> String? {
-  let chars = template.to_array()
-  if chars.length() < 3 || chars[0] != '(' || chars[chars.length() - 1] != ')' {
-    return None
-  }
-  for i in 1..<(chars.length() - 1) {
-    if chars[i] == '(' || chars[i] == ')' {
-      return None
-    }
-  }
-  Some(String::from_array(chars.view(start=1, end=chars.length() - 1)))
-}
-
-///|
-fn taxon_from_attrs(key : String, attrs : Array[@core.Attr]) -> Taxon {
+) -> Taxon {
   let mut display : String? = None
   for attr in attrs {
     if attr.name == "taxon-display" {
-      match attr_scalar(attr) {
+      match attr_scalar(attr, env~) {
         Some(value) => display = Some(value)
         None => ()
       }
     }
   }
   Taxon::new(key, display?)
-}
-
-///|
-fn tree_title(tree : CompiledTree) -> String {
-  match tree.metadata.page_title {
-    Some(value) => value
-    None =>
-      match tree.metadata.title {
-        Some((_, fallback_text)) => fallback_text
-        None => tree.slug.canonical()
-      }
-  }
-}
-
-///|
-fn tree_page_title(tree : CompiledTree) -> String? {
-  match tree.metadata.page_title {
-    Some(value) => Some(value)
-    None =>
-      match tree.metadata.title {
-        Some((_, fallback_text)) => Some(fallback_text)
-        None => None
-      }
-  }
 }

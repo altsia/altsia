@@ -12,14 +12,13 @@ pub fn TreeSlug::parse(value : String) -> TreeSlug {
   } else {
     normalized
   }
-  let segments : Array[String] = []
-  for view in path.split("/").to_array() {
-    let segment = view.to_owned()
-    if segment != "" && segment != "." {
-      segments.push(segment)
-    }
+  {
+    segments: path
+    .split("/")
+    .map(view => view.to_owned())
+    .filter(segment => segment != "" && segment != ".")
+    .to_array(),
   }
-  { segments, }
 }
 
 ///|
@@ -34,11 +33,10 @@ pub fn TreeSlug::canonical(self : TreeSlug) -> String {
 
 ///|
 pub fn TreeSlug::sibling(self : TreeSlug, child : TreeSlug) -> TreeSlug {
-  let segments : Array[String] = []
-  if self.segments.length() > 1 {
-    for i in 0..<(self.segments.length() - 1) {
-      segments.push(self.segments[i])
-    }
+  let segments = if self.segments.length() > 1 {
+    self.segments[:self.segments.length() - 1].to_owned()
+  } else {
+    []
   }
   segments.append(child.segments)
   { segments, }
@@ -63,6 +61,11 @@ pub struct Taxon {
 ///|
 pub fn Taxon::new(key : String, display? : String) -> Taxon {
   { key: TaxonKey::new(key), display }
+}
+
+///|
+pub fn Taxon::with_display(self : Taxon, display : String) -> Taxon {
+  { ..self, display: Some(display) }
 }
 
 ///|
@@ -93,7 +96,7 @@ fn default_taxon_display(key : TaxonKey, lang : String?) -> String {
       "conjecture" => "猜想"
       "corollary" => "推论"
       "definition" => "定义"
-      "example" => "例"
+      "example" => "例子"
       "fact" => "事实"
       "hypothesis" => "假设"
       "lemma" => "引理"
@@ -103,7 +106,7 @@ fn default_taxon_display(key : TaxonKey, lang : String?) -> String {
       "proof" => "证明"
       "proposition" => "命题"
       "reference" => "参考"
-      "remark" => "注"
+      "remark" => "注记"
       "theorem" => "定理"
       _ => key.value
     }

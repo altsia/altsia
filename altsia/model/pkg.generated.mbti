@@ -132,11 +132,6 @@ pub(all) struct Project {
 } derive(Eq, @debug.Debug)
 pub fn Project::new(String, Array[SourceFile]) -> Self
 
-pub(all) struct ProjectRoot {
-  root : String
-  config_path : String
-} derive(Eq, @debug.Debug)
-
 pub(all) enum RichContentChunk {
   HtmlChunk(String)
   DirectiveChunk(RichContentDirective)

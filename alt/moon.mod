@@ -3,6 +3,7 @@ name = "kokic/alt"
 version = "0.1.0"
 
 import {
+  "kokic/altsia@0.1.0",
   "kokic/tinymark@0.2.0",
   "kokic/sexp-html@0.2.2",
   "moonbitlang/x@0.4.43",

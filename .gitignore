@@ -2,4 +2,5 @@
 .DS_Store
 target/
 .local/
-.mbti
+*.mbti
+_build

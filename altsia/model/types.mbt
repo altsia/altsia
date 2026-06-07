@@ -11,12 +11,6 @@ pub(all) struct SourceFile {
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct ProjectRoot {
-  root : String
-  config_path : String
-} derive(Eq, Debug)
-
-///|
 pub(all) struct Project {
   root : String
   sources : Array[SourceFile]

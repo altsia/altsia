@@ -5,9 +5,6 @@ pub type SourceFileKind = @model.SourceFileKind
 pub type SourceFile = @model.SourceFile
 
 ///|
-pub type ProjectRoot = @model.ProjectRoot
-
-///|
 pub type Project = @model.Project
 
 ///|

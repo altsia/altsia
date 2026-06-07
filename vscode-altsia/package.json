@@ -7,6 +7,11 @@
   "engines": {
     "vscode": "^1.90.0"
   },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:altsia",
+    "onCommand:altsia.preview"
+  ],
   "categories": [
     "Programming Languages"
   ],
@@ -33,7 +38,8 @@
         ],
         "extensions": [
           ".alt",
-          ".altsia"
+          ".altsia",
+          ".sia"
         ],
         "configuration": "./language-configuration.json"
       }
@@ -50,7 +56,68 @@
         "language": "altsia",
         "path": "./snippets/altsia.code-snippets"
       }
-    ]
+    ],
+    "commands": [
+      {
+        "command": "altsia.preview",
+        "title": "Altsia: Open Preview",
+        "category": "Altsia"
+      },
+      {
+        "command": "altsia.preview.refresh",
+        "title": "Altsia: Refresh Preview",
+        "category": "Altsia"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "altsia.preview",
+          "when": "resourceLangId == altsia",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "altsia.preview",
+          "when": "resourceLangId == altsia",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "altsia.preview",
+          "when": "resourceLangId == altsia"
+        },
+        {
+          "command": "altsia.preview.refresh",
+          "when": "resourceLangId == altsia"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Altsia",
+      "properties": {
+        "altsia.preview.command": {
+          "type": "string",
+          "default": "alt",
+          "description": "Command or absolute path used to run the Altsia CLI."
+        },
+        "altsia.preview.commandArgs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra arguments inserted before `preview <entry.alt>` when running the Altsia CLI."
+        },
+        "altsia.preview.autoSaveBeforeRefresh": {
+          "type": "boolean",
+          "default": true,
+          "description": "Save dirty Altsia documents before refreshing the preview."
+        }
+      }
+    }
   },
   "scripts": {
     "pkg": "npx @vscode/vsce package"

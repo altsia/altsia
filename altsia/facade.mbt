@@ -1,19 +1,8 @@
 ///|
-pub fn compile_rich_content(
-  doc : @core.Document,
-  env? : @core.CompileEnv,
-) -> Result[RichContent, @core.Diagnostic] {
-  match env {
-    Some(env) => @content.compile_rich_content(doc, env~)
-    None => @content.compile_rich_content(doc)
-  }
-}
-
-///|
 pub fn compile_project(
-  project : Project,
+  project : @model.Project,
   builtin_env? : @core.CompileEnv,
-) -> Result[CompiledProject, @core.Diagnostic] {
+) -> Result[@model.CompiledProject, @core.Diagnostic] {
   match builtin_env {
     Some(env) => compile_project_with_options(project, strict=false, env)
     None =>
@@ -27,9 +16,9 @@ pub fn compile_project(
 
 ///|
 pub fn compile_project_strict(
-  project : Project,
+  project : @model.Project,
   builtin_env? : @core.CompileEnv,
-) -> Result[CompiledProject, @core.Diagnostic] {
+) -> Result[@model.CompiledProject, @core.Diagnostic] {
   match builtin_env {
     Some(env) => compile_project_with_options(project, strict=true, env)
     None =>
@@ -43,10 +32,10 @@ pub fn compile_project_strict(
 
 ///|
 fn compile_project_with_options(
-  project : Project,
+  project : @model.Project,
   strict~ : Bool,
   env : @core.CompileEnv,
-) -> Result[CompiledProject, @core.Diagnostic] {
+) -> Result[@model.CompiledProject, @core.Diagnostic] {
   let parsed = match @parse.parse_project_trees(project, builtin_env=env) {
     Ok(value) => value
     Err(error) => return Err(error)
@@ -64,7 +53,7 @@ fn compile_project_with_options(
 
 ///|
 pub fn compile_alt_fragment(
-  sources : Array[SourceFile],
+  sources : Array[@model.SourceFile],
   entry : String,
 ) -> Result[String, @core.Diagnostic] {
   let project = @model.Project::new("", sources)
@@ -91,7 +80,7 @@ pub fn compile_alt_fragment(
 
 ///|
 pub fn compile_alt_document(
-  sources : Array[SourceFile],
+  sources : Array[@model.SourceFile],
   entry : String,
   options? : @html.HtmlDocumentOptions,
 ) -> Result[String, @core.Diagnostic] {
@@ -113,10 +102,10 @@ pub fn compile_alt_document(
 
 ///|
 pub fn preview_project(
-  project : Project,
+  project : @model.Project,
   entry : String,
   options? : @html.HtmlDocumentOptions,
-) -> Result[PreviewResult, @core.Diagnostic] {
+) -> Result[@model.PreviewResult, @core.Diagnostic] {
   match compile_project(project) {
     Err(error) => Err(error)
     Ok(compiled) => {
@@ -160,16 +149,36 @@ pub fn preview_project(
 }
 
 ///|
-pub fn check_project(
-  project : Project,
-) -> Result[CompiledProject, @core.Diagnostic] {
-  compile_project_strict(project)
-}
-
-///|
-pub fn expand_dirty_sources(
-  project : CompiledProject,
-  dirty_sources : Array[String],
-) -> Array[String] {
-  @compile.expand_dirty_sources(project, dirty_sources)
+pub fn preview_project_structured(
+  project : @model.Project,
+  entry : String,
+  preview_options? : @model.PreviewOptions,
+  document_options? : @html.HtmlDocumentOptions,
+) -> Result[@model.StructuredPreview, @core.Diagnostic] {
+  let parsed = match @parse.parse_project_trees(project) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let preview_opts = preview_options.unwrap_or(@model.PreviewOptions::default())
+  match
+    @compile.compile_structured_preview(
+      project.root,
+      parsed,
+      entry,
+      preview_opts,
+    ) {
+    Err(error) => Err(error)
+    Ok(preview) => {
+      let opts = document_options.unwrap_or(
+        @html.HtmlDocumentOptions::default(),
+      )
+      let html = @sexp.render_html_document(
+        [],
+        opts.extra_head,
+        [RawHtml(preview.html)],
+        opts.doctype,
+      )
+      Ok({ ..preview, html, })
+    }
+  }
 }

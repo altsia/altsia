@@ -22,7 +22,7 @@ priv struct ProjectRoot {
 
 ///|
 priv struct DiscoveredProject {
-  project : @altsia.Project
+  project : @model.Project
   source_root : String
   config : @project.ProjectConfig
 }
@@ -73,7 +73,7 @@ fn run_build(entry : String, output : String?) -> Unit {
 ///|
 fn load_project_for_entry(
   entry : String?,
-) -> Result[(@altsia.Project, String), String] {
+) -> Result[(@model.Project, String), String] {
   let start = match entry {
     Some(entry) => {
       let entry_path : @path.Path = entry
@@ -138,7 +138,7 @@ fn discover_project(start : String) -> Result[DiscoveredProject, String] {
         Err(message) => return Err(message)
       }
       let source_root = @project.source_root(config.root, project_config)
-      let sources : Array[@altsia.SourceFile] = []
+      let sources : Array[@model.SourceFile] = []
       match collect_source_files(source_root, source_root, sources) {
         Ok(_) =>
           Ok({
@@ -156,7 +156,7 @@ fn discover_project(start : String) -> Result[DiscoveredProject, String] {
 fn collect_source_files(
   root : String,
   dir : String,
-  sources : Array[@altsia.SourceFile],
+  sources : Array[@model.SourceFile],
 ) -> Result[Unit, String] {
   let entries = @fs.read_dir(dir) catch {
     IOError(message) => return Err(message)

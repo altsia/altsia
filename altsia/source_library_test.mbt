@@ -22,7 +22,7 @@ test "records use library dependency" {
   @test.assert_eq(project.source_file_dependencies[0], {
     source: "index.alt",
     target: "lib.sia",
-    kind: LibraryUse,
+    kind: @model.LibraryUse,
   })
 }
 
@@ -30,7 +30,7 @@ test "records use library dependency" {
 test "use can only import sia" {
   match
     compile_project(
-      Project::new("", [
+      @model.Project::new("", [
         source("index.alt", "(use `lib.alt`)"),
         source("lib.alt", "content"),
       ]),
@@ -45,7 +45,7 @@ test "use can only import sia" {
 test "duplicate normalized sia module name is hard error" {
   match
     compile_project(
-      Project::new("", [
+      @model.Project::new("", [
         source("index.alt", "content"),
         source("a/auto date.sia", "(let x `a`)"),
         source("b/auto date.sia", "(let x `b`)"),

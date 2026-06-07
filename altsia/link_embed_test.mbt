@@ -48,8 +48,8 @@ test "dangling local link is non fatal in normal build" {
 ///|
 test "strict check fails on dangling local link" {
   match
-    check_project(
-      Project::new("", [
+    compile_project_strict(
+      @model.Project::new("", [
         source("index.alt", "See (link `missing.alt` Missing)."),
       ]),
     ) {
@@ -128,7 +128,7 @@ test "embed target and title support interpolation" {
 test "unknown embed option reports diagnostic" {
   match
     compile_project(
-      Project::new("", [
+      @model.Project::new("", [
         source("index.alt", "(embed (:unknown true) `child.alt`)"),
         source("child.alt", "Child."),
       ]),
@@ -143,7 +143,7 @@ test "unknown embed option reports diagnostic" {
 test "missing embed target is hard error" {
   match
     compile_project(
-      Project::new("", [source("index.alt", "(embed `missing.alt`)")]),
+      @model.Project::new("", [source("index.alt", "(embed `missing.alt`)")]),
     ) {
     Ok(_) => abort("expected missing embed target")
     Err(error) =>
@@ -155,7 +155,9 @@ test "missing embed target is hard error" {
 test "embed target validation rejects non local target" {
   match
     compile_project(
-      Project::new("", [source("index.alt", "(embed `https://example.com`)")]),
+      @model.Project::new("", [
+        source("index.alt", "(embed `https://example.com`)"),
+      ]),
     ) {
     Ok(_) => abort("expected invalid embed target")
     Err(error) =>
@@ -169,7 +171,9 @@ test "embed target validation rejects non local target" {
 ///|
 test "relative embed target must end with alt extension" {
   match
-    compile_project(Project::new("", [source("index.alt", "(embed `child`)")])) {
+    compile_project(
+      @model.Project::new("", [source("index.alt", "(embed `child`)")]),
+    ) {
     Ok(_) => abort("expected invalid relative embed target")
     Err(error) =>
       @test.assert_eq(
@@ -265,10 +269,10 @@ test "dirty source expansion follows embed and backlink graph" {
     source("grand.alt", "Grand."),
     source("ref.alt", "(meta (:asref true))Ref."),
   ])
-  @test.assert_eq(expand_dirty_sources(project, ["child.alt"]), [
+  @test.assert_eq(@compile.expand_dirty_sources(project, ["child.alt"]), [
     "child.alt", "index.alt", "grand.alt", "ref.alt",
   ])
-  @test.assert_eq(expand_dirty_sources(project, ["ref.alt"]), [
+  @test.assert_eq(@compile.expand_dirty_sources(project, ["ref.alt"]), [
     "ref.alt", "child.alt", "index.alt", "grand.alt",
   ])
 }
@@ -277,7 +281,7 @@ test "dirty source expansion follows embed and backlink graph" {
 test "preview project returns html diagnostics and transitive source file dependencies" {
   match
     preview_project(
-      Project::new("", [
+      @model.Project::new("", [
         source("index.alt", "(embed `child.alt`)"),
         source(
           "child.alt", "(use `lib.sia`)Child (lib.value). (link `missing.alt` Missing)",
@@ -292,13 +296,127 @@ test "preview project returns html diagnostics and transitive source file depend
       @test.assert_eq(preview.diagnostics.length(), 1)
       @test.assert_eq(preview.dangling_tree_links.length(), 1)
       @test.assert_eq(preview.source_file_dependencies, [
-        { source: "index.alt", target: "child.alt", kind: TreeEmbed },
-        { source: "child.alt", target: "lib.sia", kind: LibraryUse },
+        { source: "index.alt", target: "child.alt", kind: @model.TreeEmbed },
+        { source: "child.alt", target: "lib.sia", kind: @model.LibraryUse },
       ])
       @test.assert_eq(
         preview.html.contains("<div class=\"embed\" data-tree=\"child\">"),
         true,
       )
+    }
+  }
+}
+
+///|
+test "structured preview annotates tree links and embeds" {
+  match
+    preview_project_structured(
+      @model.Project::new("", [
+        source("index.alt", "See (link `about.alt` About). (embed `child.alt`)"),
+        source("child.alt", "Child (link `about.alt` About)."),
+        source("about.alt", "About."),
+      ]),
+      "index.alt",
+    ) {
+    Err(error) => abort(error.render())
+    Ok(preview) => {
+      @test.assert_eq(preview.entry, "index.alt")
+      @test.assert_eq(preview.entry_tree_slug, slug("index"))
+      @test.assert_eq(preview.tree_links.length(), 2)
+      @test.assert_eq(preview.tree_links[0], {
+        id: "link-1",
+        source: "index.alt",
+        target: "about.alt",
+        target_source: Some("about.alt"),
+        target_slug: Some(slug("about")),
+        href: "about.html",
+        missing: false,
+      })
+      @test.assert_eq(preview.tree_links[1], {
+        id: "link-2",
+        source: "child.alt",
+        target: "about.alt",
+        target_source: Some("about.alt"),
+        target_slug: Some(slug("about")),
+        href: "about.html",
+        missing: false,
+      })
+      @test.assert_eq(preview.embeds, [
+        {
+          id: "embed-1",
+          source: "index.alt",
+          target: "child.alt",
+          target_source: "child.alt",
+          target_slug: slug("child"),
+          open: true,
+        },
+      ])
+      @test.assert_eq(
+        preview.html.contains("data-altsia-link-id=\"link-1\""),
+        true,
+      )
+      @test.assert_eq(
+        preview.html.contains("data-altsia-embed-id=\"embed-1\""),
+        true,
+      )
+      @test.assert_eq(preview.assets, [])
+    }
+  }
+}
+
+///|
+test "structured preview records dangling tree links" {
+  match
+    preview_project_structured(
+      @model.Project::new("", [
+        source("index.alt", "See (link `missing.alt` Missing)."),
+      ]),
+      "index.alt",
+    ) {
+    Err(error) => abort(error.render())
+    Ok(preview) => {
+      @test.assert_eq(preview.diagnostics.length(), 1)
+      @test.assert_eq(preview.dangling_tree_links, [
+        { source: "index.alt", target: "missing.alt" },
+      ])
+      @test.assert_eq(preview.tree_links, [
+        {
+          id: "link-1",
+          source: "index.alt",
+          target: "missing.alt",
+          target_source: None,
+          target_slug: None,
+          href: "#",
+          missing: true,
+        },
+      ])
+      @test.assert_eq(
+        preview.html.contains("data-missing-target=\"missing.alt\""),
+        true,
+      )
+    }
+  }
+}
+
+///|
+test "structured preview can omit html annotations" {
+  match
+    preview_project_structured(
+      @model.Project::new("", [
+        source("index.alt", "See (link `about.alt` About)."),
+        source("about.alt", "About."),
+      ]),
+      "index.alt",
+      preview_options=@model.PreviewOptions::{
+        annotate_html: false,
+        collect_assets: true,
+      },
+    ) {
+    Err(error) => abort(error.render())
+    Ok(preview) => {
+      @test.assert_eq(preview.tree_links.length(), 1)
+      @test.assert_eq(preview.html.contains("data-altsia-link-id"), false)
+      @test.assert_eq(preview.html.contains("href=\"about.html\""), true)
     }
   }
 }
@@ -316,7 +434,7 @@ test "explicit parent overrides inferred parent" {
 test "cyclic embed reports full chain" {
   match
     compile_project(
-      Project::new("", [
+      @model.Project::new("", [
         source("a.alt", "(embed `b.alt`)"),
         source("b.alt", "(embed `a.alt`)"),
       ]),

@@ -1,7 +1,7 @@
 ///|
 priv struct ParsedSource {
-  file : SourceFile
-  kind : SourceFileKind
+  file : @model.SourceFile
+  kind : @model.SourceFileKind
   doc : @core.Document
   module_name : String?
 }
@@ -15,19 +15,19 @@ priv struct ParsedSourceSet {
 ///|
 priv struct TreeLowering {
   inline_nodes : Array[@core.Node]
-  trees : Array[ParsedTree]
+  trees : Array[@model.ParsedTree]
   next_section_index : Int
 }
 
 ///|
 fn parse_source_file(
-  file : SourceFile,
+  file : @model.SourceFile,
 ) -> Result[ParsedSource, @core.Diagnostic] {
-  let kind = match source_file_kind(file.path) {
+  let kind = match @model.source_file_kind(file.path) {
     Some(value) => value
     None =>
       return Err(
-        source_diagnostic(
+        @model.source_diagnostic(
           file.path,
           Placement,
           "unsupported source file extension: " + file.path,
@@ -47,8 +47,8 @@ fn parse_source_file(
         kind,
         doc,
         module_name: match kind {
-          Sia => Some(module_name_from_path(file.path))
-          Alt => None
+          @model.Sia => Some(@model.module_name_from_path(file.path))
+          @model.Alt => None
         },
       })
   }
@@ -56,7 +56,7 @@ fn parse_source_file(
 
 ///|
 fn parse_project_sources(
-  sources : Array[SourceFile],
+  sources : Array[@model.SourceFile],
 ) -> Result[ParsedSourceSet, @core.Diagnostic] {
   let parsed : Array[ParsedSource] = []
   let sources_by_path : Map[String, ParsedSource] = Map([])
@@ -64,7 +64,7 @@ fn parse_project_sources(
     match parse_source_file(source) {
       Ok(item) => {
         parsed.push(item)
-        sources_by_path[normalize_path(item.file.path)] = item
+        sources_by_path[@model.normalize_path(item.file.path)] = item
       }
       Err(error) => return Err(error)
     }
@@ -84,7 +84,7 @@ fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
         match names.get(name) {
           Some(existing_path) =>
             return Some(
-              source_diagnostic(
+              @model.source_diagnostic(
                 item.file.path,
                 Binding,
                 "duplicate .sia module name: " + name,
@@ -101,7 +101,7 @@ fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
 
 ///|
 fn find_parsed_source(parsed : ParsedSourceSet, path : String) -> ParsedSource? {
-  parsed.sources_by_path.get(normalize_path(path))
+  parsed.sources_by_path.get(@model.normalize_path(path))
 }
 
 ///|
@@ -109,13 +109,16 @@ fn resolve_use_directives(
   current : ParsedSource,
   parsed : ParsedSourceSet,
   builtin_env : @core.CompileEnv,
-) -> Result[(@core.CompileEnv, Array[SourceFileDependency]), @core.Diagnostic] {
+) -> Result[
+  (@core.CompileEnv, Array[@model.SourceFileDependency]),
+  @core.Diagnostic,
+] {
   let env = @core.CompileEnv::empty()
-  let source_file_dependencies : Array[SourceFileDependency] = []
+  let source_file_dependencies : Array[@model.SourceFileDependency] = []
   for directive in leading_use_directives(current.doc) {
-    if !has_suffix(directive.target, ".sia") {
+    if !@model.has_suffix(directive.target, ".sia") {
       return Err(
-        diagnostic(
+        @model.diagnostic(
           directive.span,
           Binding,
           "(use ...) can only import .sia files",
@@ -123,15 +126,18 @@ fn resolve_use_directives(
         ),
       )
     }
-    let target_path = resolve_relative(current.file.path, directive.target)
+    let target_path = @model.resolve_relative(
+      current.file.path,
+      directive.target,
+    )
     match find_parsed_source(parsed, target_path) {
       Some(library) =>
         match library.kind {
-          Sia => {
+          @model.Sia => {
             source_file_dependencies.push({
               source: current.file.path,
               target: library.file.path,
-              kind: LibraryUse,
+              kind: @model.LibraryUse,
             })
             let module_name = library.module_name.unwrap_or("")
             match
@@ -144,9 +150,9 @@ fn resolve_use_directives(
               Err(error) => return Err(error)
             }
           }
-          Alt =>
+          @model.Alt =>
             return Err(
-              diagnostic(
+              @model.diagnostic(
                 directive.span,
                 Binding,
                 "(use ...) cannot import .alt files",
@@ -156,7 +162,7 @@ fn resolve_use_directives(
         }
       None =>
         return Err(
-          diagnostic(
+          @model.diagnostic(
             directive.span,
             Binding,
             "missing .sia library: " + directive.target,
@@ -172,12 +178,12 @@ fn resolve_use_directives(
 fn lower_parsed_sources(
   parsed : ParsedSourceSet,
   builtin_env : @core.CompileEnv,
-) -> Result[Array[ParsedTree], @core.Diagnostic] {
-  let trees : Array[ParsedTree] = []
+) -> Result[Array[@model.ParsedTree], @core.Diagnostic] {
+  let trees : Array[@model.ParsedTree] = []
   let tree_sources_by_slug : Map[String, String] = Map([])
   for item in parsed.sources {
     match item.kind {
-      Alt => {
+      @model.Alt => {
         let import_result = match
           resolve_use_directives(item, parsed, builtin_env) {
           Ok(value) => value
@@ -186,7 +192,7 @@ fn lower_parsed_sources(
         let (imported, source_file_dependencies) = import_result
         let env = builtin_env.copy()
         env.append(imported)
-        let default_slug = tree_slug_from_path(item.file.path)
+        let default_slug = @model.tree_slug_from_path(item.file.path)
         let source_doc = strip_leading_use_directives(item.doc)
         let metadata_env = match collect_local_bindings(source_doc, env) {
           Ok(value) => value
@@ -219,7 +225,7 @@ fn lower_parsed_sources(
           source: source_doc.source,
           nodes: extraction.inline_nodes,
         }
-        let root_content = match compile_rich_content(root_doc, env~) {
+        let root_content = match @content.compile_rich_content(root_doc, env~) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
@@ -241,7 +247,7 @@ fn lower_parsed_sources(
           }
         }
       }
-      Sia => ()
+      @model.Sia => ()
     }
   }
   Ok(trees)
@@ -262,15 +268,15 @@ fn collect_local_bindings(
 
 ///|
 fn add_parsed_tree(
-  trees : Array[ParsedTree],
+  trees : Array[@model.ParsedTree],
   tree_sources_by_slug : Map[String, String],
-  tree : ParsedTree,
+  tree : @model.ParsedTree,
 ) -> @core.Diagnostic? {
   let key = tree.slug.canonical()
   match tree_sources_by_slug.get(key) {
     Some(existing_path) =>
       Some(
-        source_diagnostic(
+        @model.source_diagnostic(
           tree.path,
           Binding,
           "duplicate tree slug: " + key,
@@ -288,21 +294,21 @@ fn add_parsed_tree(
 ///|
 fn lower_tree_nodes(
   nodes : Array[@core.Node],
-  top_level_slug : TreeSlug,
+  top_level_slug : @model.TreeSlug,
   source_path : String,
   env : @core.CompileEnv,
-  source_file_dependencies : Array[SourceFileDependency],
+  source_file_dependencies : Array[@model.SourceFileDependency],
   next_section_index~ : Int,
 ) -> Result[TreeLowering, @core.Diagnostic] {
   let inline_nodes : Array[@core.Node] = []
-  let trees : Array[ParsedTree] = []
+  let trees : Array[@model.ParsedTree] = []
   let mut next_index = next_section_index
   for node in nodes {
     match node {
       Element("tree", attrs, children, span) =>
         match tree_slug_attr(attrs) {
           Some(local_slug) => {
-            let slug = child_tree_slug(top_level_slug, local_slug)
+            let slug = @model.child_tree_slug(top_level_slug, local_slug)
             let child = match
               lower_tree_nodes(
                 children,
@@ -328,7 +334,7 @@ fn lower_tree_nodes(
               Ok(value) => value
               Err(error) => return Err(error)
             }
-            let content = match compile_rich_content(doc, env~) {
+            let content = match @content.compile_rich_content(doc, env~) {
               Ok(value) => value
               Err(error) => return Err(error)
             }
@@ -349,7 +355,9 @@ fn lower_tree_nodes(
           }
           None => {
             next_index += 1
-            let anchor = anonymous_tree_anchor(top_level_slug, next_index)
+            let anchor = @model.anonymous_tree_anchor(
+              top_level_slug, next_index,
+            )
             let child = match
               lower_tree_nodes(
                 children,
@@ -455,7 +463,7 @@ fn html_attr(
 
 ///|
 fn embedded_tree_reference_node(
-  slug : TreeSlug,
+  slug : @model.TreeSlug,
   attrs : Array[@core.Attr],
   span : @core.SourceSpan,
 ) -> @core.Node {
@@ -482,9 +490,9 @@ fn tree_title_attr(attrs : Array[@core.Attr]) -> String? {
 
 ///|
 pub fn parse_project_trees(
-  project : Project,
+  project : @model.Project,
   builtin_env? : @core.CompileEnv,
-) -> Result[Array[ParsedTree], @core.Diagnostic] {
+) -> Result[Array[@model.ParsedTree], @core.Diagnostic] {
   let base_env = builtin_env.unwrap_or(@core.CompileEnv::empty())
   let parsed = match parse_project_sources(project.sources) {
     Ok(value) => value

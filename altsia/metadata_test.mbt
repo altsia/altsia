@@ -25,8 +25,8 @@ test "title is rich content with plain text fallback" {
       @test.assert_eq(fallback_text, "Important")
       @test.assert_eq(content.length(), 1)
       match content[0] {
-        HtmlChunk(html) => @test.assert_eq(html, "<em>Important</em>")
-        DirectiveChunk(_) => abort("expected title html")
+        @model.HtmlChunk(html) => @test.assert_eq(html, "<em>Important</em>")
+        @model.DirectiveChunk(_) => abort("expected title html")
       }
     }
     None => abort("expected rich title")
@@ -37,7 +37,7 @@ test "title is rich content with plain text fallback" {
 test "preview title derives from rich title unless page title overrides it" {
   match
     preview_project(
-      Project::new("", [
+      @model.Project::new("", [
         source(
           "doc.alt", "(let heading (_ (em Important)))(meta (:title (heading)))Body.",
         ),
@@ -49,7 +49,7 @@ test "preview title derives from rich title unless page title overrides it" {
   }
   match
     preview_project(
-      Project::new("", [
+      @model.Project::new("", [
         source(
           "doc.alt", "(let heading (_ (em Important)))(meta (:title (heading) :page-title `Plain title`))Body.",
         ),

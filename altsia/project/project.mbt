@@ -22,11 +22,10 @@ pub fn ProjectConfig::default() -> ProjectConfig {
 
 ///|
 pub fn parse_project_config(source : String) -> Result[ProjectConfig, String] {
-  let parsed = try? @toml.parse(source)
-  let value = match parsed {
-    Ok(value) => value
-    Err(error) =>
-      return Err("failed to parse altsia.toml: " + error.to_string())
+  let value = try @toml.parse(source) catch {
+    error => return Err("failed to parse altsia.toml: " + error.to_string())
+  } noraise {
+    value => value
   }
   match value {
     TomlTable(table) => project_config_from_table(table)

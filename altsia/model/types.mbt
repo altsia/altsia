@@ -135,6 +135,62 @@ pub(all) struct PreviewResult {
 }
 
 ///|
+pub(all) struct PreviewOptions {
+  annotate_html : Bool
+  collect_assets : Bool
+} derive(Eq, Debug)
+
+///|
+pub fn PreviewOptions::default() -> PreviewOptions {
+  { annotate_html: true, collect_assets: true }
+}
+
+///|
+pub(all) struct PreviewTreeLink {
+  id : String
+  source : String
+  target : String
+  target_source : String?
+  target_slug : TreeSlug?
+  href : String
+  missing : Bool
+} derive(Eq, Debug)
+
+///|
+pub(all) struct PreviewEmbed {
+  id : String
+  source : String
+  target : String
+  target_source : String
+  target_slug : TreeSlug
+  open : Bool
+} derive(Eq, Debug)
+
+///|
+pub(all) struct PreviewAsset {
+  id : String
+  source : String
+  attr : String
+  target : String
+  resolved_path : String?
+  kind : String
+} derive(Eq, Debug)
+
+///|
+pub(all) struct StructuredPreview {
+  html : String
+  entry : String
+  entry_tree_slug : TreeSlug
+  title : String?
+  diagnostics : Array[@core.Diagnostic]
+  source_file_dependencies : Array[SourceFileDependency]
+  dangling_tree_links : Array[DanglingTreeLink]
+  tree_links : Array[PreviewTreeLink]
+  embeds : Array[PreviewEmbed]
+  assets : Array[PreviewAsset]
+}
+
+///|
 pub fn Project::new(root : String, sources : Array[SourceFile]) -> Project {
   { root, sources }
 }

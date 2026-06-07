@@ -10,7 +10,7 @@ fn leading_use_directives(doc : @core.Document) -> Array[UseDirective] {
   for node in doc.nodes {
     match node {
       Element("use", _, children, span) =>
-        match children.get(0).bind(node => text_from_node(node)) {
+        match children.get(0).bind(node => @content.text_from_node(node)) {
           Some(target) => uses.push({ target, span })
           None => ()
         }

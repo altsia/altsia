@@ -1,6 +1,5 @@
 import {
   "kokic/altsia/model",
-  "kokic/altsia/content",
   "kokic/altsia/parse",
   "kokic/altsia/compile",
   "kokic/tinymark/core",
@@ -8,3 +7,7 @@ import {
   "kokic/sexp-html" @sexp,
   "moonbitlang/core/test",
 }
+
+import {
+  "kokic/altsia/content",
+} for "test"

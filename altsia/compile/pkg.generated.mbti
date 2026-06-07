@@ -9,6 +9,8 @@ import {
 // Values
 pub fn compile_parsed_project(String, Array[@model.ParsedTree]) -> Result[@model.CompiledProject, @core.Diagnostic]
 
+pub fn compile_structured_preview(String, Array[@model.ParsedTree], String, @model.PreviewOptions) -> Result[@model.StructuredPreview, @core.Diagnostic]
+
 pub fn dangling_tree_links_for_entry(Array[@model.DanglingTreeLink], Array[@model.SourceFileDependency], String) -> Array[@model.DanglingTreeLink]
 
 pub fn expand_dirty_sources(@model.CompiledProject, Array[String]) -> Array[String]

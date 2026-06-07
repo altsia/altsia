@@ -22,7 +22,10 @@ fn attr_bool(attr : @core.Attr, env? : @core.CompileEnv) -> Bool? {
 }
 
 ///|
-fn default_metadata(slug : TreeSlug, source_id : String) -> Metadata {
+fn default_metadata(
+  slug : @model.TreeSlug,
+  source_id : String,
+) -> @model.Metadata {
   {
     slug,
     source_id,
@@ -42,12 +45,12 @@ fn default_metadata(slug : TreeSlug, source_id : String) -> Metadata {
 
 ///|
 fn metadata_from_doc(
-  slug : TreeSlug,
+  slug : @model.TreeSlug,
   source_id : String,
   doc : @core.Document,
   env : @core.CompileEnv,
   allow_slug_override? : Bool = true,
-) -> Result[Metadata, @core.Diagnostic] {
+) -> Result[@model.Metadata, @core.Diagnostic] {
   let mut metadata = default_metadata(slug, source_id)
   metadata = match
     apply_metadata_attrs(metadata, doc.nodes, env, allow_slug_override~) {
@@ -59,12 +62,12 @@ fn metadata_from_doc(
 
 ///|
 fn metadata_from_tree(
-  slug : TreeSlug,
+  slug : @model.TreeSlug,
   source_id : String,
   attrs : Array[@core.Attr],
   doc : @core.Document,
   env : @core.CompileEnv,
-) -> Result[Metadata, @core.Diagnostic] {
+) -> Result[@model.Metadata, @core.Diagnostic] {
   let mut metadata = default_metadata(slug, source_id)
   metadata = match apply_tree_attrs(metadata, attrs, env) {
     Ok(value) => value
@@ -80,10 +83,10 @@ fn metadata_from_tree(
 
 ///|
 fn apply_tree_attrs(
-  metadata : Metadata,
+  metadata : @model.Metadata,
   attrs : Array[@core.Attr],
   env : @core.CompileEnv,
-) -> Result[Metadata, @core.Diagnostic] {
+) -> Result[@model.Metadata, @core.Diagnostic] {
   let mut result = metadata
   for attr in attrs {
     match attr.name {
@@ -115,7 +118,7 @@ fn apply_tree_attrs(
       "parent" =>
         match attr_scalar(attr, env~) {
           Some(value) =>
-            result = { ..result, parent: Some(TreeSlug::parse(value)) }
+            result = { ..result, parent: Some(@model.TreeSlug::parse(value)) }
           None => ()
         }
       _ => ()
@@ -126,11 +129,11 @@ fn apply_tree_attrs(
 
 ///|
 fn apply_metadata_attrs(
-  metadata : Metadata,
+  metadata : @model.Metadata,
   nodes : Array[@core.Node],
   env : @core.CompileEnv,
   allow_slug_override~ : Bool,
-) -> Result[Metadata, @core.Diagnostic] {
+) -> Result[@model.Metadata, @core.Diagnostic] {
   let mut metadata = metadata
   for node in nodes {
     match node {
@@ -141,7 +144,10 @@ fn apply_metadata_attrs(
               if allow_slug_override {
                 match attr_scalar(attr, env~) {
                   Some(value) =>
-                    metadata = { ..metadata, slug: TreeSlug::parse(value) }
+                    metadata = {
+                      ..metadata,
+                      slug: @model.TreeSlug::parse(value),
+                    }
                   None => ()
                 }
               }
@@ -189,7 +195,7 @@ fn apply_metadata_attrs(
                 Some(value) =>
                   metadata = {
                     ..metadata,
-                    parent: Some(TreeSlug::parse(value)),
+                    parent: Some(@model.TreeSlug::parse(value)),
                   }
                 None => ()
               }
@@ -237,7 +243,7 @@ fn apply_metadata_attrs(
 fn rich_text_from_attr(
   attr : @core.Attr,
   env : @core.CompileEnv,
-) -> Result[(RichContent, String)?, @core.Diagnostic] {
+) -> Result[(@model.RichContent, String)?, @core.Diagnostic] {
   match attr.value {
     Some(value) => {
       let nodes = title_nodes_from_value(value, env)
@@ -245,7 +251,7 @@ fn rich_text_from_attr(
         source: { id: attr.span.source_id, line_offset: 0, column_offset: 0 },
         nodes,
       }
-      compile_inline_rich_content(doc, env).bind(content => {
+      @content.compile_inline_rich_content(doc, env).bind(content => {
         @core.value_to_plain_text(value, env~).map(fallback_text => {
           Some((content, fallback_text))
         })
@@ -288,7 +294,7 @@ fn taxon_from_attrs(
   key : String,
   attrs : Array[@core.Attr],
   env : @core.CompileEnv,
-) -> Taxon {
+) -> @model.Taxon {
   let mut display : String? = None
   for attr in attrs {
     if attr.name == "taxon-display" {
@@ -298,5 +304,5 @@ fn taxon_from_attrs(
       }
     }
   }
-  Taxon::new(key, display?)
+  @model.Taxon::new(key, display?)
 }

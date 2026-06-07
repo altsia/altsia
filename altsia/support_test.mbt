@@ -1,10 +1,10 @@
 ///|
-fn source(path : String, body : String) -> SourceFile {
+fn source(path : String, body : String) -> @model.SourceFile {
   { path, source: body }
 }
 
 ///|
-fn render_entry(sources : Array[SourceFile], entry : String) -> String {
+fn render_entry(sources : Array[@model.SourceFile], entry : String) -> String {
   match compile_alt_fragment(sources, entry) {
     Ok(html) => html
     Err(error) => abort(error.render())
@@ -12,16 +12,16 @@ fn render_entry(sources : Array[SourceFile], entry : String) -> String {
 }
 
 ///|
-fn compile_ok(sources : Array[SourceFile]) -> CompiledProject {
-  match compile_project(Project::new("", sources)) {
+fn compile_ok(sources : Array[@model.SourceFile]) -> @model.CompiledProject {
+  match compile_project(@model.Project::new("", sources)) {
     Ok(project) => project
     Err(error) => abort(error.render())
   }
 }
 
 ///|
-fn slug(value : String) -> TreeSlug {
-  TreeSlug::parse(value)
+fn slug(value : String) -> @model.TreeSlug {
+  @model.TreeSlug::parse(value)
 }
 
 ///|

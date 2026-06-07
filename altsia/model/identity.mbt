@@ -23,7 +23,12 @@ pub fn TreeSlug::parse(value : String) -> TreeSlug {
 
 ///|
 pub fn TreeSlug::from_file_path(path : String) -> TreeSlug {
-  TreeSlug::parse(strip_extension(normalize_path(path), ".alt"))
+  let normalized = normalize_path(path)
+  if has_suffix(normalized, ".altsia") {
+    TreeSlug::parse(strip_extension(normalized, ".altsia"))
+  } else {
+    TreeSlug::parse(strip_extension(normalized, ".alt"))
+  }
 }
 
 ///|

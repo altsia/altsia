@@ -29,6 +29,12 @@ pub fn normalize_path(path : String) -> String {
 }
 
 ///|
+pub fn is_absolute_path(path : String) -> Bool {
+  let value : @path.Path = path
+  value.is_absolute()
+}
+
+///|
 pub fn strip_extension(path : String, extension : String) -> String {
   if has_suffix(path, extension) {
     path.unsafe_substring(start=0, end=path.length() - extension.length())
@@ -39,7 +45,7 @@ pub fn strip_extension(path : String, extension : String) -> String {
 
 ///|
 pub fn source_file_kind(path : String) -> SourceFileKind? {
-  if has_suffix(path, ".alt") {
+  if has_suffix(path, ".alt") || has_suffix(path, ".altsia") {
     Some(Alt)
   } else if has_suffix(path, ".sia") {
     Some(Sia)

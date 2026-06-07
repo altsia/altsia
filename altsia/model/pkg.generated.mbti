@@ -21,6 +21,8 @@ pub fn dirname(String) -> String
 
 pub fn has_suffix(String, String) -> Bool
 
+pub fn is_absolute_path(String) -> Bool
+
 pub fn join_path(String, String) -> String
 
 pub fn module_name_from_path(String) -> String

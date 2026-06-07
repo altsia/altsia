@@ -1,6 +1,7 @@
 import {
   "kokic/altsia",
   "kokic/altsia/model",
+  "kokic/altsia/project",
   "moonbitlang/core/env",
   "moonbitlang/x/fs",
   "moonbitlang/x/path",

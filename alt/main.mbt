@@ -4,6 +4,7 @@ fn usage() -> Unit {
     $|alt 0.1.0
     $|
     $|USAGE:
+    $|  alt preview
     $|  alt preview <entry.alt>
     $|  alt build <entry.alt> [output.html]
     $|  alt --help
@@ -16,13 +17,22 @@ fn usage() -> Unit {
 ///|
 priv struct ProjectRoot {
   root : String
+  config_path : String
+}
+
+///|
+priv struct DiscoveredProject {
+  project : @altsia.Project
+  source_root : String
+  config : @project.ProjectConfig
 }
 
 ///|
 fn main {
   match @env.args() {
     [_] | [_, "-h"] | [_, "--help"] | [_, "help"] => usage()
-    [_, "preview", entry] => run_preview(entry)
+    [_, "preview"] => run_preview(None)
+    [_, "preview", entry] => run_preview(Some(entry))
     [_, "build", entry] => run_build(entry, None)
     [_, "build", entry, output] => run_build(entry, Some(output))
     [_, command, ..] => println("unknown command: " + command)
@@ -31,7 +41,7 @@ fn main {
 }
 
 ///|
-fn run_preview(entry : String) -> Unit {
+fn run_preview(entry : String?) -> Unit {
   match load_project_for_entry(entry) {
     Err(message) => println(message)
     Ok((project, entry_path)) =>
@@ -44,7 +54,7 @@ fn run_preview(entry : String) -> Unit {
 
 ///|
 fn run_build(entry : String, output : String?) -> Unit {
-  match load_project_for_entry(entry) {
+  match load_project_for_entry(Some(entry)) {
     Err(message) => println(message)
     Ok((project, entry_path)) =>
       match @altsia.compile_alt_document(project.sources, entry_path) {
@@ -62,18 +72,38 @@ fn run_build(entry : String, output : String?) -> Unit {
 
 ///|
 fn load_project_for_entry(
-  entry : String,
+  entry : String?,
 ) -> Result[(@altsia.Project, String), String] {
-  let start = @path.Path::dirname(entry).to_string()
+  let start = match entry {
+    Some(entry) => {
+      let entry_path : @path.Path = entry
+      @path.Path::dirname(entry_path.resolve()).to_string()
+    }
+    None => {
+      let current : @path.Path = "."
+      current.resolve().to_string()
+    }
+  }
   match discover_project(start) {
     Err(message) => Err(message)
-    Ok(project) => {
-      let entry_path : @path.Path = entry
-      let relative_entry = entry_path
-        .normalize()
-        .relative(base=project.root)
-        .to_string()
-      Ok((project, relative_entry))
+    Ok(discovered) => {
+      let entry_value = match entry {
+        Some(entry) => {
+          let entry_path : @path.Path = entry
+          entry_path.resolve().to_string()
+        }
+        None =>
+          match discovered.config.preview_entry {
+            Some(entry) => entry
+            None => return Err("missing [preview].entry in altsia.toml")
+          }
+      }
+      let entry_source_path = match
+        @project.resolve_entry_source_path(discovered.source_root, entry_value) {
+        Ok(value) => value
+        Err(message) => return Err(message)
+      }
+      Ok((discovered.project, entry_source_path))
     }
   }
 }
@@ -82,9 +112,9 @@ fn load_project_for_entry(
 fn find_project_root(start : String) -> ProjectRoot? {
   let mut current = @model.normalize_path(start)
   while true {
-    let config_path = @model.join_path(current, "altsia.toml")
+    let config_path = @model.join_path(current, @project.config_file_name())
     if @fs.path_exists(config_path) {
-      return Some({ root: current })
+      return Some({ root: current, config_path })
     }
     let parent = @model.dirname(current)
     if parent == current || parent == "" {
@@ -96,13 +126,26 @@ fn find_project_root(start : String) -> ProjectRoot? {
 }
 
 ///|
-fn discover_project(start : String) -> Result[@altsia.Project, String] {
+fn discover_project(start : String) -> Result[DiscoveredProject, String] {
   match find_project_root(start) {
     None => Err("missing altsia.toml from " + start)
     Some(config) => {
+      let config_source = @fs.read_file_to_string(config.config_path) catch {
+        IOError(message) => return Err(message)
+      }
+      let project_config = match @project.parse_project_config(config_source) {
+        Ok(value) => value
+        Err(message) => return Err(message)
+      }
+      let source_root = @project.source_root(config.root, project_config)
       let sources : Array[@altsia.SourceFile] = []
-      match collect_source_files(config.root, config.root, sources) {
-        Ok(_) => Ok({ root: config.root, sources })
+      match collect_source_files(source_root, source_root, sources) {
+        Ok(_) =>
+          Ok({
+            project: { root: source_root, sources },
+            source_root,
+            config: project_config,
+          })
         Err(message) => Err(message)
       }
     }
@@ -122,25 +165,20 @@ fn collect_source_files(
     let full_path = @model.join_path(dir, entry)
     let is_dir = @fs.is_dir(full_path) catch { IOError(_) => false }
     if is_dir {
-      if entry != ".mooncakes" && entry != "_build" && entry != ".git" {
+      if !@project.should_skip_source_dir(entry) {
         match collect_source_files(root, full_path, sources) {
           Ok(_) => ()
           Err(message) => return Err(message)
         }
       }
-    } else {
-      match @model.source_file_kind(full_path) {
-        Some(_) => {
-          let source = @fs.read_file_to_string(full_path) catch {
-            IOError(message) => return Err(message)
-          }
-          sources.push({
-            path: @path.Path::relative(full_path, base=root).to_string(),
-            source,
-          })
-        }
-        None => ()
+    } else if @project.is_source_file(full_path) {
+      let source = @fs.read_file_to_string(full_path) catch {
+        IOError(message) => return Err(message)
       }
+      sources.push({
+        path: @path.Path::relative(full_path, base=root).to_string(),
+        source,
+      })
     }
   }
   Ok(())

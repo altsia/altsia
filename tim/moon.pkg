@@ -1,0 +1,12 @@
+import {
+  "kokic/sexp-html" @sexp,
+  "kokic/tinymark/core",
+  "kokic/tinymark/backend_html",
+  "moonbitlang/core/argparse",
+  "moonbitlang/x/fs",
+}
+
+options(
+  "is-main": true,
+  targets: { "cli.mbt": [ "native" ] },
+)

@@ -71,7 +71,13 @@ fn compile_rich_content_with_wrap(
             span: call.span,
           }),
         )
-        Ok(Some([Text(chunk_marker(index))]))
+        Ok(
+          Some(
+            @html.ElementOutput::body([
+              @sexp.SexpNode::Text(chunk_marker(index)),
+            ]),
+          ),
+        )
       }
       "embed" => {
         let target = match embed_target(call.children, context.env) {
@@ -98,13 +104,23 @@ fn compile_rich_content_with_wrap(
             span: call.span,
           }),
         )
-        Ok(Some([RawHtml(chunk_marker(index))]))
+        Ok(
+          Some(
+            @html.ElementOutput::body([
+              @sexp.SexpNode::RawHtml(chunk_marker(index)),
+            ]),
+          ),
+        )
       }
       _ => Ok(None)
     }
   }
   let options = @html.CompileOptions::fragment()
-  let options = { ..options, wrap_paragraphs, extensions: [resolver] }
+  let options = {
+    ..options,
+    wrap_inline_content: wrap_paragraphs,
+    extensions: [resolver],
+  }
   match @html.compile_fragment(doc, env=compile_env, options~) {
     Ok(nodes) =>
       Ok(rich_content_from_marked_html(@sexp.render_html(nodes), captured))

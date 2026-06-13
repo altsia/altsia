@@ -7,9 +7,9 @@ import {
 }
 
 // Values
-pub fn compile_inline_rich_content(@core.Document, @core.CompileEnv) -> Result[Array[@model.RichContentChunk], @core.Diagnostic]
+pub fn compile_inline_rich_content(@core.Document, @core.CompileEnv) -> Result[@model.RichContent, @core.Diagnostic]
 
-pub fn compile_rich_content(@core.Document, env? : @core.CompileEnv) -> Result[Array[@model.RichContentChunk], @core.Diagnostic]
+pub fn compile_rich_content(@core.Document, env? : @core.CompileEnv) -> Result[@model.RichContent, @core.Diagnostic]
 
 pub fn text_from_node(@core.Node, env? : @core.CompileEnv) -> String?
 

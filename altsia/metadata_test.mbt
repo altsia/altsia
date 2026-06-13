@@ -23,10 +23,18 @@ test "title is rich content with plain text fallback" {
   match project.trees[0].metadata.title {
     Some((content, fallback_text)) => {
       @test.assert_eq(fallback_text, "Important")
-      @test.assert_eq(content.length(), 1)
-      match content[0] {
-        @model.HtmlChunk(html) => @test.assert_eq(html, "<em>Important</em>")
-        @model.DirectiveChunk(_) => abort("expected title html")
+      @test.assert_eq(content.nodes.length(), 1)
+      @test.assert_eq(content.wrap_inline_content, false)
+      match content.nodes[0] {
+        @model.RichElement("em", _, children, _) => {
+          @test.assert_eq(children.length(), 1)
+          match children[0] {
+            @model.RichText(text, _) => @test.assert_eq(text, "Important")
+            _ => abort("expected title text")
+          }
+        }
+        @model.RichDirective(_) => abort("expected title markup")
+        _ => abort("expected emphasis title")
       }
     }
     None => abort("expected rich title")

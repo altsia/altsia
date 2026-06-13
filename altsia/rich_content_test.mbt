@@ -8,14 +8,15 @@ test "rich content captures directives instead of final html" {
     Err(error) => abort(error.render())
   }
   let directives : Array[@model.RichContentDirective] = []
-  let html_chunks : Array[String] = []
-  for chunk in content {
-    match chunk {
-      @model.DirectiveChunk(directive) => directives.push(directive)
-      @model.HtmlChunk(html) => html_chunks.push(html)
+  let text_chunks : Array[String] = []
+  for node in content.nodes {
+    match node {
+      @model.RichDirective(directive) => directives.push(directive)
+      @model.RichText(text, _) => text_chunks.push(text)
+      @model.RichElement(_, _, _, _) => ()
     }
   }
-  @test.assert_eq(html_chunks.join("").contains("<a href"), false)
+  @test.assert_eq(text_chunks.join("").contains("<a href"), false)
   @test.assert_eq(directives.length(), 2)
   match directives[0] {
     @model.RichLinkDirective(link) => {

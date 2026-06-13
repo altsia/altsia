@@ -29,6 +29,18 @@ test "link fallback uses rich target title" {
 }
 
 ///|
+test "link inside markup stays structural until html render" {
+  let project = compile_ok([
+    source("index.alt", "See (em (link `about.alt` About))."),
+    source("about.alt", "About."),
+  ])
+  @test.assert_eq(
+    project.trees[0].html,
+    "<p>See <em><a href=\"about.html\">About</a></em>.</p>",
+  )
+}
+
+///|
 test "dangling local link is non fatal in normal build" {
   let project = compile_ok([
     source("index.alt", "See (link `missing.alt` Missing)."),

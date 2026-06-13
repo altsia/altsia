@@ -45,117 +45,215 @@ fn compile_rich_content_with_wrap(
   compile_env : @core.CompileEnv,
   wrap_paragraphs~ : Bool,
 ) -> Result[@model.RichContent, @core.Diagnostic] {
-  let captured : Array[@model.RichContentDirective] = []
-  let resolver : @html.ElementResolver = (call, context) => {
-    match call.tag {
-      "link" => {
-        let target = match
-          call.children
-          .get(0)
-          .bind(node => text_from_node(node, env=context.env)) {
-          Some(value) => value
-          None =>
-            return Err(
-              @model.diagnostic(
-                call.span,
-                Binding,
-                "(link ...) requires a target",
-              ),
-            )
+  lower_node_sequence(doc.nodes, compile_env).map(nodes => {
+    nodes,
+    wrap_inline_content: wrap_paragraphs,
+  })
+}
+
+///|
+fn lower_node_sequence(
+  nodes : Array[@core.Node],
+  env : @core.CompileEnv,
+) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
+  let out : Array[@model.RichContentNode] = []
+  let local_env = @core.collect_scope_env(nodes, env)
+  for node in nodes {
+    match node {
+      Let(name, value, _) => local_env.bind_value(name, value)
+      Def(name, params, body, _) => local_env.bind_template(name, params, body)
+      Meta(attrs, _) =>
+        for attr in attrs {
+          local_env.bind_meta_attr(attr)
         }
-        let index = captured.length()
-        captured.push(
-          @model.RichLinkDirective({
-            target,
-            text: rest_text(call.children, start=1, env=context.env),
-            span: call.span,
-          }),
-        )
-        Ok(
-          Some(
-            @html.ElementOutput::body([
-              @sexp.SexpNode::Text(chunk_marker(index)),
-            ]),
-          ),
-        )
-      }
-      "embed" => {
-        let target = match embed_target(call.children, context.env) {
-          Some(value) => value
-          None =>
-            return Err(
-              @model.diagnostic(
-                call.span,
-                Binding,
-                "(embed ...) requires a target",
-              ),
-            )
-        }
-        let option = match embed_option_from_attrs(call.attrs, context.env) {
-          Ok(option) => option
+      _ =>
+        match lower_node(node, local_env) {
+          Ok(nodes) => out.append(nodes)
           Err(error) => return Err(error)
         }
-        let index = captured.length()
-        captured.push(
-          @model.RichEmbedDirective({
-            target,
-            title: rest_text(call.children, start=1, env=context.env),
-            option,
-            span: call.span,
-          }),
-        )
-        Ok(
-          Some(
-            @html.ElementOutput::body([
-              @sexp.SexpNode::RawHtml(chunk_marker(index)),
-            ]),
-          ),
-        )
-      }
-      _ => Ok(None)
     }
   }
-  let options = @html.CompileOptions::fragment()
-  let options = {
-    ..options,
-    wrap_inline_content: wrap_paragraphs,
-    extensions: [resolver],
-  }
-  match @html.compile_fragment(doc, env=compile_env, options~) {
-    Ok(nodes) =>
-      Ok(rich_content_from_marked_html(@sexp.render_html(nodes), captured))
-    Err(error) => Err(error)
+  Ok(out)
+}
+
+///|
+fn lower_node(
+  node : @core.Node,
+  env : @core.CompileEnv,
+) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
+  match node {
+    Text(text, span) => Ok([@model.RichText(text, span)])
+    TextInterp(template, span) =>
+      @core.interpolate_scalar(template, env, span).map(text => {
+        [@model.RichText(text, span)]
+      })
+    Ref(name, span) => {
+      if env.lookup_value(name) is Some(value) {
+        return lower_value(value, env)
+      }
+      if env.lookup_template(name) is Some(template) {
+        return expand_template(template, [], [], env, span)
+      }
+      lower_element(name, [], [], env, span)
+    }
+    Element(tag, attrs, children, span) => {
+      if env.lookup_template(tag) is Some(template) {
+        return expand_template(template, attrs, children, env, span)
+      }
+      lower_element(source_tag_name(tag), attrs, children, env, span)
+    }
+    When(name, children, span) =>
+      match @core.bool_binding(env, name, span) {
+        Ok(true) => lower_node_sequence(children, env)
+        Ok(false) => Ok([])
+        Err(error) => Err(error)
+      }
+    Unless(name, children, span) =>
+      match @core.bool_binding(env, name, span) {
+        Ok(true) => Ok([])
+        Ok(false) => lower_node_sequence(children, env)
+        Err(error) => Err(error)
+      }
+    Let(_, _, _) | Def(_, _, _, _) | Meta(_, _) => Ok([])
   }
 }
 
 ///|
-fn chunk_marker(index : Int) -> String {
-  "\u{1f}altsia:" + index.to_string() + "\u{1f}"
+fn lower_element(
+  tag : String,
+  attrs : Array[@core.Attr],
+  children : Array[@core.Node],
+  env : @core.CompileEnv,
+  span : @core.SourceSpan,
+) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
+  match tag {
+    "_" => lower_node_sequence(children, env)
+    "link" => lower_link(children, env, span)
+    "embed" => lower_embed(attrs, children, env, span)
+    _ =>
+      normalize_attrs(attrs, env).bind(attrs => {
+        lower_node_sequence(children, env).map(children => {
+          [@model.RichElement(tag, attrs, children, span)]
+        })
+      })
+  }
 }
 
 ///|
-fn rich_content_from_marked_html(
-  html : String,
-  captured : Array[@model.RichContentDirective],
-) -> @model.RichContent {
-  let result : @model.RichContent = []
-  let mut remainder = html
-  for i in 0..<captured.length() {
-    let marker = chunk_marker(i)
-    let parts = remainder.split(marker).to_array()
-    if parts.length() > 1 {
-      let before = parts[0].to_owned()
-      if before != "" {
-        result.push(@model.HtmlChunk(before))
-      }
-      result.push(@model.DirectiveChunk(captured[i]))
-      remainder = parts[1:].to_owned().map(part => part.to_owned()).join(marker)
+fn lower_link(
+  children : Array[@core.Node],
+  env : @core.CompileEnv,
+  span : @core.SourceSpan,
+) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
+  let target = match children.get(0).bind(node => text_from_node(node, env~)) {
+    Some(value) => value
+    None =>
+      return Err(
+        @model.diagnostic(span, Binding, "(link ...) requires a target"),
+      )
+  }
+  Ok([
+    @model.RichDirective(
+      @model.RichLinkDirective({
+        target,
+        text: rest_text(children, start=1, env~),
+        span,
+      }),
+    ),
+  ])
+}
+
+///|
+fn lower_embed(
+  attrs : Array[@core.Attr],
+  children : Array[@core.Node],
+  env : @core.CompileEnv,
+  span : @core.SourceSpan,
+) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
+  let target = match embed_target(children, env) {
+    Some(value) => value
+    None =>
+      return Err(
+        @model.diagnostic(span, Binding, "(embed ...) requires a target"),
+      )
+  }
+  let option = match embed_option_from_attrs(attrs, env) {
+    Ok(option) => option
+    Err(error) => return Err(error)
+  }
+  Ok([
+    @model.RichDirective(
+      @model.RichEmbedDirective({
+        target,
+        title: rest_text(children, start=1, env~),
+        option,
+        span,
+      }),
+    ),
+  ])
+}
+
+///|
+fn lower_value(
+  value : @core.Value,
+  env : @core.CompileEnv,
+) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
+  match value {
+    Scalar(text, span) => Ok([@model.RichText(text, span)])
+    Bool(value, span) =>
+      Ok([@model.RichText(if value { "true" } else { "false" }, span)])
+    Interp(template, span) =>
+      @core.interpolate_scalar(template, env, span).map(text => {
+        [@model.RichText(text, span)]
+      })
+    Fragment(nodes, _) => lower_node_sequence(nodes, env)
+  }
+}
+
+///|
+fn expand_template(
+  template : @core.Template,
+  attrs : Array[@core.Attr],
+  children : Array[@core.Node],
+  call_env : @core.CompileEnv,
+  call_span : @core.SourceSpan,
+) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
+  @core.bind_template_call_env(template, attrs, children, call_env, call_span).bind(env => {
+      lower_node_sequence(template.body, env)
+    },
+  )
+}
+
+///|
+fn normalize_attrs(
+  attrs : Array[@core.Attr],
+  env : @core.CompileEnv,
+) -> Result[Array[@core.Attr], @core.Diagnostic] {
+  let normalized : Array[@core.Attr] = []
+  for attr in attrs {
+    match attr.value {
+      None => normalized.push(attr)
+      Some(value) =>
+        match @core.value_to_scalar(value, env) {
+          Ok(text) =>
+            normalized.push({
+              name: attr.name,
+              value: Some(Scalar(text, attr.span)),
+              span: attr.span,
+            })
+          Err(error) => return Err(error)
+        }
     }
   }
-  if remainder != "" {
-    result.push(@model.HtmlChunk(remainder))
+  Ok(normalized)
+}
+
+///|
+fn source_tag_name(tag : String) -> String {
+  match tag {
+    "-" => "item"
+    _ => tag
   }
-  result
 }
 
 ///|

@@ -50,13 +50,22 @@ pub(all) enum RichContentDirective {
 }
 
 ///|
-pub(all) enum RichContentChunk {
-  HtmlChunk(String)
-  DirectiveChunk(RichContentDirective)
+pub(all) enum RichContentNode {
+  RichText(String, @core.SourceSpan)
+  RichElement(
+    String,
+    Array[@core.Attr],
+    Array[RichContentNode],
+    @core.SourceSpan
+  )
+  RichDirective(RichContentDirective)
 }
 
 ///|
-pub type RichContent = Array[RichContentChunk]
+pub(all) struct RichContent {
+  nodes : Array[RichContentNode]
+  wrap_inline_content : Bool
+}
 
 ///|
 pub(all) struct Metadata {

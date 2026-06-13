@@ -31,15 +31,27 @@ priv struct RenderState {
 
 ///|
 priv enum ResolvedContent {
-  ResolvedHtml(String)
+  ResolvedText(String, @core.SourceSpan)
+  ResolvedElement(
+    String,
+    Array[@core.Attr],
+    Array[ResolvedContent],
+    @core.SourceSpan
+  )
   ResolvedLink(ResolvedLink)
   ResolvedEmbed(@model.EmbedDirective, String, ResolvedTree)
 }
 
 ///|
+priv struct ResolvedRichContent {
+  nodes : Array[ResolvedContent]
+  wrap_inline_content : Bool
+}
+
+///|
 priv enum ResolvedLinkLabel {
   LinkText(String)
-  LinkResolvedContent(Array[ResolvedContent])
+  LinkResolvedContent(ResolvedRichContent)
   LinkFallbackText(String)
 }
 
@@ -49,6 +61,7 @@ priv struct ResolvedLink {
   target : String
   slug : @model.TreeSlug?
   label : ResolvedLinkLabel
+  span : @core.SourceSpan
 }
 
 ///|
@@ -56,7 +69,7 @@ priv struct ResolvedTree {
   slug : @model.TreeSlug
   path : String
   metadata : @model.Metadata
-  contents : Array[ResolvedContent]
+  content : ResolvedRichContent
   references : Set[String]
 }
 
@@ -188,7 +201,10 @@ fn RenderState::new(
 fn RenderState::render_project(
   self : RenderState,
 ) -> Result[@model.CompiledProject, @core.Diagnostic] {
-  let compiled_tree_index = self.compiled_tree_index()
+  let compiled_tree_index = match self.compiled_tree_index() {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   Ok({
     root: self.input.root,
     trees: self.ordered_compiled_trees(compiled_tree_index),
@@ -262,7 +278,7 @@ fn ResolveState::compile_resolved_tree(
     slug: tree.slug,
     path: tree.path,
     metadata: tree.metadata,
-    contents,
+    content: contents,
     references,
   }
   match tree.metadata.parent {
@@ -286,7 +302,7 @@ fn ResolveState::cycle_diagnostic(
 fn ResolveState::resolve_tree_content(
   self : ResolveState,
   tree : @model.ParsedTree,
-) -> Result[(Array[ResolvedContent], Set[String]), @core.Diagnostic] {
+) -> Result[(ResolvedRichContent, Set[String]), @core.Diagnostic] {
   self.resolve_rich_content(tree.content, tree.slug.canonical(), tree.path)
 }
 
@@ -296,23 +312,47 @@ fn ResolveState::resolve_rich_content(
   content : @model.RichContent,
   source_slug : String,
   source_path : String,
-) -> Result[(Array[ResolvedContent], Set[String]), @core.Diagnostic] {
-  let chunks : Array[ResolvedContent] = []
+) -> Result[(ResolvedRichContent, Set[String]), @core.Diagnostic] {
+  let nodes : Array[ResolvedContent] = []
   let references : Set[String] = Set([])
-  for chunk in content {
-    match chunk {
-      @model.HtmlChunk(html) => chunks.push(ResolvedHtml(html))
-      @model.DirectiveChunk(directive) =>
-        match
-          self.resolve_rich_content_directive(
-            directive, source_slug, source_path, references,
-          ) {
-          Ok(content) => chunks.push(content)
-          Err(error) => return Err(error)
-        }
+  for node in content.nodes {
+    match
+      self.resolve_rich_content_node(node, source_slug, source_path, references) {
+      Ok(content) => nodes.push(content)
+      Err(error) => return Err(error)
     }
   }
-  Ok((chunks, references))
+  Ok(({ nodes, wrap_inline_content: content.wrap_inline_content }, references))
+}
+
+///|
+fn ResolveState::resolve_rich_content_node(
+  self : ResolveState,
+  node : @model.RichContentNode,
+  source_slug : String,
+  source_path : String,
+  references : Set[String],
+) -> Result[ResolvedContent, @core.Diagnostic] {
+  match node {
+    @model.RichText(text, span) => Ok(ResolvedText(text, span))
+    @model.RichElement(tag, attrs, children, span) => {
+      let resolved_children : Array[ResolvedContent] = []
+      for child in children {
+        match
+          self.resolve_rich_content_node(
+            child, source_slug, source_path, references,
+          ) {
+          Ok(resolved) => resolved_children.push(resolved)
+          Err(error) => return Err(error)
+        }
+      }
+      Ok(ResolvedElement(tag, attrs, resolved_children, span))
+    }
+    @model.RichDirective(directive) =>
+      self.resolve_rich_content_directive(
+        directive, source_slug, source_path, references,
+      )
+  }
 }
 
 ///|
@@ -374,6 +414,7 @@ fn ResolveState::resolve_link_directive(
           target,
           slug: Some(resolved_slug),
           label: title,
+          span: link.span,
         }),
       )
     }
@@ -389,6 +430,7 @@ fn ResolveState::resolve_link_directive(
           target,
           slug: None,
           label: LinkText(label),
+          span: link.span,
         }),
       )
     }
@@ -493,10 +535,13 @@ fn RenderState::render_embed_html(
   embed : @model.EmbedDirective,
   tree : ResolvedTree,
   counter : RenderCounter,
-) -> String {
+) -> Result[String, @core.Diagnostic] {
   let resolved_key = tree.slug.canonical()
   let attrs = embed_attrs(embed, resolved_key)
-  let body_html = self.render_resolved_tree_body(tree)
+  let body_html = match self.render_resolved_tree_body(tree) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let number = if embed.option.numbering { Some(counter.next()) } else { None }
   let catalog = if embed.option.catalog {
     self.render_embed_catalog(tree)
@@ -538,56 +583,150 @@ fn RenderState::render_embed_html(
       [@sexp.SexpNode::Element("div", attrs, children)]
     }
   }
-  @sexp.render_html(nodes)
+  Ok(@sexp.render_html(nodes))
 }
 
 ///|
 fn RenderState::render_resolved_tree_body(
   self : RenderState,
   tree : ResolvedTree,
-) -> String {
-  self.render_resolved_contents(tree.contents, RenderCounter::new())
+) -> Result[String, @core.Diagnostic] {
+  self.render_resolved_content_nodes(
+    tree.content.nodes,
+    RenderCounter::new(),
+    wrap_inline_content=tree.content.wrap_inline_content,
+  )
 }
 
 ///|
-fn RenderState::render_resolved_contents(
+fn RenderState::render_resolved_content_nodes(
   self : RenderState,
   contents : Array[ResolvedContent],
   counter : RenderCounter,
-) -> String {
-  let chunks : Array[String] = []
-  for content in contents {
-    match content {
-      ResolvedHtml(html) => chunks.push(html)
-      ResolvedLink(link) => chunks.push(self.render_link_html(link))
-      ResolvedEmbed(embed, _, tree) =>
-        chunks.push(self.render_embed_html(embed, tree, counter))
+  wrap_inline_content~ : Bool,
+) -> Result[String, @core.Diagnostic] {
+  let placeholders : Array[RenderPlaceholder] = []
+  let nodes = resolved_contents_to_core_nodes(contents, placeholders)
+  let next_placeholder = [0]
+  let resolver : @html.ElementResolver = (call, _context) => {
+    if call.tag != placeholder_tag() {
+      return Ok(None)
+    }
+    let index = next_placeholder[0]
+    next_placeholder[0] = index + 1
+    guard placeholders.get(index) is Some(placeholder) else {
+      return Err(
+        @model.diagnostic(call.span, Binding, "missing render placeholder"),
+      )
+    }
+    match placeholder {
+      RenderLink(link) =>
+        self
+        .render_link_node(link)
+        .map(node => Some(@html.ElementOutput::body([node])))
+      RenderEmbed(embed, _, tree) =>
+        self
+        .render_embed_html(embed, tree, counter)
+        .map(html => {
+          Some(@html.ElementOutput::body([@sexp.SexpNode::RawHtml(html)]))
+        })
     }
   }
-  chunks.join("")
+  let options = {
+    ..@html.CompileOptions::fragment(),
+    wrap_inline_content,
+    extensions: [resolver],
+  }
+  @html.compile_fragment(
+    { source: @core.SourceInfo::default(), nodes },
+    options~,
+  ).map(nodes => @sexp.render_html(nodes))
 }
 
 ///|
-fn RenderState::render_link_html(
+priv enum RenderPlaceholder {
+  RenderLink(ResolvedLink)
+  RenderEmbed(@model.EmbedDirective, String, ResolvedTree)
+}
+
+///|
+fn resolved_contents_to_core_nodes(
+  contents : Array[ResolvedContent],
+  placeholders : Array[RenderPlaceholder],
+) -> Array[@core.Node] {
+  let nodes : Array[@core.Node] = []
+  for content in contents {
+    nodes.push(resolved_content_to_core_node(content, placeholders))
+  }
+  nodes
+}
+
+///|
+fn resolved_content_to_core_node(
+  content : ResolvedContent,
+  placeholders : Array[RenderPlaceholder],
+) -> @core.Node {
+  match content {
+    ResolvedText(text, span) => Text(text, span)
+    ResolvedElement(tag, attrs, children, span) =>
+      Element(
+        tag,
+        attrs,
+        resolved_contents_to_core_nodes(children, placeholders),
+        span,
+      )
+    ResolvedLink(link) => {
+      let index = placeholders.length()
+      placeholders.push(RenderLink(link))
+      placeholder_node(index, link.span)
+    }
+    ResolvedEmbed(embed, source, tree) => {
+      let index = placeholders.length()
+      placeholders.push(RenderEmbed(embed, source, tree))
+      placeholder_node(index, embed.span)
+    }
+  }
+}
+
+///|
+fn placeholder_node(index : Int, span : @core.SourceSpan) -> @core.Node {
+  Element(placeholder_tag(), [placeholder_attr(index, span)], [], span)
+}
+
+///|
+fn placeholder_attr(index : Int, span : @core.SourceSpan) -> @core.Attr {
+  { name: "data-index", value: Some(Scalar(index.to_string(), span)), span }
+}
+
+///|
+fn placeholder_tag() -> String {
+  "altsia.placeholder"
+}
+
+///|
+fn RenderState::render_link_node(
   self : RenderState,
   link : ResolvedLink,
-) -> String {
-  let label = self.render_link_label(link.label)
+) -> Result[@sexp.SexpNode, @core.Diagnostic] {
+  let label = match self.render_link_label(link.label) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   match link.slug {
     Some(slug) =>
-      @sexp.render_html([
+      Ok(
         Element("a", [("href", Some(@model.url_for_tree(slug)))], [
           RawHtml(label),
         ]),
-      ])
+      )
     None =>
-      @sexp.render_html([
+      Ok(
         Element(
           "a",
           [("href", Some("#")), ("data-missing-target", Some(link.target))],
           [RawHtml(label)],
         ),
-      ])
+      )
   }
 }
 
@@ -595,12 +734,16 @@ fn RenderState::render_link_html(
 fn RenderState::render_link_label(
   self : RenderState,
   label : ResolvedLinkLabel,
-) -> String {
+) -> Result[String, @core.Diagnostic] {
   match label {
-    LinkText(value) => @sexp.render_html([Text(value)])
+    LinkText(value) => Ok(@sexp.render_html([Text(value)]))
     LinkResolvedContent(contents) =>
-      self.render_resolved_contents(contents, RenderCounter::new())
-    LinkFallbackText(value) => @sexp.render_html([Text(value)])
+      self.render_resolved_content_nodes(
+        contents.nodes,
+        RenderCounter::new(),
+        wrap_inline_content=contents.wrap_inline_content,
+      )
+    LinkFallbackText(value) => Ok(@sexp.render_html([Text(value)]))
   }
 }
 
@@ -623,7 +766,10 @@ fn RenderState::render_structured_preview(
         ),
       )
   }
-  let compiled_tree_index = self.compiled_tree_index()
+  let compiled_tree_index = match self.compiled_tree_index() {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let compiled = match compiled_tree_index.get(entry_key) {
     Some(tree) => tree
     None =>
@@ -636,8 +782,11 @@ fn RenderState::render_structured_preview(
       )
   }
   let context = PreviewRenderContext::new(options)
-  let html = self.render_preview_tree_body(resolved, context) +
-    self.render_tree_footer(compiled)
+  let body = match self.render_preview_tree_body(resolved, context) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let html = body + self.render_tree_footer(compiled)
   Ok({
     html,
     entry: entry_path,
@@ -692,39 +841,71 @@ fn RenderState::render_preview_tree_body(
   self : RenderState,
   tree : ResolvedTree,
   context : PreviewRenderContext,
-) -> String {
-  self.render_preview_contents(tree.contents, RenderCounter::new(), context)
+) -> Result[String, @core.Diagnostic] {
+  self.render_preview_content_nodes(
+    tree.content.nodes,
+    RenderCounter::new(),
+    context,
+    wrap_inline_content=tree.content.wrap_inline_content,
+  )
 }
 
 ///|
-fn RenderState::render_preview_contents(
+fn RenderState::render_preview_content_nodes(
   self : RenderState,
   contents : Array[ResolvedContent],
   counter : RenderCounter,
   context : PreviewRenderContext,
-) -> String {
-  let chunks : Array[String] = []
-  for content in contents {
-    match content {
-      ResolvedHtml(html) => chunks.push(html)
-      ResolvedLink(link) =>
-        chunks.push(self.render_preview_link_html(link, context))
-      ResolvedEmbed(embed, source, tree) =>
-        chunks.push(
-          self.render_preview_embed_html(embed, source, tree, counter, context),
-        )
+  wrap_inline_content~ : Bool,
+) -> Result[String, @core.Diagnostic] {
+  let placeholders : Array[RenderPlaceholder] = []
+  let nodes = resolved_contents_to_core_nodes(contents, placeholders)
+  let next_placeholder = [0]
+  let resolver : @html.ElementResolver = (call, _compile_context) => {
+    if call.tag != placeholder_tag() {
+      return Ok(None)
+    }
+    let index = next_placeholder[0]
+    next_placeholder[0] = index + 1
+    guard placeholders.get(index) is Some(placeholder) else {
+      return Err(
+        @model.diagnostic(call.span, Binding, "missing render placeholder"),
+      )
+    }
+    match placeholder {
+      RenderLink(link) =>
+        self
+        .render_preview_link_node(link, context)
+        .map(node => Some(@html.ElementOutput::body([node])))
+      RenderEmbed(embed, source, tree) =>
+        self
+        .render_preview_embed_html(embed, source, tree, counter, context)
+        .map(html => {
+          Some(@html.ElementOutput::body([@sexp.SexpNode::RawHtml(html)]))
+        })
     }
   }
-  chunks.join("")
+  let options = {
+    ..@html.CompileOptions::fragment(),
+    wrap_inline_content,
+    extensions: [resolver],
+  }
+  @html.compile_fragment(
+    { source: @core.SourceInfo::default(), nodes },
+    options~,
+  ).map(nodes => @sexp.render_html(nodes))
 }
 
 ///|
-fn RenderState::render_preview_link_html(
+fn RenderState::render_preview_link_node(
   self : RenderState,
   link : ResolvedLink,
   context : PreviewRenderContext,
-) -> String {
-  let label = self.render_link_label(link.label)
+) -> Result[@sexp.SexpNode, @core.Diagnostic] {
+  let label = match self.render_link_label(link.label) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let id = context.next_link_id()
   match link.slug {
     Some(slug) => {
@@ -748,7 +929,7 @@ fn RenderState::render_preview_link_html(
           None => ()
         }
       }
-      @sexp.render_html([Element("a", attrs, [RawHtml(label)])])
+      Ok(@sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)]))
     }
     None => {
       let href = "#"
@@ -768,7 +949,7 @@ fn RenderState::render_preview_link_html(
       if context.options.annotate_html {
         attrs.push(("data-altsia-link-id", Some(id)))
       }
-      @sexp.render_html([Element("a", attrs, [RawHtml(label)])])
+      Ok(@sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)]))
     }
   }
 }
@@ -781,7 +962,7 @@ fn RenderState::render_preview_embed_html(
   tree : ResolvedTree,
   counter : RenderCounter,
   context : PreviewRenderContext,
-) -> String {
+) -> Result[String, @core.Diagnostic] {
   let resolved_key = tree.slug.canonical()
   let id = context.next_embed_id()
   context.embeds.push({
@@ -797,7 +978,10 @@ fn RenderState::render_preview_embed_html(
     attrs.push(("data-altsia-embed-id", Some(id)))
     attrs.push(("data-altsia-target-source", Some(tree.path)))
   }
-  let body_html = self.render_preview_tree_body(tree, context)
+  let body_html = match self.render_preview_tree_body(tree, context) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let number = if embed.option.numbering { Some(counter.next()) } else { None }
   let catalog = if embed.option.catalog {
     self.render_embed_catalog(tree)
@@ -839,7 +1023,7 @@ fn RenderState::render_preview_embed_html(
       [@sexp.SexpNode::Element("div", attrs, children)]
     }
   }
-  @sexp.render_html(nodes)
+  Ok(@sexp.render_html(nodes))
 }
 
 ///|
@@ -909,8 +1093,21 @@ fn RenderState::render_embed_catalog_items(
   visited : Set[String],
 ) -> Array[@sexp.SexpNode] {
   let items : Array[@sexp.SexpNode] = []
-  for content in tree.contents {
+  self.push_embed_catalog_items(items, tree.content.nodes, visited)
+  items
+}
+
+///|
+fn RenderState::push_embed_catalog_items(
+  self : RenderState,
+  items : Array[@sexp.SexpNode],
+  contents : Array[ResolvedContent],
+  visited : Set[String],
+) -> Unit {
+  for content in contents {
     match content {
+      ResolvedElement(_, _, children, _) =>
+        self.push_embed_catalog_items(items, children, visited)
       ResolvedEmbed(_, _, child) => {
         let child_key = child.slug.canonical()
         if !visited.contains(child_key) {
@@ -932,7 +1129,6 @@ fn RenderState::render_embed_catalog_items(
       _ => ()
     }
   }
-  items
 }
 
 ///|
@@ -1082,22 +1278,26 @@ fn add_all_strings(target : Set[String], source : Set[String]) -> Unit {
 ///|
 fn RenderState::compiled_tree_index(
   self : RenderState,
-) -> Map[String, @model.CompiledTree] {
+) -> Result[Map[String, @model.CompiledTree], @core.Diagnostic] {
   let index : Map[String, @model.CompiledTree] = Map([])
   for slug in self.input.tree_order {
     match self.resolved_by_slug.get(slug) {
-      Some(tree) => index[slug] = self.to_compiled_tree(tree)
+      Some(tree) =>
+        match self.to_compiled_tree(tree) {
+          Ok(compiled) => index[slug] = compiled
+          Err(error) => return Err(error)
+        }
       None => ()
     }
   }
-  index
+  Ok(index)
 }
 
 ///|
 fn RenderState::to_compiled_tree(
   self : RenderState,
   tree : ResolvedTree,
-) -> @model.CompiledTree {
+) -> Result[@model.CompiledTree, @core.Diagnostic] {
   let references = string_set_to_slugs(
     self.resolved_tree_references(tree, Set([tree.slug.canonical()])),
   )
@@ -1109,7 +1309,10 @@ fn RenderState::to_compiled_tree(
     Some(value) => value.parent
     None => None
   }
-  let html = self.render_resolved_tree_body(tree)
+  let html = match self.render_resolved_tree_body(tree) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
   let compiled : @model.CompiledTree = {
     slug: tree.slug,
     path: tree.path,
@@ -1119,7 +1322,7 @@ fn RenderState::to_compiled_tree(
     backlinks,
     parent,
   }
-  { ..compiled, html: html + self.render_tree_footer(compiled) }
+  Ok({ ..compiled, html: html + self.render_tree_footer(compiled) })
 }
 
 ///|
@@ -1129,8 +1332,21 @@ fn RenderState::resolved_tree_references(
   visited : Set[String],
 ) -> Set[String] {
   let references = tree.references.copy()
-  for content in tree.contents {
+  self.add_embedded_references(references, tree.content.nodes, visited)
+  references
+}
+
+///|
+fn RenderState::add_embedded_references(
+  self : RenderState,
+  references : Set[String],
+  contents : Array[ResolvedContent],
+  visited : Set[String],
+) -> Unit {
+  for content in contents {
     match content {
+      ResolvedElement(_, _, children, _) =>
+        self.add_embedded_references(references, children, visited)
       ResolvedEmbed(embed, _, child) =>
         if embed_is_open(embed) {
           let child_key = child.slug.canonical()
@@ -1145,7 +1361,6 @@ fn RenderState::resolved_tree_references(
       _ => ()
     }
   }
-  references
 }
 
 ///|
@@ -1159,8 +1374,21 @@ fn RenderState::resolved_tree_backlinks(
     Some(value) => value.backlinks.copy()
     None => Set([])
   }
-  for content in tree.contents {
+  self.add_embedded_backlinks(backlinks, tree.content.nodes, visited)
+  backlinks
+}
+
+///|
+fn RenderState::add_embedded_backlinks(
+  self : RenderState,
+  backlinks : Set[String],
+  contents : Array[ResolvedContent],
+  visited : Set[String],
+) -> Unit {
+  for content in contents {
     match content {
+      ResolvedElement(_, _, children, _) =>
+        self.add_embedded_backlinks(backlinks, children, visited)
       ResolvedEmbed(embed, _, child) =>
         if embed_is_open(embed) {
           let child_key = child.slug.canonical()
@@ -1175,7 +1403,6 @@ fn RenderState::resolved_tree_backlinks(
       _ => ()
     }
   }
-  backlinks
 }
 
 ///|

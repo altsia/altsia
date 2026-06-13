@@ -99,7 +99,7 @@ pub(all) struct Metadata {
   slug : TreeSlug
   source_id : String
   lang : String?
-  title : (Array[RichContentChunk], String)?
+  title : (RichContent, String)?
   page_title : String?
   taxon : Taxon?
   parent : TreeSlug?
@@ -114,7 +114,7 @@ pub(all) struct Metadata {
 pub(all) struct ParsedTree {
   slug : TreeSlug
   path : String
-  content : Array[RichContentChunk]
+  content : RichContent
   metadata : Metadata
   source_file_dependencies : Array[SourceFileDependency]
 }
@@ -168,14 +168,20 @@ pub(all) struct Project {
 } derive(Eq, @debug.Debug)
 pub fn Project::new(String, Array[SourceFile]) -> Self
 
-pub(all) enum RichContentChunk {
-  HtmlChunk(String)
-  DirectiveChunk(RichContentDirective)
+pub(all) struct RichContent {
+  nodes : Array[RichContentNode]
+  wrap_inline_content : Bool
 }
 
 pub(all) enum RichContentDirective {
   RichLinkDirective(LinkDirective)
   RichEmbedDirective(EmbedDirective)
+}
+
+pub(all) enum RichContentNode {
+  RichText(String, @core.SourceSpan)
+  RichElement(String, Array[@core.Attr], Array[RichContentNode], @core.SourceSpan)
+  RichDirective(RichContentDirective)
 }
 
 pub(all) struct SourceFile {
@@ -237,7 +243,6 @@ pub fn TreeSlug::parse(String) -> Self
 pub fn TreeSlug::sibling(Self, Self) -> Self
 
 // Type aliases
-pub type RichContent = Array[RichContentChunk]
 
 // Traits
 

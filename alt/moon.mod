@@ -9,7 +9,7 @@ import {
 
 readme = "README.md"
 
-repository = "https://github.com/altsia/altsia"
+repository = "https://github.com/altsia/altsia/tree/main/alt"
 
 license = "GPL-3.0"
 

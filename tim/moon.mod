@@ -10,7 +10,7 @@ import {
 
 readme = "README.md"
 
-repository = "https://github.com/kokic/tinymark"
+repository = "https://github.com/altsia/altsia/tree/main/tim"
 
 license = "AGPL-3.0"
 

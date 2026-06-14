@@ -8,7 +8,7 @@ import {
 
 readme = "README.md"
 
-repository = "https://github.com/kokic/tinymark"
+repository = "https://github.com/altsia/altsia/tree/main/tinymark"
 
 license = "AGPL-3.0"
 

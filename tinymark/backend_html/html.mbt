@@ -361,6 +361,10 @@ fn compile_element(
       compile_code(attrs, children, env, current_heading_level, extensions)
     "slot" =>
       compile_slot(attrs, children, env, current_heading_level, extensions)
+    "h" =>
+      compile_hspace(
+        attrs, children, env, current_heading_level, span, extensions,
+      )
     "style" => compile_scoped_style(attrs, children, env)
     _ =>
       compile_mapped_element(
@@ -860,6 +864,47 @@ fn compile_slot(
       },
     )
   })
+}
+
+///|
+fn compile_hspace(
+  attrs : Array[Attr],
+  children : Array[Node],
+  env : CompileEnv,
+  current_heading_level : Int,
+  span : SourceSpan,
+  extensions : Array[ElementResolver],
+) -> Result[ElementOutput, Diagnostic] {
+  if !attrs.is_empty() {
+    return Err(
+      span.diagnostic(
+        DiagnosticPhase::Type,
+        "(h ...) does not accept attributes",
+      ),
+    )
+  }
+  if children.is_empty() {
+    return Err(
+      span.diagnostic(DiagnosticPhase::Type, "(h ...) requires a length"),
+    )
+  }
+  compile_text_only_children(children, env, current_heading_level, extensions).bind(length => {
+      let length = length.trim().to_owned()
+      Ok(
+        body_output([
+          HtmlNode::Element(
+            "span",
+            [
+              ("class", Some("hspace")),
+              ("aria-hidden", Some("true")),
+              ("style", Some(hspace_style(length))),
+            ],
+            [],
+          ),
+        ]),
+      )
+    },
+  )
 }
 
 ///|

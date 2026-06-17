@@ -30,14 +30,24 @@ fn RenderState::render_embed_html(
           @sexp.SexpNode::Element("summary", [], summary_children),
           @sexp.SexpNode::RawHtml(body_html),
         ]
-        push_optional_sexp_node(children, catalog)
+        if catalog is Some(node) {
+          children.push(node)
+        }
         [@sexp.SexpNode::Element("details", attrs, children)]
       }
       None => {
         let children : Array[@sexp.SexpNode] = []
-        push_embed_number_node(children, number)
+        if number is Some(number) {
+          children.push(
+            @sexp.SexpNode::Element("div", [("class", Some("embed-number"))], [
+              @sexp.SexpNode::Text(number.to_string() + "."),
+            ]),
+          )
+        }
         children.push(@sexp.SexpNode::RawHtml(body_html))
-        push_optional_sexp_node(children, catalog)
+        if catalog is Some(node) {
+          children.push(node)
+        }
         [@sexp.SexpNode::Element("div", attrs, children)]
       }
     }
@@ -208,13 +218,11 @@ fn RenderState::compiled_tree_index(
 ) -> Result[Map[String, @model.CompiledTree], @core.Diagnostic] {
   let index : Map[String, @model.CompiledTree] = Map([])
   for slug in self.input.tree_order {
-    match self.resolved_by_slug.get(slug) {
-      Some(tree) =>
-        match self.to_compiled_tree(tree) {
-          Ok(compiled) => index[slug] = compiled
-          Err(error) => return Err(error)
-        }
-      None => ()
+    if self.resolved_by_slug.get(slug) is Some(tree) {
+      match self.to_compiled_tree(tree) {
+        Ok(compiled) => index[slug] = compiled
+        Err(error) => return Err(error)
+      }
     }
   }
   Ok(index)

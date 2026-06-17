@@ -46,36 +46,52 @@ fn nodes_to_plain_text_with_env(
           local_env.bind_meta_attr(attr)
         }
       Text(text, _) => parts.push(text)
-      TextInterp(template, span) =>
-        match
-          interpolate_text(
-            template, local_env, span, value_to_plain_text_with_env,
-          ) {
-          Ok(text) => parts.push(text)
-          Err(error) => return Err(error)
+      TextInterp(template, span) => {
+        let result = interpolate_text(
+          template, local_env, span, value_to_plain_text_with_env,
+        )
+        if result is Ok(text) {
+          parts.push(text)
+        } else if result is Err(error) {
+          return Err(error)
         }
-      Ref(name, span) =>
-        match plain_ref(name, local_env, span) {
-          Ok(text) => parts.push(text)
-          Err(error) => return Err(error)
+      }
+      Ref(name, span) => {
+        let result = plain_ref(name, local_env, span)
+        if result is Ok(text) {
+          parts.push(text)
+        } else if result is Err(error) {
+          return Err(error)
         }
-      Element(tag, attrs, children, span) =>
-        match plain_element(tag, attrs, children, local_env, span) {
-          Ok(text) => parts.push(text)
-          Err(error) => return Err(error)
+      }
+      Element(tag, attrs, children, span) => {
+        let result = plain_element(tag, attrs, children, local_env, span)
+        if result is Ok(text) {
+          parts.push(text)
+        } else if result is Err(error) {
+          return Err(error)
         }
-      When(name, children, span) =>
-        match conditional_plain_text(name, children, local_env, span, true) {
-          Ok(Some(text)) => parts.push(text)
-          Ok(None) => ()
-          Err(error) => return Err(error)
+      }
+      When(name, children, span) => {
+        let result = conditional_plain_text(
+          name, children, local_env, span, true,
+        )
+        if result is Ok(Some(text)) {
+          parts.push(text)
+        } else if result is Err(error) {
+          return Err(error)
         }
-      Unless(name, children, span) =>
-        match conditional_plain_text(name, children, local_env, span, false) {
-          Ok(Some(text)) => parts.push(text)
-          Ok(None) => ()
-          Err(error) => return Err(error)
+      }
+      Unless(name, children, span) => {
+        let result = conditional_plain_text(
+          name, children, local_env, span, false,
+        )
+        if result is Ok(Some(text)) {
+          parts.push(text)
+        } else if result is Err(error) {
+          return Err(error)
         }
+      }
     }
   }
   Ok(normalize_plain_text(parts.join("")))

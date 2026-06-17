@@ -16,27 +16,6 @@ fn embed_summary_children(
 }
 
 ///|
-fn push_optional_sexp_node(
-  nodes : Array[@sexp.SexpNode],
-  node : @sexp.SexpNode?,
-) -> Unit {
-  if node is Some(node) {
-    nodes.push(node)
-  }
-}
-
-///|
-fn push_embed_number_node(nodes : Array[@sexp.SexpNode], number : Int?) -> Unit {
-  if number is Some(number) {
-    nodes.push(
-      @sexp.SexpNode::Element("div", [("class", Some("embed-number"))], [
-        @sexp.SexpNode::Text(number.to_string() + "."),
-      ]),
-    )
-  }
-}
-
-///|
 fn RenderState::render_embed_catalog(
   self : RenderState,
   tree : ResolvedTree,

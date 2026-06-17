@@ -8,16 +8,16 @@ fn RenderState::render_tree_footer(
   }
   let sections : Array[@sexp.SexpNode] = []
   if tree.metadata.show_references {
-    push_optional_sexp_node(
-      sections,
-      self.footer_section("References", tree.references, tree.metadata),
-    )
+    if self.footer_section("References", tree.references, tree.metadata)
+      is Some(section) {
+      sections.push(section)
+    }
   }
   if tree.metadata.show_backlinks {
-    push_optional_sexp_node(
-      sections,
-      self.footer_section("Backlinks", tree.backlinks, tree.metadata),
-    )
+    if self.footer_section("Backlinks", tree.backlinks, tree.metadata)
+      is Some(section) {
+      sections.push(section)
+    }
   }
   if sections.is_empty() {
     ""

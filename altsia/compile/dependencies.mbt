@@ -39,16 +39,14 @@ pub fn expand_dirty_sources(
   while cursor < queue.length() {
     let source = queue[cursor]
     cursor += 1
-    match graph.get(source) {
-      Some(next_sources) =>
-        for next in next_sources {
-          if !visited.contains(next) {
-            visited.add(next)
-            queue.push(next)
-            result.push(next)
-          }
+    if graph.get(source) is Some(next_sources) {
+      for next in next_sources {
+        if !visited.contains(next) {
+          visited.add(next)
+          queue.push(next)
+          result.push(next)
         }
-      None => ()
+      }
     }
   }
   result
@@ -98,24 +96,22 @@ pub fn source_file_dependencies_for_entry(
   while cursor < queue.length() {
     let source = queue[cursor]
     cursor += 1
-    match by_source.get(source) {
-      Some(edges) =>
-        for dependency in edges {
-          let key = source_file_dependency_key(
-            dependency.source,
-            dependency.target,
-            dependency.kind,
-          )
-          if !emitted.contains(key) {
-            emitted.add(key)
-            result.push(dependency)
-          }
-          if !visited.contains(dependency.target) {
-            visited.add(dependency.target)
-            queue.push(dependency.target)
-          }
+    if by_source.get(source) is Some(edges) {
+      for dependency in edges {
+        let key = source_file_dependency_key(
+          dependency.source,
+          dependency.target,
+          dependency.kind,
+        )
+        if !emitted.contains(key) {
+          emitted.add(key)
+          result.push(dependency)
         }
-      None => ()
+        if !visited.contains(dependency.target) {
+          visited.add(dependency.target)
+          queue.push(dependency.target)
+        }
+      }
     }
   }
   result

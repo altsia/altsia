@@ -19,9 +19,8 @@ fn ResolveState::compile_resolved_tree(
   self : ResolveState,
   slug : String,
 ) -> Result[ResolvedTree, @core.Diagnostic] {
-  match self.find_resolved(slug) {
-    Some(tree) => return Ok(tree)
-    None => ()
+  if self.find_resolved(slug) is Some(tree) {
+    return Ok(tree)
   }
   if self.visiting.contains(slug) {
     return Err(self.cycle_diagnostic(slug))
@@ -50,9 +49,8 @@ fn ResolveState::compile_resolved_tree(
     content: contents,
     references,
   }
-  match tree.metadata.parent {
-    Some(parent) => self.specify_parent(slug, parent)
-    None => ()
+  if tree.metadata.parent is Some(parent) {
+    self.specify_parent(slug, parent)
   }
   self.resolved_by_slug[slug] = compiled
   Ok(compiled)
@@ -149,25 +147,21 @@ fn ResolveState::resolve_link_directive(
   references : Set[String],
 ) -> Result[ResolvedContent, @core.Diagnostic] {
   let target = link.target
-  match validate_tree_target(target, link.span, "link") {
-    Some(error) => return Err(error)
-    None => ()
+  if validate_tree_target(target, link.span, "link") is Some(error) {
+    return Err(error)
   }
   let resolved_slug = @model.tree_slug_from_target(source_path, target)
   let resolved_key = resolved_slug.canonical()
   match self.find_parsed(resolved_key) {
     Some(target_tree) => {
       self.add_dependency(source_path, target_tree.path, @model.TreeLink)
-      match self.find_parsed(source_slug) {
-        Some(source_tree) => {
-          if target_tree.metadata.asref && source_slug != resolved_key {
-            references.add(resolved_key)
-          }
-          if source_tree.metadata.asback && source_slug != resolved_key {
-            self.insert_backlink(resolved_key, source_tree.slug.canonical())
-          }
+      if self.find_parsed(source_slug) is Some(source_tree) {
+        if target_tree.metadata.asref && source_slug != resolved_key {
+          references.add(resolved_key)
         }
-        None => ()
+        if source_tree.metadata.asback && source_slug != resolved_key {
+          self.insert_backlink(resolved_key, source_tree.slug.canonical())
+        }
       }
       let title = match link.text {
         Some(value) => LinkText(value)
@@ -246,22 +240,19 @@ fn ResolveState::resolve_embed_directive(
   references : Set[String],
 ) -> Result[ResolvedContent, @core.Diagnostic] {
   let target = embed.target
-  match validate_tree_target(target, embed.span, "embed") {
-    Some(error) => return Err(error)
-    None => ()
+  if validate_tree_target(target, embed.span, "embed") is Some(error) {
+    return Err(error)
   }
   let resolved_slug = @model.tree_slug_from_target(source_path, target)
   let resolved_key = resolved_slug.canonical()
   match self.find_parsed(resolved_key) {
     Some(target_tree) => {
-      match self.find_parsed(parent_slug) {
-        Some(source_tree) =>
-          self.add_dependency(
-            source_tree.path,
-            target_tree.path,
-            @model.TreeEmbed,
-          )
-        None => ()
+      if self.find_parsed(parent_slug) is Some(source_tree) {
+        self.add_dependency(
+          source_tree.path,
+          target_tree.path,
+          @model.TreeEmbed,
+        )
       }
       match self.compile_resolved_tree(resolved_key) {
         Ok(tree) => {

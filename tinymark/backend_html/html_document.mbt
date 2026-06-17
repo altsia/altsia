@@ -143,20 +143,24 @@ fn html_head_nodes(
   options : HtmlDocumentOptions,
 ) -> Result[Array[HtmlNode], Diagnostic] {
   let head : Array[HtmlNode] = []
-  match meta_scalar_or_default(meta_attrs, "charset", options.charset, env) {
-    Ok(Some(text)) =>
-      head.push(HtmlNode::Element("meta", [("charset", Some(text))], []))
-    Ok(None) => ()
+  let charset = match
+    meta_scalar_or_default(meta_attrs, "charset", options.charset, env) {
+    Ok(value) => value
     Err(error) => return Err(error)
   }
-  match meta_scalar_or_default(meta_attrs, "viewport", options.viewport, env) {
-    Ok(Some(text)) => head.push(html_named_meta("viewport", text))
-    Ok(None) => ()
+  if charset is Some(text) {
+    head.push(HtmlNode::Element("meta", [("charset", Some(text))], []))
+  }
+  let viewport = match
+    meta_scalar_or_default(meta_attrs, "viewport", options.viewport, env) {
+    Ok(value) => value
     Err(error) => return Err(error)
   }
-  match push_optional_head_meta(head, meta_attrs, env) {
-    Ok(_) => ()
-    Err(error) => return Err(error)
+  if viewport is Some(text) {
+    head.push(html_named_meta("viewport", text))
+  }
+  if push_optional_head_meta(head, meta_attrs, env) is Err(error) {
+    return Err(error)
   }
   head.append(options.extra_head)
   head.append(explicit_head)

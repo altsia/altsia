@@ -54,18 +54,13 @@ fn html_include_resolver(base_dir : String) -> @backend_html.ElementResolver {
     if call.tag != "html.include" {
       return Ok(None)
     }
-    let path = match include_path(call, context) {
-      Ok(value) => value
-      Err(error) => return Err(error)
-    }
-    let resolved = resolve_include_path(base_dir, path)
-    match read_include(resolved, call.span) {
-      Ok(content) => {
+    include_path(call, context).bind(path => {
+      let resolved = resolve_include_path(base_dir, path)
+      read_include(resolved, call.span).map(content => {
         let raw = @sexp.SexpNode::RawHtml(content)
-        Ok(Some(@backend_html.ElementOutput::body([raw])))
-      }
-      Err(error) => Err(error)
-    }
+        Some(@backend_html.ElementOutput::body([raw]))
+      })
+    })
   }
 }
 

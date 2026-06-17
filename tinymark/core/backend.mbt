@@ -325,9 +325,11 @@ pub fn interpolate_text(
 ) -> Result[String, Diagnostic] {
   let parts : Array[String] = []
   for part in template {
-    match interpolation_part_text(part, env, span, value_to_text) {
-      Ok(text) => parts.push(text)
-      Err(error) => return Err(error)
+    let result = interpolation_part_text(part, env, span, value_to_text)
+    if result is Ok(text) {
+      parts.push(text)
+    } else if result is Err(error) {
+      return Err(error)
     }
   }
   Ok(parts.join(""))

@@ -91,35 +91,32 @@ fn apply_tree_attrs(
   for attr in attrs {
     match attr.name {
       "lang" =>
-        match attr_scalar(attr, env~) {
-          Some(value) => result = { ..result, lang: Some(value) }
-          None => ()
+        if attr_scalar(attr, env~) is Some(value) {
+          result = { ..result, lang: Some(value) }
         }
-      "title" =>
-        match rich_text_from_attr(attr, env) {
-          Ok(Some(value)) => result = { ..result, title: Some(value) }
-          Ok(None) => ()
+      "title" => {
+        let title = match rich_text_from_attr(attr, env) {
+          Ok(value) => value
           Err(error) => return Err(error)
         }
+        if title is Some(value) {
+          result = { ..result, title: Some(value) }
+        }
+      }
       "page-title" =>
-        match attr_scalar(attr, env~) {
-          Some(value) => result = { ..result, page_title: Some(value) }
-          None => ()
+        if attr_scalar(attr, env~) is Some(value) {
+          result = { ..result, page_title: Some(value) }
         }
       "taxon" =>
-        match attr_scalar(attr, env~) {
-          Some(value) =>
-            result = {
-              ..result,
-              taxon: Some(taxon_from_attrs(value, attrs, env)),
-            }
-          None => ()
+        if attr_scalar(attr, env~) is Some(value) {
+          result = {
+            ..result,
+            taxon: Some(taxon_from_attrs(value, attrs, env)),
+          }
         }
       "parent" =>
-        match attr_scalar(attr, env~) {
-          Some(value) =>
-            result = { ..result, parent: Some(@model.TreeSlug::parse(value)) }
-          None => ()
+        if attr_scalar(attr, env~) is Some(value) {
+          result = { ..result, parent: Some(@model.TreeSlug::parse(value)) }
         }
       _ => ()
     }
@@ -142,93 +139,73 @@ fn apply_metadata_attrs(
           match attr.name {
             "slug" =>
               if allow_slug_override {
-                match attr_scalar(attr, env~) {
-                  Some(value) =>
-                    metadata = {
-                      ..metadata,
-                      slug: @model.TreeSlug::parse(value),
-                    }
-                  None => ()
+                if attr_scalar(attr, env~) is Some(value) {
+                  metadata = { ..metadata, slug: @model.TreeSlug::parse(value) }
                 }
               }
             "lang" =>
-              match attr_scalar(attr, env~) {
-                Some(value) => metadata = { ..metadata, lang: Some(value) }
-                None => ()
+              if attr_scalar(attr, env~) is Some(value) {
+                metadata = { ..metadata, lang: Some(value) }
               }
-            "title" =>
-              match rich_text_from_attr(attr, env) {
-                Ok(Some(value)) => metadata = { ..metadata, title: Some(value) }
-                Ok(None) => ()
+            "title" => {
+              let title = match rich_text_from_attr(attr, env) {
+                Ok(value) => value
                 Err(error) => return Err(error)
               }
+              if title is Some(value) {
+                metadata = { ..metadata, title: Some(value) }
+              }
+            }
             "page-title" =>
-              match attr_scalar(attr, env~) {
-                Some(value) =>
-                  metadata = { ..metadata, page_title: Some(value) }
-                None => ()
+              if attr_scalar(attr, env~) is Some(value) {
+                metadata = { ..metadata, page_title: Some(value) }
               }
             "taxon" =>
-              match attr_scalar(attr, env~) {
-                Some(value) =>
-                  metadata = {
-                    ..metadata,
-                    taxon: Some(taxon_from_attrs(value, attrs, env)),
-                  }
-                None => ()
+              if attr_scalar(attr, env~) is Some(value) {
+                metadata = {
+                  ..metadata,
+                  taxon: Some(taxon_from_attrs(value, attrs, env)),
+                }
               }
             "taxon-display" =>
-              match attr_scalar(attr, env~) {
-                Some(value) =>
-                  match metadata.taxon {
-                    Some(taxon) =>
-                      metadata = {
-                        ..metadata,
-                        taxon: Some(taxon.with_display(value)),
-                      }
-                    None => ()
-                  }
-                None => ()
-              }
-            "parent" =>
-              match attr_scalar(attr, env~) {
-                Some(value) =>
+              if attr_scalar(attr, env~) is Some(value) {
+                if metadata.taxon is Some(taxon) {
                   metadata = {
                     ..metadata,
-                    parent: Some(@model.TreeSlug::parse(value)),
+                    taxon: Some(taxon.with_display(value)),
                   }
-                None => ()
+                }
+              }
+            "parent" =>
+              if attr_scalar(attr, env~) is Some(value) {
+                metadata = {
+                  ..metadata,
+                  parent: Some(@model.TreeSlug::parse(value)),
+                }
               }
             "references" =>
-              match attr_bool(attr, env~) {
-                Some(value) => metadata = { ..metadata, show_references: value }
-                None => ()
+              if attr_bool(attr, env~) is Some(value) {
+                metadata = { ..metadata, show_references: value }
               }
             "backlinks" =>
-              match attr_bool(attr, env~) {
-                Some(value) => metadata = { ..metadata, show_backlinks: value }
-                None => ()
+              if attr_bool(attr, env~) is Some(value) {
+                metadata = { ..metadata, show_backlinks: value }
               }
             "asref" =>
-              match attr_bool(attr, env~) {
-                Some(value) => metadata = { ..metadata, asref: value }
-                None => ()
+              if attr_bool(attr, env~) is Some(value) {
+                metadata = { ..metadata, asref: value }
               }
             "asback" =>
-              match attr_bool(attr, env~) {
-                Some(value) => metadata = { ..metadata, asback: value }
-                None => ()
+              if attr_bool(attr, env~) is Some(value) {
+                metadata = { ..metadata, asback: value }
               }
             "footer-mode" =>
-              match attr_scalar(attr, env~) {
-                Some(value) => metadata = { ..metadata, footer_mode: value }
-                None => ()
+              if attr_scalar(attr, env~) is Some(value) {
+                metadata = { ..metadata, footer_mode: value }
               }
             "footer-sort-by" =>
-              match attr_scalar(attr, env~) {
-                Some(value) =>
-                  metadata = { ..metadata, footer_sort_by: Some(value) }
-                None => ()
+              if attr_scalar(attr, env~) is Some(value) {
+                metadata = { ..metadata, footer_sort_by: Some(value) }
               }
             _ => ()
           }
@@ -298,9 +275,8 @@ fn taxon_from_attrs(
   let mut display : String? = None
   for attr in attrs {
     if attr.name == "taxon-display" {
-      match attr_scalar(attr, env~) {
-        Some(value) => display = Some(value)
-        None => ()
+      if attr_scalar(attr, env~) is Some(value) {
+        display = Some(value)
       }
     }
   }

@@ -320,10 +320,12 @@ fn compile_element(
     },
   }
   for resolver in element_resolvers(extensions) {
-    match resolver(call, context) {
-      Ok(Some(output)) => return Ok(output)
-      Ok(None) => ()
-      Err(error) => return Err(error)
+    let result = resolver(call, context)
+    if result is Ok(Some(output)) {
+      return Ok(output)
+    }
+    if result is Err(error) {
+      return Err(error)
     }
   }
   match tag {
@@ -595,10 +597,12 @@ fn compile_css_rule_nodes(
 ) -> Result[Array[String], Diagnostic] {
   let rules : Array[String] = []
   for child in children {
-    match compile_css_rule_node(child, scope, env) {
-      Ok(Some(rule)) => rules.push(rule)
-      Ok(None) => ()
-      Err(error) => return Err(error)
+    let result = compile_css_rule_node(child, scope, env)
+    if result is Ok(Some(rule)) {
+      rules.push(rule)
+    }
+    if result is Err(error) {
+      return Err(error)
     }
   }
   Ok(rules)
@@ -834,9 +838,8 @@ fn compile_code(
     let lang = html_attrs.iter().find_first(a => a.0 == "lang").bind(a => a.1)
     compile_text_only_children(children, env, current_heading_level, extensions).map(source => {
         let code_attrs : Array[(String, String?)] = []
-        match lang {
-          Some(value) => code_attrs.push(("class", Some("lang-" + value)))
-          None => ()
+        if lang is Some(value) {
+          code_attrs.push(("class", Some("lang-" + value)))
         }
         body_output([
           HtmlNode::Element("pre", [], [

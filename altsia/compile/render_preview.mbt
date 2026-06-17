@@ -219,14 +219,24 @@ fn RenderState::render_preview_embed_html(
           @sexp.SexpNode::Element("summary", [], summary_children),
           @sexp.SexpNode::RawHtml(body_html),
         ]
-        push_optional_sexp_node(children, catalog)
+        if catalog is Some(node) {
+          children.push(node)
+        }
         [@sexp.SexpNode::Element("details", attrs, children)]
       }
       None => {
         let children : Array[@sexp.SexpNode] = []
-        push_embed_number_node(children, number)
+        if number is Some(number) {
+          children.push(
+            @sexp.SexpNode::Element("div", [("class", Some("embed-number"))], [
+              @sexp.SexpNode::Text(number.to_string() + "."),
+            ]),
+          )
+        }
         children.push(@sexp.SexpNode::RawHtml(body_html))
-        push_optional_sexp_node(children, catalog)
+        if catalog is Some(node) {
+          children.push(node)
+        }
         [@sexp.SexpNode::Element("div", attrs, children)]
       }
     }

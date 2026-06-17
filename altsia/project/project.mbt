@@ -38,27 +38,29 @@ fn project_config_from_table(
   table : Map[String, @toml.TomlValue],
 ) -> Result[ProjectConfig, String] {
   let mut config = ProjectConfig::default()
-  match table.get("altsia") {
-    Some(TomlTable(altsia)) =>
-      match optional_string(altsia, "sources", "[altsia].sources") {
-        Ok(Some(sources)) => config = { ..config, sources, }
-        Ok(None) => ()
-        Err(error) => return Err(error)
-      }
-    Some(value) =>
+  if table.get("altsia") is Some(value) {
+    guard value is TomlTable(altsia) else {
       return Err("[altsia] must be a table, got " + value.type_name())
-    None => ()
+    }
+    let sources = match optional_string(altsia, "sources", "[altsia].sources") {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    if sources is Some(sources) {
+      config = { ..config, sources, }
+    }
   }
-  match table.get("preview") {
-    Some(TomlTable(preview)) =>
-      match optional_string(preview, "entry", "[preview].entry") {
-        Ok(Some(entry)) => config = { ..config, preview_entry: Some(entry) }
-        Ok(None) => ()
-        Err(error) => return Err(error)
-      }
-    Some(value) =>
+  if table.get("preview") is Some(value) {
+    guard value is TomlTable(preview) else {
       return Err("[preview] must be a table, got " + value.type_name())
-    None => ()
+    }
+    let entry = match optional_string(preview, "entry", "[preview].entry") {
+      Ok(value) => value
+      Err(error) => return Err(error)
+    }
+    if entry is Some(entry) {
+      config = { ..config, preview_entry: Some(entry) }
+    }
   }
   validate_project_config(config)
 }
@@ -86,12 +88,10 @@ fn validate_project_config(
   if @model.is_absolute_path(config.sources) {
     return Err("[altsia].sources must be relative to the project root")
   }
-  match config.preview_entry {
-    Some(entry) =>
-      if entry.trim() == "" {
-        return Err("[preview].entry must not be empty")
-      }
-    None => ()
+  if config.preview_entry is Some(entry) {
+    if entry.trim() == "" {
+      return Err("[preview].entry must not be empty")
+    }
   }
   Ok(config)
 }

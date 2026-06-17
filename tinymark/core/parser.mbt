@@ -15,10 +15,9 @@ pub fn parse_nodes(
   source : String,
   source_info? : SourceInfo,
 ) -> Result[Array[Node], Diagnostic] {
-  match source_info {
-    Some(info) => parse(source, source_info=info).map(doc => doc.nodes)
-    None => parse(source).map(doc => doc.nodes)
-  }
+  parse(source, source_info=source_info.unwrap_or(SourceInfo::default())).map(doc => {
+    doc.nodes
+  })
 }
 
 ///|

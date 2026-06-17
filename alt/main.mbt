@@ -84,28 +84,25 @@ fn load_project_for_entry(
       current.resolve().to_string()
     }
   }
-  match discover_project(start) {
-    Err(message) => Err(message)
-    Ok(discovered) => {
-      let entry_value = match entry {
-        Some(entry) => {
-          let entry_path : @path.Path = entry
-          entry_path.resolve().to_string()
+  discover_project(start).bind(discovered => {
+    let entry_value = match entry {
+      Some(entry) => {
+        let entry_path : @path.Path = entry
+        entry_path.resolve().to_string()
+      }
+      None =>
+        match discovered.config.preview_entry {
+          Some(entry) => entry
+          None => return Err("missing [preview].entry in altsia.toml")
         }
-        None =>
-          match discovered.config.preview_entry {
-            Some(entry) => entry
-            None => return Err("missing [preview].entry in altsia.toml")
-          }
-      }
-      let entry_source_path = match
-        @project.resolve_entry_source_path(discovered.source_root, entry_value) {
-        Ok(value) => value
-        Err(message) => return Err(message)
-      }
-      Ok((discovered.project, entry_source_path))
     }
-  }
+    let entry_source_path = match
+      @project.resolve_entry_source_path(discovered.source_root, entry_value) {
+      Ok(value) => value
+      Err(message) => return Err(message)
+    }
+    Ok((discovered.project, entry_source_path))
+  })
 }
 
 ///|
@@ -127,29 +124,21 @@ fn find_project_root(start : String) -> ProjectRoot? {
 
 ///|
 fn discover_project(start : String) -> Result[DiscoveredProject, String] {
-  match find_project_root(start) {
-    None => Err("missing altsia.toml from " + start)
-    Some(config) => {
-      let config_source = @fs.read_file_to_string(config.config_path) catch {
-        IOError(message) => return Err(message)
-      }
-      let project_config = match @project.parse_project_config(config_source) {
-        Ok(value) => value
-        Err(message) => return Err(message)
-      }
-      let source_root = @project.source_root(config.root, project_config)
-      let sources : Array[@model.SourceFile] = []
-      match collect_source_files(source_root, source_root, sources) {
-        Ok(_) =>
-          Ok({
-            project: { root: source_root, sources },
-            source_root,
-            config: project_config,
-          })
-        Err(message) => Err(message)
-      }
-    }
+  guard find_project_root(start) is Some(config) else {
+    return Err("missing altsia.toml from " + start)
   }
+  let config_source = @fs.read_file_to_string(config.config_path) catch {
+    IOError(message) => return Err(message)
+  }
+  @project.parse_project_config(config_source).bind(project_config => {
+    let source_root = @project.source_root(config.root, project_config)
+    let sources : Array[@model.SourceFile] = []
+    collect_source_files(source_root, source_root, sources).map(_ => {
+      project: { root: source_root, sources },
+      source_root,
+      config: project_config,
+    })
+  })
 }
 
 ///|

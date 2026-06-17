@@ -7,52 +7,42 @@ fn RenderState::render_embed_html(
 ) -> Result[String, @core.Diagnostic] {
   let resolved_key = tree.slug.canonical()
   let attrs = embed_attrs(embed, resolved_key)
-  let body_html = match self.render_resolved_tree_body(tree) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let number = if embed.option.numbering { Some(counter.next()) } else { None }
-  let catalog = if embed.option.catalog {
-    self.render_embed_catalog(tree)
-  } else {
-    None
-  }
-  let nodes = match embed.title {
-    Some(title) => {
-      if embed.option.details_open {
-        attrs.push(("open", None))
-      }
-      let summary_children = embed_summary_children(title, number)
-      let children : Array[@sexp.SexpNode] = [
-        @sexp.SexpNode::Element("summary", [], summary_children),
-        @sexp.SexpNode::RawHtml(body_html),
-      ]
-      match catalog {
-        Some(node) => children.push(node)
-        None => ()
-      }
-      [@sexp.SexpNode::Element("details", attrs, children)]
+  self
+  .render_resolved_tree_body(tree)
+  .map(body_html => {
+    let number = if embed.option.numbering {
+      Some(counter.next())
+    } else {
+      None
     }
-    None => {
-      let children : Array[@sexp.SexpNode] = []
-      match number {
-        Some(number) =>
-          children.push(
-            @sexp.SexpNode::Element("div", [("class", Some("embed-number"))], [
-              @sexp.SexpNode::Text(number.to_string() + "."),
-            ]),
-          )
-        None => ()
-      }
-      children.push(@sexp.SexpNode::RawHtml(body_html))
-      match catalog {
-        Some(node) => children.push(node)
-        None => ()
-      }
-      [@sexp.SexpNode::Element("div", attrs, children)]
+    let catalog = if embed.option.catalog {
+      self.render_embed_catalog(tree)
+    } else {
+      None
     }
-  }
-  Ok(@sexp.render_html(nodes))
+    let nodes = match embed.title {
+      Some(title) => {
+        if embed.option.details_open {
+          attrs.push(("open", None))
+        }
+        let summary_children = embed_summary_children(title, number)
+        let children : Array[@sexp.SexpNode] = [
+          @sexp.SexpNode::Element("summary", [], summary_children),
+          @sexp.SexpNode::RawHtml(body_html),
+        ]
+        push_optional_sexp_node(children, catalog)
+        [@sexp.SexpNode::Element("details", attrs, children)]
+      }
+      None => {
+        let children : Array[@sexp.SexpNode] = []
+        push_embed_number_node(children, number)
+        children.push(@sexp.SexpNode::RawHtml(body_html))
+        push_optional_sexp_node(children, catalog)
+        [@sexp.SexpNode::Element("div", attrs, children)]
+      }
+    }
+    @sexp.render_html(nodes)
+  })
 }
 
 ///|
@@ -177,26 +167,22 @@ fn RenderState::render_link_node(
   self : RenderState,
   link : ResolvedLink,
 ) -> Result[@sexp.SexpNode, @core.Diagnostic] {
-  let label = match self.render_link_label(link.label) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  match link.slug {
-    Some(slug) =>
-      Ok(
+  self
+  .render_link_label(link.label)
+  .map(label => {
+    match link.slug {
+      Some(slug) =>
         Element("a", [("href", Some(@model.url_for_tree(slug)))], [
           RawHtml(label),
-        ]),
-      )
-    None =>
-      Ok(
+        ])
+      None =>
         Element(
           "a",
           [("href", Some("#")), ("data-missing-target", Some(link.target))],
           [RawHtml(label)],
-        ),
-      )
-  }
+        )
+    }
+  })
 }
 
 ///|
@@ -250,20 +236,20 @@ fn RenderState::to_compiled_tree(
     Some(value) => value.parent
     None => None
   }
-  let html = match self.render_resolved_tree_body(tree) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let compiled : @model.CompiledTree = {
-    slug: tree.slug,
-    path: tree.path,
-    html,
-    metadata: tree.metadata,
-    references,
-    backlinks,
-    parent,
-  }
-  Ok({ ..compiled, html: html + self.render_tree_footer(compiled) })
+  self
+  .render_resolved_tree_body(tree)
+  .map(html => {
+    let compiled : @model.CompiledTree = {
+      slug: tree.slug,
+      path: tree.path,
+      html,
+      metadata: tree.metadata,
+      references,
+      backlinks,
+      parent,
+    }
+    { ..compiled, html: html + self.render_tree_footer(compiled) }
+  })
 }
 
 ///|
@@ -273,9 +259,8 @@ fn RenderState::ordered_compiled_trees(
 ) -> Array[@model.CompiledTree] {
   let ordered : Array[@model.CompiledTree] = []
   for slug in self.input.tree_order {
-    match compiled_tree_index.get(slug) {
-      Some(tree) => ordered.push(tree)
-      None => ()
+    if compiled_tree_index.get(slug) is Some(tree) {
+      ordered.push(tree)
     }
   }
   ordered

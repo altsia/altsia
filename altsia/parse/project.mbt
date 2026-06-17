@@ -23,35 +23,29 @@ priv struct TreeLowering {
 fn parse_source_file(
   file : @model.SourceFile,
 ) -> Result[ParsedSource, @core.Diagnostic] {
-  let kind = match @model.source_file_kind(file.path) {
-    Some(value) => value
-    None =>
-      return Err(
-        @model.source_diagnostic(
-          file.path,
-          Placement,
-          "unsupported source file extension: " + file.path,
-        ),
-      )
+  guard @model.source_file_kind(file.path) is Some(kind) else {
+    return Err(
+      @model.source_diagnostic(
+        file.path,
+        Placement,
+        "unsupported source file extension: " + file.path,
+      ),
+    )
   }
   let source_info : @core.SourceInfo = {
     id: Some(file.path),
     line_offset: 0,
     column_offset: 0,
   }
-  match @core.parse(file.source, source_info~) {
-    Err(error) => Err(error)
-    Ok(doc) =>
-      Ok({
-        file,
-        kind,
-        doc,
-        module_name: match kind {
-          @model.Sia => Some(@model.module_name_from_path(file.path))
-          @model.Alt => None
-        },
-      })
-  }
+  @core.parse(file.source, source_info~).map(doc => {
+    file,
+    kind,
+    doc,
+    module_name: match kind {
+      @model.Sia => Some(@model.module_name_from_path(file.path))
+      @model.Alt => None
+    },
+  })
 }
 
 ///|
@@ -69,9 +63,10 @@ fn parse_project_sources(
       Err(error) => return Err(error)
     }
   }
-  match check_duplicate_modules(parsed) {
-    Some(error) => Err(error)
-    None => Ok({ sources: parsed, sources_by_path })
+  if check_duplicate_modules(parsed) is Some(error) {
+    Err(error)
+  } else {
+    Ok({ sources: parsed, sources_by_path })
   }
 }
 
@@ -79,21 +74,18 @@ fn parse_project_sources(
 fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
   let names : Map[String, String] = Map([])
   for item in parsed {
-    match item.module_name {
-      Some(name) =>
-        match names.get(name) {
-          Some(existing_path) =>
-            return Some(
-              @model.source_diagnostic(
-                item.file.path,
-                Binding,
-                "duplicate .sia module name: " + name,
-                hint="previous .sia source: " + existing_path,
-              ),
-            )
-          None => names[name] = item.file.path
-        }
-      None => ()
+    if item.module_name is Some(name) {
+      if names.get(name) is Some(existing_path) {
+        return Some(
+          @model.source_diagnostic(
+            item.file.path,
+            Binding,
+            "duplicate .sia module name: " + name,
+            hint="previous .sia source: " + existing_path,
+          ),
+        )
+      }
+      names[name] = item.file.path
     }
   }
   None
@@ -236,14 +228,13 @@ fn lower_parsed_sources(
           metadata: root_metadata,
           source_file_dependencies,
         }
-        match add_parsed_tree(trees, tree_sources_by_slug, root_tree) {
-          Some(error) => return Err(error)
-          None => ()
+        if add_parsed_tree(trees, tree_sources_by_slug, root_tree)
+          is Some(error) {
+          return Err(error)
         }
         for tree in extraction.trees {
-          match add_parsed_tree(trees, tree_sources_by_slug, tree) {
-            Some(error) => return Err(error)
-            None => ()
+          if add_parsed_tree(trees, tree_sources_by_slug, tree) is Some(error) {
+            return Err(error)
           }
         }
       }
@@ -443,9 +434,8 @@ fn lower_tree_nodes(
 fn tree_slug_attr(attrs : Array[@core.Attr]) -> String? {
   for attr in attrs {
     if attr.name == "slug" {
-      match attr_scalar(attr) {
-        Some(value) => return Some(value)
-        None => ()
+      if attr_scalar(attr) is Some(value) {
+        return Some(value)
       }
     }
   }
@@ -468,9 +458,8 @@ fn embedded_tree_reference_node(
   span : @core.SourceSpan,
 ) -> @core.Node {
   let children : Array[@core.Node] = [Text("/" + slug.canonical(), span)]
-  match tree_title_attr(attrs) {
-    Some(title) => children.push(Text(title, span))
-    None => ()
+  if tree_title_attr(attrs) is Some(title) {
+    children.push(Text(title, span))
   }
   Element("embed", [], children, span)
 }
@@ -479,9 +468,8 @@ fn embedded_tree_reference_node(
 fn tree_title_attr(attrs : Array[@core.Attr]) -> String? {
   for attr in attrs {
     if attr.name == "title" {
-      match attr_scalar(attr) {
-        Some(value) => return Some(value)
-        None => ()
+      if attr_scalar(attr) is Some(value) {
+        return Some(value)
       }
     }
   }
@@ -494,9 +482,7 @@ pub fn parse_project_trees(
   builtin_env? : @core.CompileEnv,
 ) -> Result[Array[@model.ParsedTree], @core.Diagnostic] {
   let base_env = builtin_env.unwrap_or(@core.CompileEnv::empty())
-  let parsed = match parse_project_sources(project.sources) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  lower_parsed_sources(parsed, base_env)
+  parse_project_sources(project.sources).bind(parsed => {
+    lower_parsed_sources(parsed, base_env)
+  })
 }

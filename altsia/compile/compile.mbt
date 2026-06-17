@@ -16,27 +16,21 @@ pub fn compile_structured_preview(
 ) -> Result[@model.StructuredPreview, @core.Diagnostic] {
   let input = CompileInput::new(root, parsed)
   let resolver = ResolveState::new(input, parsed)
-  if resolver.input.source_trees_by_slug.contains("index") {
-    match resolver.compile_resolved_tree("index") {
-      Ok(_) => ()
-      Err(error) => return Err(error)
-    }
-  }
-  for slug in resolver.input.tree_order {
-    match resolver.compile_resolved_tree(slug) {
-      Ok(_) => ()
-      Err(error) => return Err(error)
-    }
-  }
-  RenderState::new(resolver.input, resolver.resolved_by_slug, resolver.effects).render_structured_preview(
-    entry_path, options,
-  )
+  resolver
+  .compile_requested_trees()
+  .bind(_ => {
+    RenderState::new(
+      resolver.input,
+      resolver.resolved_by_slug,
+      resolver.effects,
+    ).render_structured_preview(entry_path, options)
+  })
 }
 
 ///|
-fn ResolveState::compile_all(
+fn ResolveState::compile_requested_trees(
   self : ResolveState,
-) -> Result[@model.CompiledProject, @core.Diagnostic] {
+) -> Result[Unit, @core.Diagnostic] {
   if self.input.source_trees_by_slug.contains("index") {
     match self.compile_resolved_tree("index") {
       Ok(_) => ()
@@ -49,18 +43,27 @@ fn ResolveState::compile_all(
       Err(error) => return Err(error)
     }
   }
-  RenderState::new(self.input, self.resolved_by_slug, self.effects).render_project()
+  Ok(())
+}
+
+///|
+fn ResolveState::compile_all(
+  self : ResolveState,
+) -> Result[@model.CompiledProject, @core.Diagnostic] {
+  self
+  .compile_requested_trees()
+  .bind(_ => {
+    RenderState::new(self.input, self.resolved_by_slug, self.effects).render_project()
+  })
 }
 
 ///|
 fn RenderState::render_project(
   self : RenderState,
 ) -> Result[@model.CompiledProject, @core.Diagnostic] {
-  let compiled_tree_index = match self.compiled_tree_index() {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  Ok({
+  self
+  .compiled_tree_index()
+  .map(compiled_tree_index => {
     root: self.input.root,
     trees: self.ordered_compiled_trees(compiled_tree_index),
     diagnostics: self.effects.diagnostics,

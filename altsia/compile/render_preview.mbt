@@ -6,31 +6,27 @@ fn RenderState::render_structured_preview(
 ) -> Result[@model.StructuredPreview, @core.Diagnostic] {
   let entry_tree_slug = @model.tree_slug_from_path(entry_path)
   let entry_key = entry_tree_slug.canonical()
-  let resolved = match self.resolved_by_slug.get(entry_key) {
-    Some(tree) => tree
-    None =>
-      return Err(
-        @model.source_diagnostic(
-          entry_path,
-          Binding,
-          "missing entry tree: " + entry_path,
-        ),
-      )
+  guard self.resolved_by_slug.get(entry_key) is Some(resolved) else {
+    return Err(
+      @model.source_diagnostic(
+        entry_path,
+        Binding,
+        "missing entry tree: " + entry_path,
+      ),
+    )
   }
   let compiled_tree_index = match self.compiled_tree_index() {
     Ok(value) => value
     Err(error) => return Err(error)
   }
-  let compiled = match compiled_tree_index.get(entry_key) {
-    Some(tree) => tree
-    None =>
-      return Err(
-        @model.source_diagnostic(
-          entry_path,
-          Binding,
-          "missing entry tree: " + entry_path,
-        ),
-      )
+  guard compiled_tree_index.get(entry_key) is Some(compiled) else {
+    return Err(
+      @model.source_diagnostic(
+        entry_path,
+        Binding,
+        "missing entry tree: " + entry_path,
+      ),
+    )
   }
   let context = PreviewRenderContext::new(options)
   let body = match self.render_preview_tree_body(resolved, context) {
@@ -125,56 +121,55 @@ fn RenderState::render_preview_link_node(
   link : ResolvedLink,
   context : PreviewRenderContext,
 ) -> Result[@sexp.SexpNode, @core.Diagnostic] {
-  let label = match self.render_link_label(link.label) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let id = context.next_link_id()
-  match link.slug {
-    Some(slug) => {
-      let href = @model.url_for_tree(slug)
-      let target_source = self.source_path_for_slug(slug)
-      context.tree_links.push({
-        id,
-        source: link.source,
-        target: link.target,
-        target_source,
-        target_slug: Some(slug),
-        href,
-        missing: false,
-      })
-      let attrs : Array[(String, String?)] = [("href", Some(href))]
-      if context.options.annotate_html {
-        attrs.push(("data-altsia-link-id", Some(id)))
-        attrs.push(("data-altsia-tree", Some(slug.canonical())))
-        match target_source {
-          Some(path) => attrs.push(("data-altsia-target-source", Some(path)))
-          None => ()
+  self
+  .render_link_label(link.label)
+  .map(label => {
+    let id = context.next_link_id()
+    match link.slug {
+      Some(slug) => {
+        let href = @model.url_for_tree(slug)
+        let target_source = self.source_path_for_slug(slug)
+        context.tree_links.push({
+          id,
+          source: link.source,
+          target: link.target,
+          target_source,
+          target_slug: Some(slug),
+          href,
+          missing: false,
+        })
+        let attrs : Array[(String, String?)] = [("href", Some(href))]
+        if context.options.annotate_html {
+          attrs.push(("data-altsia-link-id", Some(id)))
+          attrs.push(("data-altsia-tree", Some(slug.canonical())))
+          if target_source is Some(path) {
+            attrs.push(("data-altsia-target-source", Some(path)))
+          }
         }
+        @sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)])
       }
-      Ok(@sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)]))
-    }
-    None => {
-      let href = "#"
-      context.tree_links.push({
-        id,
-        source: link.source,
-        target: link.target,
-        target_source: None,
-        target_slug: None,
-        href,
-        missing: true,
-      })
-      let attrs : Array[(String, String?)] = [
-        ("href", Some(href)),
-        ("data-missing-target", Some(link.target)),
-      ]
-      if context.options.annotate_html {
-        attrs.push(("data-altsia-link-id", Some(id)))
+      None => {
+        let href = "#"
+        context.tree_links.push({
+          id,
+          source: link.source,
+          target: link.target,
+          target_source: None,
+          target_slug: None,
+          href,
+          missing: true,
+        })
+        let attrs : Array[(String, String?)] = [
+          ("href", Some(href)),
+          ("data-missing-target", Some(link.target)),
+        ]
+        if context.options.annotate_html {
+          attrs.push(("data-altsia-link-id", Some(id)))
+        }
+        @sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)])
       }
-      Ok(@sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)]))
     }
-  }
+  })
 }
 
 ///|
@@ -201,52 +196,42 @@ fn RenderState::render_preview_embed_html(
     attrs.push(("data-altsia-embed-id", Some(id)))
     attrs.push(("data-altsia-target-source", Some(tree.path)))
   }
-  let body_html = match self.render_preview_tree_body(tree, context) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let number = if embed.option.numbering { Some(counter.next()) } else { None }
-  let catalog = if embed.option.catalog {
-    self.render_embed_catalog(tree)
-  } else {
-    None
-  }
-  let nodes = match embed.title {
-    Some(title) => {
-      if embed.option.details_open {
-        attrs.push(("open", None))
-      }
-      let summary_children = embed_summary_children(title, number)
-      let children : Array[@sexp.SexpNode] = [
-        @sexp.SexpNode::Element("summary", [], summary_children),
-        @sexp.SexpNode::RawHtml(body_html),
-      ]
-      match catalog {
-        Some(node) => children.push(node)
-        None => ()
-      }
-      [@sexp.SexpNode::Element("details", attrs, children)]
+  self
+  .render_preview_tree_body(tree, context)
+  .map(body_html => {
+    let number = if embed.option.numbering {
+      Some(counter.next())
+    } else {
+      None
     }
-    None => {
-      let children : Array[@sexp.SexpNode] = []
-      match number {
-        Some(number) =>
-          children.push(
-            @sexp.SexpNode::Element("div", [("class", Some("embed-number"))], [
-              @sexp.SexpNode::Text(number.to_string() + "."),
-            ]),
-          )
-        None => ()
-      }
-      children.push(@sexp.SexpNode::RawHtml(body_html))
-      match catalog {
-        Some(node) => children.push(node)
-        None => ()
-      }
-      [@sexp.SexpNode::Element("div", attrs, children)]
+    let catalog = if embed.option.catalog {
+      self.render_embed_catalog(tree)
+    } else {
+      None
     }
-  }
-  Ok(@sexp.render_html(nodes))
+    let nodes = match embed.title {
+      Some(title) => {
+        if embed.option.details_open {
+          attrs.push(("open", None))
+        }
+        let summary_children = embed_summary_children(title, number)
+        let children : Array[@sexp.SexpNode] = [
+          @sexp.SexpNode::Element("summary", [], summary_children),
+          @sexp.SexpNode::RawHtml(body_html),
+        ]
+        push_optional_sexp_node(children, catalog)
+        [@sexp.SexpNode::Element("details", attrs, children)]
+      }
+      None => {
+        let children : Array[@sexp.SexpNode] = []
+        push_embed_number_node(children, number)
+        children.push(@sexp.SexpNode::RawHtml(body_html))
+        push_optional_sexp_node(children, catalog)
+        [@sexp.SexpNode::Element("div", attrs, children)]
+      }
+    }
+    @sexp.render_html(nodes)
+  })
 }
 
 ///|

@@ -10,9 +10,9 @@ fn leading_use_directives(doc : @core.Document) -> Array[UseDirective] {
   for node in doc.nodes {
     match node {
       Element("use", _, children, span) =>
-        match children.get(0).bind(node => @content.text_from_node(node)) {
-          Some(target) => uses.push({ target, span })
-          None => ()
+        if children.get(0).bind(node => @content.text_from_node(node))
+          is Some(target) {
+          uses.push({ target, span })
         }
       _ => return uses
     }
@@ -47,19 +47,16 @@ fn collect_prefixed_library_env(
     include_let: true,
     include_def: true,
   }
-  match @core.collect_bindings(doc, base=builtin_env, options~) {
-    Err(error) => Err(error)
-    Ok(collected) => {
-      let env = @core.CompileEnv::empty()
-      let base_count = builtin_env.bindings.length()
-      for i in base_count..<collected.bindings.length() {
-        let binding = collected.bindings[i]
-        env.bindings.push({
-          name: module_name + "." + binding.name,
-          value: binding.value,
-        })
-      }
-      Ok(env)
+  @core.collect_bindings(doc, base=builtin_env, options~).map(collected => {
+    let env = @core.CompileEnv::empty()
+    let base_count = builtin_env.bindings.length()
+    for i in base_count..<collected.bindings.length() {
+      let binding = collected.bindings[i]
+      env.bindings.push({
+        name: module_name + "." + binding.name,
+        value: binding.value,
+      })
     }
-  }
+    env
+  })
 }

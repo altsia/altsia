@@ -20,15 +20,11 @@ pub fn compile_rich_content(
   doc : @core.Document,
   env? : @core.CompileEnv,
 ) -> Result[@model.RichContent, @core.Diagnostic] {
-  match env {
-    Some(env) => compile_rich_content_with_wrap(doc, env, wrap_paragraphs=true)
-    None =>
-      compile_rich_content_with_wrap(
-        doc,
-        @core.CompileEnv::empty(),
-        wrap_paragraphs=true,
-      )
-  }
+  compile_rich_content_with_wrap(
+    doc,
+    env.unwrap_or(@core.CompileEnv::empty()),
+    wrap_paragraphs=true,
+  )
 }
 
 ///|
@@ -145,12 +141,8 @@ fn lower_link(
   env : @core.CompileEnv,
   span : @core.SourceSpan,
 ) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
-  let target = match children.get(0).bind(node => text_from_node(node, env~)) {
-    Some(value) => value
-    None =>
-      return Err(
-        @model.diagnostic(span, Binding, "(link ...) requires a target"),
-      )
+  guard children.get(0).bind(node => text_from_node(node, env~)) is Some(target) else {
+    return Err(@model.diagnostic(span, Binding, "(link ...) requires a target"))
   }
   Ok([
     @model.RichDirective(
@@ -170,27 +162,23 @@ fn lower_embed(
   env : @core.CompileEnv,
   span : @core.SourceSpan,
 ) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
-  let target = match embed_target(children, env) {
-    Some(value) => value
-    None =>
-      return Err(
-        @model.diagnostic(span, Binding, "(embed ...) requires a target"),
-      )
+  guard embed_target(children, env) is Some(target) else {
+    return Err(
+      @model.diagnostic(span, Binding, "(embed ...) requires a target"),
+    )
   }
-  let option = match embed_option_from_attrs(attrs, env) {
-    Ok(option) => option
-    Err(error) => return Err(error)
-  }
-  Ok([
-    @model.RichDirective(
-      @model.RichEmbedDirective({
-        target,
-        title: rest_text(children, start=1, env~),
-        option,
-        span,
-      }),
-    ),
-  ])
+  embed_option_from_attrs(attrs, env).map(option => {
+    [
+      @model.RichDirective(
+        @model.RichEmbedDirective({
+          target,
+          title: rest_text(children, start=1, env~),
+          option,
+          span,
+        }),
+      ),
+    ]
+  })
 }
 
 ///|

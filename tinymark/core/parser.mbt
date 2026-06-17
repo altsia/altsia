@@ -104,7 +104,7 @@ fn parse_list(open : Cursor) -> Result[(Node, Cursor), Diagnostic] {
   match head {
     "def" => parse_def(head_start, after_head)
     "let" => parse_let(head_start, after_head)
-    "meta" => parse_meta(head_start, after_head)
+    "doc" => parse_doc(head_start, after_head)
     "when" => parse_conditional(head_start, after_head, true)
     "unless" => parse_conditional(head_start, after_head, false)
     _ => parse_element_or_ref(head, head_start, after_head)
@@ -223,7 +223,7 @@ fn scalar_or_bool(text : String, span : SourceSpan) -> Value {
 }
 
 ///|
-fn parse_meta(
+fn parse_doc(
   head_start : Cursor,
   after_head : Cursor,
 ) -> Result[(Node, Cursor), Diagnostic] {
@@ -234,12 +234,12 @@ fn parse_meta(
         let (attrs, next) = result
         let end = next.skip_layout()
         if end.peek() == Some(')') {
-          Ok((Node::Meta(attrs, head_start.source_span()), end.advance(1)))
+          Ok((Node::Doc(attrs, head_start.source_span()), end.advance(1)))
         } else {
-          Err(end.error("meta only accepts an attribute list"))
+          Err(end.error("doc only accepts an attribute list"))
         }
       })
-    _ => Err(cursor.error("meta requires an attribute list"))
+    _ => Err(cursor.error("doc requires an attribute list"))
   }
 }
 

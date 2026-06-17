@@ -159,9 +159,9 @@ fn compile_node_sequence_output(
     match node {
       Let(name, value, _) => local_env.bind_value(name, value)
       Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Meta(attrs, _) =>
+      Doc(attrs, _) =>
         for attr in attrs {
-          local_env.bind_meta_attr(attr)
+          local_env.bind_doc_attr(attr)
         }
       _ =>
         match compile_node(node, local_env, current_heading_level, extensions) {
@@ -287,7 +287,7 @@ fn compile_node(
           )
         Err(error) => Err(error)
       }
-    Let(_, _, _) | Def(_, _, _, _) | Meta(_, _) => Ok(ElementOutput::empty())
+    Let(_, _, _) | Def(_, _, _, _) | Doc(_, _) => Ok(ElementOutput::empty())
   }
 }
 
@@ -441,9 +441,9 @@ fn children_need_paragraphs(children : Array[Node], env : CompileEnv) -> Bool {
     match child {
       Let(name, value, _) => local_env.bind_value(name, value)
       Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Meta(attrs, _) =>
+      Doc(attrs, _) =>
         for attr in attrs {
-          local_env.bind_meta_attr(attr)
+          local_env.bind_doc_attr(attr)
         }
       _ => if node_needs_paragraph_context(child, local_env) { return true }
     }
@@ -475,7 +475,7 @@ fn node_needs_paragraph_context(node : Node, env : CompileEnv) -> Bool {
         Ok(false) => children_need_paragraphs(children, env)
         _ => false
       }
-    Let(_, _, _) | Def(_, _, _, _) | Meta(_, _) => false
+    Let(_, _, _) | Def(_, _, _, _) | Doc(_, _) => false
   }
 }
 
@@ -914,9 +914,9 @@ fn compile_text_only_children(
     match child {
       Let(name, value, _) => local_env.bind_value(name, value)
       Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Meta(attrs, _) =>
+      Doc(attrs, _) =>
         for attr in attrs {
-          local_env.bind_meta_attr(attr)
+          local_env.bind_doc_attr(attr)
         }
       _ => {
         let nodes = match

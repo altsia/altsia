@@ -240,8 +240,8 @@ test "collected template captures definition env" {
 }
 
 ///|
-test "collect bindings exports meta values for conditions" {
-  let module_doc = parse_doc("(meta (:draft true))")
+test "collect bindings exports doc values for conditions" {
+  let module_doc = parse_doc("(doc (:draft true))")
   let env = collect_env(module_doc)
   let doc = parse_doc("(when (draft) Visible)")
   @test.assert_eq(render_fragment_result(doc, env~), Ok("<p>Visible</p>"))
@@ -415,7 +415,7 @@ test "html scoped style supports pseudo classes" {
     #|    <style>.article{max-width:68ch;}.article:hover{color:red;}.article a:hover{text-decoration:underline;}.article .lead::first-line{font-weight:700;}.article h1{margin:0;}.article h2:focus-within{color:blue;}</style>
     #|  </head>
     #|  <body>
-    #|    <div class="article">Body</div>
+    #|    <div><div class="article">Body</div></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -438,7 +438,7 @@ test "html style without scope remains global" {
     #|    <style>body{margin:0;}a:hover{color:red;}</style>
     #|  </head>
     #|  <body>
-    #|    <p>Body</p>
+    #|    <div><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -455,9 +455,9 @@ test "html style treats rule and selector as ordinary css names" {
 }
 
 ///|
-test "html document uses altsia meta and explicit html head" {
+test "html document uses altsia doc and explicit html head" {
   let input =
-    #|(meta 
+    #|(doc 
     #|  ( :title "Doc" 
     #|    :lang `zh-CN` 
     #|    :dir `ltr` 
@@ -478,7 +478,7 @@ test "html document uses altsia meta and explicit html head" {
     #|    <script type="module" src="/main.js"></script>
     #|  </head>
     #|  <body>
-    #|    <p>Hello Doc.</p>
+    #|    <div><p>Hello Doc.</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -489,7 +489,7 @@ test "html document uses altsia meta and explicit html head" {
 
 ///|
 test "html document uses backend defaults" {
-  let input = "(meta (:title \"Doc\"))Body"
+  let input = "(doc (:title \"Doc\"))Body"
   let expected =
     #|<!DOCTYPE html>
     #|<html>
@@ -499,7 +499,7 @@ test "html document uses backend defaults" {
     #|    <title>Doc</title>
     #|  </head>
     #|  <body>
-    #|    <p>Body</p>
+    #|    <div><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -517,8 +517,8 @@ test "html document uses backend defaults" {
 }
 
 ///|
-test "html meta overrides backend defaults" {
-  let input = "(meta (:charset `shift_jis` :viewport `custom`))Body"
+test "html doc overrides backend defaults" {
+  let input = "(doc (:charset `shift_jis` :viewport `custom`))Body"
   let expected =
     #|<!DOCTYPE html>
     #|<html>
@@ -527,7 +527,7 @@ test "html meta overrides backend defaults" {
     #|    <meta name="viewport" content="custom">
     #|  </head>
     #|  <body>
-    #|    <p>Body</p>
+    #|    <div><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -545,8 +545,26 @@ test "html meta overrides backend defaults" {
 }
 
 ///|
+test "html doc attrs apply to body wrapper" {
+  let input = "(doc (:title \"Doc\" :class `page` :style `--gap: 1rem`))Body"
+  let expected =
+    #|<html>
+    #|  <head>
+    #|    <title>Doc</title>
+    #|  </head>
+    #|  <body>
+    #|    <div class="page" style="--gap: 1rem"><p>Body</p></div>
+    #|  </body>
+    #|</html>
+  @test.assert_eq(
+    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    Ok(expected),
+  )
+}
+
+///|
 test "html document appends extra head after defaults" {
-  let input = "(meta (:title \"Math\"))$x$"
+  let input = "(doc (:title \"Math\"))$x$"
   @test.assert_eq(
     render_html_document_result(input, options={
       initial_heading_level: 1,
@@ -612,7 +630,7 @@ test "extension resolver can emit document head nodes" {
     #|    <script src="/asset.js"></script>
     #|  </head>
     #|  <body>
-    #|    <p>Body</p>
+    #|    <div><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(

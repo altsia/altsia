@@ -250,7 +250,7 @@ fn collect_local_bindings(
   base_env : @core.CompileEnv,
 ) -> Result[@core.CompileEnv, @core.Diagnostic] {
   let options : @core.BindingCollectOptions = {
-    include_meta: false,
+    include_doc: false,
     include_let: true,
     include_def: true,
   }

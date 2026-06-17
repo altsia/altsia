@@ -24,14 +24,14 @@ pub(all) struct Template {
 
 ///|
 pub(all) struct BindingCollectOptions {
-  include_meta : Bool
+  include_doc : Bool
   include_let : Bool
   include_def : Bool
 }
 
 ///|
 pub fn BindingCollectOptions::default() -> BindingCollectOptions {
-  { include_meta: true, include_let: true, include_def: true }
+  { include_doc: true, include_let: true, include_def: true }
 }
 
 ///|
@@ -111,7 +111,7 @@ pub fn CompileEnv::bind_template(
 }
 
 ///|
-pub fn CompileEnv::bind_meta_attr(self : CompileEnv, attr : Attr) -> Unit {
+pub fn CompileEnv::bind_doc_attr(self : CompileEnv, attr : Attr) -> Unit {
   if attr.value is Some(value) {
     self.bind_value(attr.name, value)
   }
@@ -133,9 +133,9 @@ pub fn collect_bindings(
       Let(name, value, _) if opts.include_let => env.bind_value(name, value)
       Def(name, params, body, _) if opts.include_def =>
         env.bind_template(name, params, body)
-      Meta(attrs, _) if opts.include_meta =>
+      Doc(attrs, _) if opts.include_doc =>
         for attr in attrs {
-          env.bind_meta_attr(attr)
+          env.bind_doc_attr(attr)
         }
       _ => ()
     }

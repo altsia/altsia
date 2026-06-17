@@ -41,9 +41,9 @@ fn nodes_to_plain_text_with_env(
     match node {
       Let(name, value, _) => local_env.bind_value(name, value)
       Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Meta(attrs, _) =>
+      Doc(attrs, _) =>
         for attr in attrs {
-          local_env.bind_meta_attr(attr)
+          local_env.bind_doc_attr(attr)
         }
       Text(text, _) => parts.push(text)
       TextInterp(template, span) => {

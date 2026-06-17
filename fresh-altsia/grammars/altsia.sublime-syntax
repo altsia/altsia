@@ -64,7 +64,7 @@ contexts:
           pop: true
 
   special-form:
-    - match: '(\()(\s*)(def|let|meta|html\.head|when|unless)(?=\s|\))'
+    - match: '(\()(\s*)(def|let|doc|html\.head|when|unless)(?=\s|\))'
       captures:
         1: punctuation.section.expression.begin.altsia
         3: keyword.control.altsia

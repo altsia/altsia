@@ -1,6 +1,6 @@
 name = "kokic/tinymark"
 
-version = "0.3.1"
+version = "0.3.2"
 
 import {
   "kokic/sexp-html@0.2.2",

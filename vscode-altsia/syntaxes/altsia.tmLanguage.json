@@ -141,7 +141,7 @@
       "patterns": [
         {
           "name": "meta.expression.special.altsia",
-          "begin": "(\\()(\\s*)(def|let|meta|html\\.head|when|unless)(?=\\s|\\))",
+          "begin": "(\\()(\\s*)(def|let|doc|html\\.head|when|unless)(?=\\s|\\))",
           "beginCaptures": {
             "1": {
               "name": "punctuation.section.expression.begin.altsia"

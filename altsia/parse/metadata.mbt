@@ -134,7 +134,7 @@ fn apply_metadata_attrs(
   let mut metadata = metadata
   for node in nodes {
     match node {
-      Meta(attrs, _) =>
+      Doc(attrs, _) =>
         for attr in attrs {
           match attr.name {
             "slug" =>

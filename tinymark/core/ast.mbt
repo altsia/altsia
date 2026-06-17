@@ -126,7 +126,7 @@ pub(all) enum Node {
   Ref(String, SourceSpan)
   Let(String, Value, SourceSpan)
   Def(String, Array[String], Array[Node], SourceSpan)
-  Meta(Array[Attr], SourceSpan)
+  Doc(Array[Attr], SourceSpan)
   When(String, Array[Node], SourceSpan)
   Unless(String, Array[Node], SourceSpan)
 }
@@ -148,7 +148,7 @@ pub fn Node::span(self : Node) -> SourceSpan {
     | Ref(_, span)
     | Let(_, _, span)
     | Def(_, _, _, span)
-    | Meta(_, span)
+    | Doc(_, span)
     | When(_, _, span)
     | Unless(_, _, span) => span
   }

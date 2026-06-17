@@ -1,8 +1,8 @@
 ///|
 test "link emits final url and records source file dependencies" {
   let project = compile_ok([
-    source("index.alt", "(meta (:asback true))See (link `about.alt` About)."),
-    source("about.alt", "(meta (:asref true :title `About page`))About."),
+    source("index.alt", "(doc (:asback true))See (link `about.alt` About)."),
+    source("about.alt", "(doc (:asref true :title `About page`))About."),
   ])
   let index = project.trees[0]
   let about = project.trees[1]
@@ -19,7 +19,7 @@ test "link fallback uses rich target title" {
   let project = compile_ok([
     source("index.alt", "See (link `about.alt`)."),
     source(
-      "about.alt", "(let heading (_ (em About)))(meta (:title (heading)))About.",
+      "about.alt", "(let heading (_ (em About)))(doc (:title (heading)))About.",
     ),
   ])
   @test.assert_eq(
@@ -200,7 +200,7 @@ test "open embed propagates visible child references to parent footer" {
   let project = compile_ok([
     source("index.alt", "(embed `child.alt` Child)"),
     source("child.alt", "Child (link `ref.alt` Ref)."),
-    source("ref.alt", "(meta (:asref true :title `Ref title`))Ref."),
+    source("ref.alt", "(doc (:asref true :title `Ref title`))Ref."),
   ])
   @test.assert_eq(project.trees[0].references, [slug("ref")])
   @test.assert_eq(
@@ -214,7 +214,7 @@ test "closed embed does not propagate child references to parent footer" {
   let project = compile_ok([
     source("index.alt", "(embed (:details-open false) `child.alt` Child)"),
     source("child.alt", "Child (link `ref.alt` Ref)."),
-    source("ref.alt", "(meta (:asref true :title `Ref title`))Ref."),
+    source("ref.alt", "(doc (:asref true :title `Ref title`))Ref."),
   ])
   @test.assert_eq(project.trees[0].references, [])
   @test.assert_eq(
@@ -228,7 +228,7 @@ test "untitled embed is visible even when details option is false" {
   let project = compile_ok([
     source("index.alt", "(embed (:details-open false) `child.alt`)"),
     source("child.alt", "Child (link `ref.alt` Ref)."),
-    source("ref.alt", "(meta (:asref true :title `Ref title`))Ref."),
+    source("ref.alt", "(doc (:asref true :title `Ref title`))Ref."),
   ])
   @test.assert_eq(project.trees[0].references, [slug("ref")])
 }
@@ -237,7 +237,7 @@ test "untitled embed is visible even when details option is false" {
 test "open embed propagates child backlinks to parent footer" {
   let project = compile_ok([
     source("index.alt", "(embed `child.alt` Child)"),
-    source("child.alt", "(meta (:asback true))Child."),
+    source("child.alt", "(doc (:asback true))Child."),
     source("ref.alt", "See (link `child.alt` Child)."),
   ])
   @test.assert_eq(project.trees[0].backlinks, [slug("ref")])
@@ -248,7 +248,7 @@ test "embed catalog lists embedded descendants" {
   let project = compile_ok([
     source("index.alt", "(embed `child.alt` Child)"),
     source("child.alt", "Child. (embed `grand.alt`)"),
-    source("grand.alt", "(meta (:title `Grand title`))Grand."),
+    source("grand.alt", "(doc (:title `Grand title`))Grand."),
   ])
   @test.assert_eq(
     project.trees[0].html,
@@ -260,10 +260,10 @@ test "embed catalog lists embedded descendants" {
 test "footer mode text and title sorting are applied" {
   let project = compile_ok([
     source(
-      "index.alt", "(meta (:footer-mode text :footer-sort-by title))(link `b.alt` B) (link `a.alt` A)",
+      "index.alt", "(doc (:footer-mode text :footer-sort-by title))(link `b.alt` B) (link `a.alt` A)",
     ),
-    source("a.alt", "(meta (:asref true :title `Alpha`))A."),
-    source("b.alt", "(meta (:asref true :title `Beta`))B."),
+    source("a.alt", "(doc (:asref true :title `Alpha`))A."),
+    source("b.alt", "(doc (:asref true :title `Beta`))B."),
   ])
   @test.assert_eq(project.trees[0].metadata.footer_mode, "text")
   @test.assert_eq(project.trees[0].metadata.footer_sort_by, Some("title"))
@@ -279,7 +279,7 @@ test "dirty source expansion follows embed and backlink graph" {
     source("index.alt", "(embed `child.alt`)"),
     source("child.alt", "Child. (embed `grand.alt`) (link `ref.alt` Ref)"),
     source("grand.alt", "Grand."),
-    source("ref.alt", "(meta (:asref true))Ref."),
+    source("ref.alt", "(doc (:asref true))Ref."),
   ])
   @test.assert_eq(@compile.expand_dirty_sources(project, ["child.alt"]), [
     "child.alt", "index.alt", "grand.alt", "ref.alt",
@@ -437,7 +437,7 @@ test "structured preview can omit html annotations" {
 test "explicit parent overrides inferred parent" {
   let project = compile_ok([
     source("index.alt", "(embed `child.alt`)"),
-    source("child.alt", "(meta (:parent `root`))Child."),
+    source("child.alt", "(doc (:parent `root`))Child."),
   ])
   @test.assert_eq(project.trees[1].parent, Some(slug("root")))
 }

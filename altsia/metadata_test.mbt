@@ -1,6 +1,6 @@
 ///|
 test "filename language suffix does not set tree language" {
-  let project = compile_ok([source("doc.zh-CN.alt", "(meta (:taxon theorem))")])
+  let project = compile_ok([source("doc.zh-CN.alt", "(doc (:taxon theorem))")])
   let tree = project.trees[0]
   @test.assert_eq(tree.slug, slug("doc.zh-CN"))
   @test.assert_eq(tree.metadata.lang, None)
@@ -17,7 +17,7 @@ test "filename language suffix does not set tree language" {
 test "title is rich content with plain text fallback" {
   let project = compile_ok([
     source(
-      "doc.alt", "(let heading (_ (em Important)))(meta (:title (heading)))Body.",
+      "doc.alt", "(let heading (_ (em Important)))(doc (:title (heading)))Body.",
     ),
   ])
   match project.trees[0].metadata.title {
@@ -47,7 +47,7 @@ test "preview title derives from rich title unless page title overrides it" {
     preview_project(
       @model.Project::new("", [
         source(
-          "doc.alt", "(let heading (_ (em Important)))(meta (:title (heading)))Body.",
+          "doc.alt", "(let heading (_ (em Important)))(doc (:title (heading)))Body.",
         ),
       ]),
       "doc.alt",
@@ -59,7 +59,7 @@ test "preview title derives from rich title unless page title overrides it" {
     preview_project(
       @model.Project::new("", [
         source(
-          "doc.alt", "(let heading (_ (em Important)))(meta (:title (heading) :page-title `Plain title`))Body.",
+          "doc.alt", "(let heading (_ (em Important)))(doc (:title (heading) :page-title `Plain title`))Body.",
         ),
       ]),
       "doc.alt",
@@ -72,7 +72,7 @@ test "preview title derives from rich title unless page title overrides it" {
 ///|
 test "taxon display follows explicit language metadata" {
   let project = compile_ok([
-    source("doc.alt", "(meta (:lang zh-CN :taxon theorem))"),
+    source("doc.alt", "(doc (:lang zh-CN :taxon theorem))"),
   ])
   match project.trees[0].metadata.taxon {
     Some(taxon) =>

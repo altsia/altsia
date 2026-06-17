@@ -58,9 +58,9 @@ fn lower_node_sequence(
     match node {
       Let(name, value, _) => local_env.bind_value(name, value)
       Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Meta(attrs, _) =>
+      Doc(attrs, _) =>
         for attr in attrs {
-          local_env.bind_meta_attr(attr)
+          local_env.bind_doc_attr(attr)
         }
       _ =>
         match lower_node(node, local_env) {
@@ -110,7 +110,7 @@ fn lower_node(
         Ok(false) => lower_node_sequence(children, env)
         Err(error) => Err(error)
       }
-    Let(_, _, _) | Def(_, _, _, _) | Meta(_, _) => Ok([])
+    Let(_, _, _) | Def(_, _, _, _) | Doc(_, _) => Ok([])
   }
 }
 

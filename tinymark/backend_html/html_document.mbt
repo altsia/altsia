@@ -12,10 +12,10 @@ pub(all) struct HtmlDocumentOptions {
   // Optional document type passed to the HTML renderer.
   doctype : String?
 
-  // Default charset meta value unless overridden by `(meta (:charset ...))`.
+  // Default charset meta value unless overridden by `(doc (:charset ...))`.
   charset : String?
 
-  // Default viewport meta value unless overridden by `(meta (:viewport ...))`.
+  // Default viewport meta value unless overridden by `(doc (:viewport ...))`.
 
   viewport : String?
 
@@ -66,7 +66,7 @@ fn compile_html_document_nodes(
   env : CompileEnv,
   options : HtmlDocumentOptions,
 ) -> Result[String, Diagnostic] {
-  let meta_attrs : Array[Attr] = []
+  let doc_attrs : Array[Attr] = []
   let explicit_head : Array[HtmlNode] = []
   let body : Array[HtmlNode] = []
   let inline_run : Array[HtmlNode] = []
@@ -75,10 +75,10 @@ fn compile_html_document_nodes(
     match node {
       Let(name, value, _) => local_env.bind_value(name, value)
       Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Meta(attrs, _) =>
+      Doc(attrs, _) =>
         for attr in attrs {
-          meta_attrs.push(attr)
-          local_env.bind_meta_attr(attr)
+          doc_attrs.push(attr)
+          local_env.bind_doc_attr(attr)
         }
       _ =>
         match
@@ -104,20 +104,28 @@ fn compile_html_document_nodes(
     }
   }
   flush_paragraph(inline_run, body)
-  html_document_attrs(meta_attrs, local_env).bind(html_attrs => {
-    html_head_nodes(meta_attrs, explicit_head, local_env, options).map(head => {
-      @sexp.render_html_document(html_attrs, head, body, options.doctype)
+  html_document_attrs(doc_attrs, local_env).bind(html_attrs => {
+    html_body_wrapper_attrs(doc_attrs, local_env).bind(body_attrs => {
+      html_head_nodes(doc_attrs, explicit_head, local_env, options).map(head => {
+        let wrapped_body = [HtmlNode::Element("div", body_attrs, body)]
+        @sexp.render_html_document(
+          html_attrs,
+          head,
+          wrapped_body,
+          options.doctype,
+        )
+      })
     })
   })
 }
 
 ///|
 fn html_document_attrs(
-  meta_attrs : Array[Attr],
+  doc_attrs : Array[Attr],
   env : CompileEnv,
 ) -> Result[Array[(String, String?)], Diagnostic] {
   let attrs : Array[(String, String?)] = []
-  for attr in meta_attrs {
+  for attr in doc_attrs {
     if !is_html_document_attr(attr.name) {
       continue
     }
@@ -136,15 +144,38 @@ fn is_html_document_attr(name : String) -> Bool {
 }
 
 ///|
+fn html_body_wrapper_attrs(
+  doc_attrs : Array[Attr],
+  env : CompileEnv,
+) -> Result[Array[(String, String?)], Diagnostic] {
+  let attrs : Array[(String, String?)] = []
+  for attr in doc_attrs {
+    if is_html_document_attr(attr.name) || is_html_head_doc_attr(attr.name) {
+      continue
+    }
+    match compile_attr_value(attr.value, env) {
+      Ok(value) => attrs.push((attr.name, value))
+      Err(error) => return Err(error)
+    }
+  }
+  Ok(attrs)
+}
+
+///|
+fn is_html_head_doc_attr(name : String) -> Bool {
+  ["charset", "viewport", "title", "description", "author"].contains(name)
+}
+
+///|
 fn html_head_nodes(
-  meta_attrs : Array[Attr],
+  doc_attrs : Array[Attr],
   explicit_head : Array[HtmlNode],
   env : CompileEnv,
   options : HtmlDocumentOptions,
 ) -> Result[Array[HtmlNode], Diagnostic] {
   let head : Array[HtmlNode] = []
   let charset = match
-    meta_scalar_or_default(meta_attrs, "charset", options.charset, env) {
+    doc_scalar_or_default(doc_attrs, "charset", options.charset, env) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -152,14 +183,14 @@ fn html_head_nodes(
     head.push(HtmlNode::Element("meta", [("charset", Some(text))], []))
   }
   let viewport = match
-    meta_scalar_or_default(meta_attrs, "viewport", options.viewport, env) {
+    doc_scalar_or_default(doc_attrs, "viewport", options.viewport, env) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
   if viewport is Some(text) {
     head.push(html_named_meta("viewport", text))
   }
-  if push_optional_head_meta(head, meta_attrs, env) is Err(error) {
+  if push_optional_head_doc(head, doc_attrs, env) is Err(error) {
     return Err(error)
   }
   head.append(options.extra_head)
@@ -168,35 +199,35 @@ fn html_head_nodes(
 }
 
 ///|
-fn push_optional_head_meta(
+fn push_optional_head_doc(
   head : Array[HtmlNode],
-  meta_attrs : Array[Attr],
+  doc_attrs : Array[Attr],
   env : CompileEnv,
 ) -> Result[Unit, Diagnostic] {
-  push_optional_meta_node(head, meta_attrs, "title", env, text => {
+  push_optional_doc_head_node(head, doc_attrs, "title", env, text => {
     HtmlNode::Element("title", [], [HtmlNode::Text(text)])
   })
   .bind(_ => {
-    push_optional_meta_node(head, meta_attrs, "description", env, text => {
+    push_optional_doc_head_node(head, doc_attrs, "description", env, text => {
       html_named_meta("description", text)
     })
   })
   .bind(_ => {
-    push_optional_meta_node(head, meta_attrs, "author", env, text => {
+    push_optional_doc_head_node(head, doc_attrs, "author", env, text => {
       html_named_meta("author", text)
     })
   })
 }
 
 ///|
-fn push_optional_meta_node(
+fn push_optional_doc_head_node(
   head : Array[HtmlNode],
-  meta_attrs : Array[Attr],
+  doc_attrs : Array[Attr],
   name : String,
   env : CompileEnv,
   make_node : (String) -> HtmlNode,
 ) -> Result[Unit, Diagnostic] {
-  meta_scalar(meta_attrs, name, env).map(text_opt => {
+  doc_scalar(doc_attrs, name, env).map(text_opt => {
     if text_opt is Some(text) {
       head.push(make_node(text))
     }
@@ -204,13 +235,13 @@ fn push_optional_meta_node(
 }
 
 ///|
-fn meta_scalar_or_default(
-  meta_attrs : Array[Attr],
+fn doc_scalar_or_default(
+  doc_attrs : Array[Attr],
   key : String,
   default : String?,
   env : CompileEnv,
 ) -> Result[String?, Diagnostic] {
-  meta_scalar(meta_attrs, key, env).map(found => {
+  doc_scalar(doc_attrs, key, env).map(found => {
     match found {
       Some(_) => found
       None => default
@@ -219,13 +250,13 @@ fn meta_scalar_or_default(
 }
 
 ///|
-fn meta_scalar(
-  meta_attrs : Array[Attr],
+fn doc_scalar(
+  doc_attrs : Array[Attr],
   key : String,
   env : CompileEnv,
 ) -> Result[String?, Diagnostic] {
   let mut found : String? = None
-  for attr in meta_attrs {
+  for attr in doc_attrs {
     if attr.name != key {
       continue
     }

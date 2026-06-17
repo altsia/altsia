@@ -1,0 +1,282 @@
+///|
+fn RenderState::render_embed_html(
+  self : RenderState,
+  embed : @model.EmbedDirective,
+  tree : ResolvedTree,
+  counter : RenderCounter,
+) -> Result[String, @core.Diagnostic] {
+  let resolved_key = tree.slug.canonical()
+  let attrs = embed_attrs(embed, resolved_key)
+  let body_html = match self.render_resolved_tree_body(tree) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let number = if embed.option.numbering { Some(counter.next()) } else { None }
+  let catalog = if embed.option.catalog {
+    self.render_embed_catalog(tree)
+  } else {
+    None
+  }
+  let nodes = match embed.title {
+    Some(title) => {
+      if embed.option.details_open {
+        attrs.push(("open", None))
+      }
+      let summary_children = embed_summary_children(title, number)
+      let children : Array[@sexp.SexpNode] = [
+        @sexp.SexpNode::Element("summary", [], summary_children),
+        @sexp.SexpNode::RawHtml(body_html),
+      ]
+      match catalog {
+        Some(node) => children.push(node)
+        None => ()
+      }
+      [@sexp.SexpNode::Element("details", attrs, children)]
+    }
+    None => {
+      let children : Array[@sexp.SexpNode] = []
+      match number {
+        Some(number) =>
+          children.push(
+            @sexp.SexpNode::Element("div", [("class", Some("embed-number"))], [
+              @sexp.SexpNode::Text(number.to_string() + "."),
+            ]),
+          )
+        None => ()
+      }
+      children.push(@sexp.SexpNode::RawHtml(body_html))
+      match catalog {
+        Some(node) => children.push(node)
+        None => ()
+      }
+      [@sexp.SexpNode::Element("div", attrs, children)]
+    }
+  }
+  Ok(@sexp.render_html(nodes))
+}
+
+///|
+fn RenderState::render_resolved_tree_body(
+  self : RenderState,
+  tree : ResolvedTree,
+) -> Result[String, @core.Diagnostic] {
+  self.render_resolved_content_nodes(
+    tree.content.nodes,
+    RenderCounter::new(),
+    wrap_inline_content=tree.content.wrap_inline_content,
+  )
+}
+
+///|
+fn RenderState::render_resolved_content_nodes(
+  self : RenderState,
+  contents : Array[ResolvedContent],
+  counter : RenderCounter,
+  wrap_inline_content~ : Bool,
+) -> Result[String, @core.Diagnostic] {
+  let placeholders : Array[RenderPlaceholder] = []
+  let nodes = resolved_contents_to_core_nodes(contents, placeholders)
+  let next_placeholder = [0]
+  let resolver : @html.ElementResolver = (call, _context) => {
+    if call.tag != placeholder_tag() {
+      return Ok(None)
+    }
+    let index = next_placeholder[0]
+    next_placeholder[0] = index + 1
+    guard placeholders.get(index) is Some(placeholder) else {
+      return Err(
+        @model.diagnostic(call.span, Binding, "missing render placeholder"),
+      )
+    }
+    match placeholder {
+      RenderLink(link) =>
+        self
+        .render_link_node(link)
+        .map(node => Some(@html.ElementOutput::body([node])))
+      RenderEmbed(embed, _, tree) =>
+        self
+        .render_embed_html(embed, tree, counter)
+        .map(html => {
+          Some(@html.ElementOutput::body([@sexp.SexpNode::RawHtml(html)]))
+        })
+    }
+  }
+  let options = {
+    ..@html.CompileOptions::fragment(),
+    wrap_inline_content,
+    extensions: [resolver],
+  }
+  @html.compile_fragment(
+    { source: @core.SourceInfo::default(), nodes },
+    options~,
+  ).map(nodes => @sexp.render_html(nodes))
+}
+
+///|
+priv enum RenderPlaceholder {
+  RenderLink(ResolvedLink)
+  RenderEmbed(@model.EmbedDirective, String, ResolvedTree)
+}
+
+///|
+fn resolved_contents_to_core_nodes(
+  contents : Array[ResolvedContent],
+  placeholders : Array[RenderPlaceholder],
+) -> Array[@core.Node] {
+  let nodes : Array[@core.Node] = []
+  for content in contents {
+    nodes.push(resolved_content_to_core_node(content, placeholders))
+  }
+  nodes
+}
+
+///|
+fn resolved_content_to_core_node(
+  content : ResolvedContent,
+  placeholders : Array[RenderPlaceholder],
+) -> @core.Node {
+  match content {
+    ResolvedText(text, span) => Text(text, span)
+    ResolvedElement(tag, attrs, children, span) =>
+      Element(
+        tag,
+        attrs,
+        resolved_contents_to_core_nodes(children, placeholders),
+        span,
+      )
+    ResolvedLink(link) => {
+      let index = placeholders.length()
+      placeholders.push(RenderLink(link))
+      placeholder_node(index, link.span)
+    }
+    ResolvedEmbed(embed, source, tree) => {
+      let index = placeholders.length()
+      placeholders.push(RenderEmbed(embed, source, tree))
+      placeholder_node(index, embed.span)
+    }
+  }
+}
+
+///|
+fn placeholder_node(index : Int, span : @core.SourceSpan) -> @core.Node {
+  Element(placeholder_tag(), [placeholder_attr(index, span)], [], span)
+}
+
+///|
+fn placeholder_attr(index : Int, span : @core.SourceSpan) -> @core.Attr {
+  { name: "data-index", value: Some(Scalar(index.to_string(), span)), span }
+}
+
+///|
+fn placeholder_tag() -> String {
+  "altsia.placeholder"
+}
+
+///|
+fn RenderState::render_link_node(
+  self : RenderState,
+  link : ResolvedLink,
+) -> Result[@sexp.SexpNode, @core.Diagnostic] {
+  let label = match self.render_link_label(link.label) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  match link.slug {
+    Some(slug) =>
+      Ok(
+        Element("a", [("href", Some(@model.url_for_tree(slug)))], [
+          RawHtml(label),
+        ]),
+      )
+    None =>
+      Ok(
+        Element(
+          "a",
+          [("href", Some("#")), ("data-missing-target", Some(link.target))],
+          [RawHtml(label)],
+        ),
+      )
+  }
+}
+
+///|
+fn RenderState::render_link_label(
+  self : RenderState,
+  label : ResolvedLinkLabel,
+) -> Result[String, @core.Diagnostic] {
+  match label {
+    LinkText(value) => Ok(@sexp.render_html([Text(value)]))
+    LinkResolvedContent(contents) =>
+      self.render_resolved_content_nodes(
+        contents.nodes,
+        RenderCounter::new(),
+        wrap_inline_content=contents.wrap_inline_content,
+      )
+    LinkFallbackText(value) => Ok(@sexp.render_html([Text(value)]))
+  }
+}
+
+///|
+fn RenderState::compiled_tree_index(
+  self : RenderState,
+) -> Result[Map[String, @model.CompiledTree], @core.Diagnostic] {
+  let index : Map[String, @model.CompiledTree] = Map([])
+  for slug in self.input.tree_order {
+    match self.resolved_by_slug.get(slug) {
+      Some(tree) =>
+        match self.to_compiled_tree(tree) {
+          Ok(compiled) => index[slug] = compiled
+          Err(error) => return Err(error)
+        }
+      None => ()
+    }
+  }
+  Ok(index)
+}
+
+///|
+fn RenderState::to_compiled_tree(
+  self : RenderState,
+  tree : ResolvedTree,
+) -> Result[@model.CompiledTree, @core.Diagnostic] {
+  let references = string_set_to_slugs(
+    self.resolved_tree_references(tree, Set([tree.slug.canonical()])),
+  )
+  let backlinks = string_set_to_slugs(
+    self.resolved_tree_backlinks(tree, Set([tree.slug.canonical()])),
+  )
+  let parent = match
+    self.effects.tree_relations_by_slug.get(tree.slug.canonical()) {
+    Some(value) => value.parent
+    None => None
+  }
+  let html = match self.render_resolved_tree_body(tree) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let compiled : @model.CompiledTree = {
+    slug: tree.slug,
+    path: tree.path,
+    html,
+    metadata: tree.metadata,
+    references,
+    backlinks,
+    parent,
+  }
+  Ok({ ..compiled, html: html + self.render_tree_footer(compiled) })
+}
+
+///|
+fn RenderState::ordered_compiled_trees(
+  self : RenderState,
+  compiled_tree_index : Map[String, @model.CompiledTree],
+) -> Array[@model.CompiledTree] {
+  let ordered : Array[@model.CompiledTree] = []
+  for slug in self.input.tree_order {
+    match compiled_tree_index.get(slug) {
+      Some(tree) => ordered.push(tree)
+      None => ()
+    }
+  }
+  ordered
+}

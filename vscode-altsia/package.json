@@ -8,10 +8,6 @@
     "vscode": "^1.90.0"
   },
   "main": "./extension.js",
-  "activationEvents": [
-    "onLanguage:altsia",
-    "onCommand:altsia.preview"
-  ],
   "categories": [
     "Programming Languages"
   ],

@@ -35,8 +35,14 @@ pub(all) struct CompileContext {
   // Compile children as block flow and return both body and routed head nodes.
   compile_block : (Array[Node]) -> Result[ElementOutput, Diagnostic]
 
+  // Compile children as block flow at a specific heading level.
+  compile_block_at : (Array[Node], Int) -> Result[ElementOutput, Diagnostic]
+
   // Compile children using the backend's mixed-flow paragraph detection.
   compile_mixed : (Array[Node]) -> Result[ElementOutput, Diagnostic]
+
+  // Compile children as plain text content.
+  compile_text_only : (Array[Node]) -> Result[String, Diagnostic]
 }
 
 ///|
@@ -312,8 +318,16 @@ fn compile_element(
         children, env, current_heading_level, extensions,
       )
     },
+    compile_block_at: (children, heading_level) => {
+      compile_block_children_output(children, env, heading_level, extensions)
+    },
     compile_mixed: children => {
       compile_mixed_children_output(
+        children, env, current_heading_level, extensions,
+      )
+    },
+    compile_text_only: children => {
+      compile_text_only_children(
         children, env, current_heading_level, extensions,
       )
     },
@@ -327,24 +341,12 @@ fn compile_element(
       return Err(error)
     }
   }
+  match compile_prelude_element(call, context) {
+    Ok(Some(output)) => return Ok(output)
+    Err(error) => return Err(error)
+    _ => ()
+  }
   match call.tag {
-    "_" =>
-      compile_inline_children_output(
-        call.children,
-        env,
-        current_heading_level,
-        extensions,
-      )
-    "section" => compile_section(input)
-    "list" => compile_mapped_element("ul", input)
-    "enum" => compile_mapped_element("ol", input)
-    "item" => compile_mapped_element("li", input)
-    "fig" => compile_mapped_element("figure", input)
-    "block" => compile_mapped_element("div", input)
-    "note" | "warning" | "tip" => compile_admonition(call.tag, input)
-    "codeblock" => compile_code(input)
-    "slot" => compile_slot(input)
-    "h" => compile_hspace(input)
     "style" => compile_scoped_style(input)
     _ => compile_mapped_element(call.tag, input)
   }
@@ -491,10 +493,13 @@ fn interpolation_has_paragraph_break(template : Interpolation) -> Bool {
 
 ///|
 fn is_source_block_tag(tag : String) -> Bool {
-  [
-    "section", "list", "enum", "item", "table", "thead", "tbody", "tr", "fig", "note",
-    "warning", "tip", "codeblock", "slot", "p", "blockquote", "hr", "block", "style",
-  ].contains(source_tag_name(tag))
+  let normalized = source_tag_name(tag)
+  match prelude_block_tag(normalized) {
+    Some(value) => value
+    None => [
+      "table", "thead", "tbody", "tr", "p", "blockquote", "hr", "style",
+    ].contains(normalized)
+  }
 }
 
 ///|
@@ -732,153 +737,6 @@ fn is_css_selector_list(selector : String) -> Bool {
 ///|
 fn css_selector_uses_scope_marker(selector : String) -> Bool {
   selector.contains("&")
-}
-
-///|
-fn compile_section(
-  input : ElementCompileInput,
-) -> Result[ElementOutput, Diagnostic] {
-  let html_attrs : Array[(String, String?)] = []
-  let section_children : Array[HtmlNode] = []
-  let mut title : String? = None
-  for attr in input.call.attrs {
-    if attr.name == "title" {
-      if attr.value is Some(value) {
-        match value_to_scalar(value, input.env) {
-          Ok(text) => title = Some(text)
-          Err(error) => return Err(error)
-        }
-      }
-    } else {
-      match compile_attr_value(attr.value, input.env) {
-        Ok(compiled) => html_attrs.push((attr.name, compiled))
-        Err(error) => return Err(error)
-      }
-    }
-  }
-  if title is Some(text) {
-    let level = clamp_heading_level(input.current_heading_level)
-    section_children.push(
-      HtmlNode::Element("h" + level.to_string(), [], [HtmlNode::Text(text)]),
-    )
-  }
-  compile_block_children_output(
-    input.call.children,
-    input.env,
-    input.current_heading_level + 1,
-    input.extensions,
-  ).map(output => {
-    section_children.append(output.body)
-    {
-      body: [HtmlNode::Element("section", html_attrs, section_children)],
-      head: output.head,
-    }
-  })
-}
-
-///|
-fn compile_admonition(
-  kind : String,
-  input : ElementCompileInput,
-) -> Result[ElementOutput, Diagnostic] {
-  compile_attrs(input.call.attrs, input.env).bind(html_attrs => {
-    @sexp.append_class(html_attrs, kind)
-    compile_block_children_output(
-      input.call.children,
-      input.env,
-      input.current_heading_level,
-      input.extensions,
-    ).map(output => {
-      body: [HtmlNode::Element("aside", html_attrs, output.body)],
-      head: output.head,
-    })
-  })
-}
-
-///|
-fn compile_code(
-  input : ElementCompileInput,
-) -> Result[ElementOutput, Diagnostic] {
-  compile_attrs(input.call.attrs, input.env).bind(html_attrs => {
-    let lang = html_attrs.iter().find_first(a => a.0 == "lang").bind(a => a.1)
-    compile_text_only_children(
-      input.call.children,
-      input.env,
-      input.current_heading_level,
-      input.extensions,
-    ).map(source => {
-      let code_attrs : Array[(String, String?)] = []
-      if lang is Some(value) {
-        code_attrs.push(("class", Some("lang-" + value)))
-      }
-      body_output([
-        HtmlNode::Element("pre", [], [
-          HtmlNode::Element("code", code_attrs, [HtmlNode::Text(source)]),
-        ]),
-      ])
-    })
-  })
-}
-
-///|
-fn compile_slot(
-  input : ElementCompileInput,
-) -> Result[ElementOutput, Diagnostic] {
-  compile_attrs(input.call.attrs, input.env).bind(html_attrs => {
-    compile_text_only_children(
-      input.call.children,
-      input.env,
-      input.current_heading_level,
-      input.extensions,
-    ).map(source => {
-      body_output([
-        HtmlNode::Element("pre", html_attrs, [HtmlNode::Text(source)]),
-      ])
-    })
-  })
-}
-
-///|
-fn compile_hspace(
-  input : ElementCompileInput,
-) -> Result[ElementOutput, Diagnostic] {
-  if !input.call.attrs.is_empty() {
-    return Err(
-      input.call.span.diagnostic(
-        DiagnosticPhase::Type,
-        "(h ...) does not accept attributes",
-      ),
-    )
-  }
-  if input.call.children.is_empty() {
-    return Err(
-      input.call.span.diagnostic(
-        DiagnosticPhase::Type,
-        "(h ...) requires a length",
-      ),
-    )
-  }
-  compile_text_only_children(
-    input.call.children,
-    input.env,
-    input.current_heading_level,
-    input.extensions,
-  ).bind(length => {
-    let length = length.trim().to_owned()
-    Ok(
-      body_output([
-        HtmlNode::Element(
-          "span",
-          [
-            ("class", Some("hspace")),
-            ("aria-hidden", Some("true")),
-            ("style", Some(hspace_style(length))),
-          ],
-          [],
-        ),
-      ]),
-    )
-  })
 }
 
 ///|

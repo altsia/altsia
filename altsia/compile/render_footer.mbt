@@ -22,7 +22,7 @@ fn RenderState::render_tree_footer(
   if sections.is_empty() {
     ""
   } else {
-    @sexp.render_html([
+    @sexp.render_html_fragment([
       @sexp.SexpNode::Element(
         "footer",
         [("class", Some("tree-footer"))],

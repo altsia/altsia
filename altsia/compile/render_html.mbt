@@ -51,7 +51,7 @@ fn RenderState::render_embed_html(
         [@sexp.SexpNode::Element("div", attrs, children)]
       }
     }
-    @sexp.render_html(nodes)
+    @sexp.render_html_fragment(nodes)
   })
 }
 
@@ -109,7 +109,7 @@ fn RenderState::render_resolved_content_nodes(
   @html.compile_fragment(
     { source: @core.SourceInfo::default(), nodes },
     options~,
-  ).map(nodes => @sexp.render_html(nodes))
+  ).map(nodes => @sexp.render_html_fragment(nodes))
 }
 
 ///|
@@ -201,14 +201,14 @@ fn RenderState::render_link_label(
   label : ResolvedLinkLabel,
 ) -> Result[String, @core.Diagnostic] {
   match label {
-    LinkText(value) => Ok(@sexp.render_html([Text(value)]))
+    LinkText(value) => Ok(@sexp.render_html_fragment([Text(value)]))
     LinkResolvedContent(contents) =>
       self.render_resolved_content_nodes(
         contents.nodes,
         RenderCounter::new(),
         wrap_inline_content=contents.wrap_inline_content,
       )
-    LinkFallbackText(value) => Ok(@sexp.render_html([Text(value)]))
+    LinkFallbackText(value) => Ok(@sexp.render_html_fragment([Text(value)]))
   }
 }
 

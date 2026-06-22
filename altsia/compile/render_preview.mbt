@@ -112,7 +112,7 @@ fn RenderState::render_preview_content_nodes(
   @html.compile_fragment(
     { source: @core.SourceInfo::default(), nodes },
     options~,
-  ).map(nodes => @sexp.render_html(nodes))
+  ).map(nodes => @sexp.render_html_fragment(nodes))
 }
 
 ///|
@@ -240,7 +240,7 @@ fn RenderState::render_preview_embed_html(
         [@sexp.SexpNode::Element("div", attrs, children)]
       }
     }
-    @sexp.render_html(nodes)
+    @sexp.render_html_fragment(nodes)
   })
 }
 

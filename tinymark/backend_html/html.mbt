@@ -124,7 +124,7 @@ pub fn to_sexp_nodes(source : String) -> Result[Array[HtmlNode], Diagnostic] {
 
 ///|
 pub fn to_html(source : String) -> Result[String, Diagnostic] {
-  to_sexp_nodes(source).map(nodes => @sexp.render_html(nodes))
+  to_sexp_nodes(source).map(nodes => @sexp.render_html_fragment(nodes))
 }
 
 ///|

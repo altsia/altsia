@@ -131,7 +131,7 @@ fn html_document_attrs(
     }
     guard attr.value is Some(value) else { continue }
     match value_to_scalar(value, env) {
-      Ok(text) => @sexp.upsert_attr(attrs, attr.name, Some(text))
+      Ok(text) => @sexp.HtmlAttrs(attrs).upsert(attr.name, Some(text))
       Err(error) => return Err(error)
     }
   }

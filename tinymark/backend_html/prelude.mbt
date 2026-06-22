@@ -129,7 +129,7 @@ fn compile_prelude_admonition(
   context : CompileContext,
 ) -> Result[ElementOutput, Diagnostic] {
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
-    @sexp.append_class(html_attrs, kind)
+    @sexp.HtmlAttrs(html_attrs).append_class(kind)
     (context.compile_block)(call.children).map(output => {
       body: [HtmlNode::Element("aside", html_attrs, output.body)],
       head: output.head,

@@ -3,7 +3,7 @@ name = "kokic/tinymark"
 version = "0.3.2"
 
 import {
-  "kokic/sexp-html@0.2.2",
+  "kokic/sexp-html@0.3.0",
 }
 
 readme = "README.md"

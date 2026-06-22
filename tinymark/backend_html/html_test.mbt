@@ -54,7 +54,7 @@ fn render_fragment_result(
     (None, None) => compile_fragment(doc)
   }
   match result {
-    Ok(nodes) => Ok(@sexp.render_html(nodes))
+    Ok(nodes) => Ok(@sexp.render_html_fragment(nodes))
     Err(diagnostic) => Err(diagnostic.render())
   }
 }

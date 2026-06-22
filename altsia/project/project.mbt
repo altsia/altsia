@@ -85,7 +85,8 @@ fn validate_project_config(
   if config.sources.trim() == "" {
     return Err("[altsia].sources must not be empty")
   }
-  if @model.is_absolute_path(config.sources) {
+  let sources_path : @path.Path = config.sources
+  if sources_path.is_absolute() || @model.is_absolute_path(config.sources) {
     return Err("[altsia].sources must be relative to the project root")
   }
   if config.preview_entry is Some(entry) {
@@ -101,12 +102,29 @@ pub fn ProjectLayout::new(
   root : String,
   config : ProjectConfig,
 ) -> ProjectLayout {
-  { root: @model.normalize_path(root), source_root: source_root(root, config) }
+  { root: fs_normalize(root), source_root: source_root(root, config) }
 }
 
 ///|
 pub fn source_root(root : String, config : ProjectConfig) -> String {
-  @model.join_path(root, config.sources)
+  fs_join(root, config.sources)
+}
+
+///|
+fn fs_normalize(path : String) -> String {
+  let value : @path.Path = path
+  value.normalize().to_string()
+}
+
+///|
+fn fs_join(base : String, child : String) -> String {
+  @path.Path::join(base, child).normalize().to_string()
+}
+
+///|
+fn fs_is_absolute(path : String) -> Bool {
+  let value : @path.Path = path
+  value.is_absolute()
 }
 
 ///|
@@ -124,8 +142,8 @@ pub fn is_source_file(path : String) -> Bool {
 
 ///|
 pub fn source_relative_path(source_root : String, path : String) -> String? {
-  let root = @model.normalize_path(source_root)
-  let value = @model.normalize_path(path)
+  let root = @model.normalize_path(fs_normalize(source_root))
+  let value = @model.normalize_path(fs_normalize(path))
   let prefix = root + "/"
   if value.has_prefix(prefix) {
     Some(value.unsafe_substring(start=prefix.length(), end=value.length()))
@@ -139,18 +157,22 @@ pub fn resolve_entry_source_path(
   source_root : String,
   entry : String,
 ) -> Result[String, String] {
-  let full_path = if @model.is_absolute_path(entry) {
-    @model.normalize_path(entry)
+  let relative = if fs_is_absolute(entry) || @model.is_absolute_path(entry) {
+    let full_path = fs_normalize(entry)
+    match source_relative_path(source_root, full_path) {
+      Some(value) => value
+      None => return Err("entry is outside source root: " + entry)
+    }
   } else {
-    @model.join_path(source_root, entry)
-  }
-  let relative = match source_relative_path(source_root, full_path) {
-    Some(value) => value
-    None => return Err("entry is outside source root: " + entry)
+    let value = @model.normalize_path(entry)
+    if value == ".." || value.has_prefix("../") {
+      return Err("entry is outside source root: " + entry)
+    }
+    value
   }
   match @model.source_file_kind(relative) {
-    Some(Alt) => Ok(relative)
-    Some(Sia) =>
+    Some(AltDocument) => Ok(relative)
+    Some(AltLibrary) =>
       Err("preview entry must be an .alt or .altsia file: " + relative)
     None => Err("preview entry must be an .alt or .altsia file: " + relative)
   }
@@ -205,7 +227,7 @@ test "source discovery helpers are pure project rules" {
 test "entry is normalized relative to source root" {
   let config = ProjectConfig::default()
   let layout = ProjectLayout::new("/repo/site", config)
-  @test.assert_eq(layout.source_root, "/repo/site/trees")
+  @test.assert_eq(@model.normalize_path(layout.source_root), "/repo/site/trees")
   match
     resolve_entry_source_path(layout.source_root, "/repo/site/trees/a/b.alt") {
     Ok(path) => @test.assert_eq(path, "a/b.alt")

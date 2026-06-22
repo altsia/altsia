@@ -42,8 +42,8 @@ fn parse_source_file(
     kind,
     doc,
     module_name: match kind {
-      @model.Sia => Some(@model.module_name_from_path(file.path))
-      @model.Alt => None
+      @model.AltLibrary => Some(@model.module_name_from_path(file.path))
+      @model.AltDocument => None
     },
   })
 }
@@ -125,7 +125,7 @@ fn resolve_use_directives(
     match find_parsed_source(parsed, target_path) {
       Some(library) =>
         match library.kind {
-          @model.Sia => {
+          @model.AltLibrary => {
             source_file_dependencies.push({
               source: current.file.path,
               target: library.file.path,
@@ -142,7 +142,7 @@ fn resolve_use_directives(
               Err(error) => return Err(error)
             }
           }
-          @model.Alt =>
+          @model.AltDocument =>
             return Err(
               @model.diagnostic(
                 directive.span,
@@ -175,7 +175,7 @@ fn lower_parsed_sources(
   let tree_sources_by_slug : Map[String, String] = Map([])
   for item in parsed.sources {
     match item.kind {
-      @model.Alt => {
+      @model.AltDocument => {
         let import_result = match
           resolve_use_directives(item, parsed, builtin_env) {
           Ok(value) => value
@@ -238,7 +238,7 @@ fn lower_parsed_sources(
           }
         }
       }
-      @model.Sia => ()
+      @model.AltLibrary => ()
     }
   }
   Ok(trees)

@@ -1,7 +1,7 @@
 ///|
 pub enum SourceFileKind {
-  Alt
-  Sia
+  AltDocument
+  AltLibrary
 } derive(Eq, Debug)
 
 ///|

@@ -1,4 +1,5 @@
 import {
   "kokic/tinymark/core",
-  "moonbitlang/x/path",
+  "moonbitlang/x/path/posix" @posix,
+  "moonbitlang/core/test",
 }

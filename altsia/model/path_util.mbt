@@ -9,28 +9,33 @@ pub fn has_suffix(text : String, suffix : String) -> Bool {
 }
 
 ///|
+fn slash_path(path : String) -> String {
+  path.replace(old="\\", new="/")
+}
+
+///|
 pub fn dirname(path : String) -> String {
-  @path.Path::dirname(path).to_string()
+  @posix.Path::dirname(slash_path(path)).to_string()
 }
 
 ///|
 pub fn basename(path : String) -> String {
-  @path.Path::basename(path).to_owned()
+  @posix.Path::basename(slash_path(path)).to_owned()
 }
 
 ///|
 pub fn join_path(base : String, child : String) -> String {
-  @path.Path::join(base, child).normalize().to_string()
+  @posix.Path::join(normalize_path(base), slash_path(child)).normalize().to_string()
 }
 
 ///|
 pub fn normalize_path(path : String) -> String {
-  @path.Path::normalize(path).to_string()
+  @posix.Path::normalize(slash_path(path)).to_string()
 }
 
 ///|
 pub fn is_absolute_path(path : String) -> Bool {
-  let value : @path.Path = path
+  let value : @posix.Path = slash_path(path)
   value.is_absolute()
 }
 
@@ -46,9 +51,9 @@ pub fn strip_extension(path : String, extension : String) -> String {
 ///|
 pub fn source_file_kind(path : String) -> SourceFileKind? {
   if has_suffix(path, ".alt") || has_suffix(path, ".altsia") {
-    Some(Alt)
+    Some(AltDocument)
   } else if has_suffix(path, ".sia") {
-    Some(Sia)
+    Some(AltLibrary)
   } else {
     None
   }
@@ -64,7 +69,8 @@ pub fn tree_slug_from_target(
   current_path : String,
   target : String,
 ) -> TreeSlug {
-  if target.length() > 0 && target.unsafe_substring(start=0, end=1) == "/" {
+  if target.length() > 0 && slash_path(target).unsafe_substring(start=0, end=1) == "/" {
+    let target = slash_path(target)
     TreeSlug::parse(target.unsafe_substring(start=1, end=target.length()))
   } else {
     tree_slug_from_path(resolve_relative(current_path, target))
@@ -77,7 +83,8 @@ pub fn child_tree_slug(
   child_slug : String,
 ) -> TreeSlug {
   if child_slug.length() > 0 &&
-    child_slug.unsafe_substring(start=0, end=1) == "/" {
+    slash_path(child_slug).unsafe_substring(start=0, end=1) == "/" {
+    let child_slug = slash_path(child_slug)
     TreeSlug::parse(
       child_slug.unsafe_substring(start=1, end=child_slug.length()),
     )
@@ -109,4 +116,21 @@ pub fn url_for_tree(slug : TreeSlug) -> String {
   } else {
     key + ".html"
   }
+}
+
+///|
+test "logical paths are slash-normalized" {
+  @test.assert_eq(normalize_path("math\\a.alt"), "math/a.alt")
+  @test.assert_eq(join_path("/repo/site", "trees"), "/repo/site/trees")
+  @test.assert_eq(dirname("math/c.alt"), "math")
+  @test.assert_eq(basename("a/auto date.sia"), "auto date.sia")
+  @test.assert_eq(
+    resolve_relative("math/c.alt", "a.alt"),
+    "math/a.alt",
+  )
+  @test.assert_eq(
+    resolve_relative("math/deep/c.alt", "../a.alt"),
+    "math/a.alt",
+  )
+  @test.assert_eq(module_name_from_path("a\\auto date.sia"), "auto_date")
 }

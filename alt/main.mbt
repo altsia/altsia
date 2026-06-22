@@ -107,13 +107,18 @@ fn load_project_for_entry(
 
 ///|
 fn find_project_root(start : String) -> ProjectRoot? {
-  let mut current = @model.normalize_path(start)
+  let start_path : @path.Path = start
+  let mut current = start_path.normalize().to_string()
   while true {
-    let config_path = @model.join_path(current, @project.config_file_name())
+    let config_path = @path.Path::join(
+      current,
+      @project.config_file_name(),
+    ).normalize().to_string()
     if @fs.path_exists(config_path) {
       return Some({ root: current, config_path })
     }
-    let parent = @model.dirname(current)
+    let current_path : @path.Path = current
+    let parent = current_path.dirname().to_string()
     if parent == current || parent == "" {
       return None
     }
@@ -151,7 +156,7 @@ fn collect_source_files(
     IOError(message) => return Err(message)
   }
   for entry in entries {
-    let full_path = @model.join_path(dir, entry)
+    let full_path = @path.Path::join(dir, entry).normalize().to_string()
     let is_dir = @fs.is_dir(full_path) catch { IOError(_) => false }
     if is_dir {
       if !@project.should_skip_source_dir(entry) {
@@ -165,7 +170,9 @@ fn collect_source_files(
         IOError(message) => return Err(message)
       }
       sources.push({
-        path: @path.Path::relative(full_path, base=root).to_string(),
+        path: @model.normalize_path(
+          @path.Path::relative(full_path, base=root).to_string(),
+        ),
         source,
       })
     }

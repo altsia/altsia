@@ -1,52 +1,36 @@
 ///|
-priv enum PreludeChildFlow {
+pub enum PreludeChildFlow {
   InlineChildren
   MixedChildren
 }
 
 ///|
-fn compile_prelude_element(
-  call : ElementCall,
-  context : CompileContext,
+pub type Prelude
+
+///|
+fn CallContext::compile_prelude_element(
+  self : CallContext,
 ) -> Result[ElementOutput?, Diagnostic] {
+  let { call, context } = self
+  let f = (output : ElementOutput) => Some(output)
   match call.tag {
-    "_" => (context.compile_inline)(call.children).map(output => Some(output))
-    "section" =>
-      compile_prelude_section(call, context).map(output => Some(output))
-    "list" =>
-      compile_prelude_mapped(call, context, "ul", InlineChildren).map(output => {
-        Some(output)
-      })
-    "enum" =>
-      compile_prelude_mapped(call, context, "ol", InlineChildren).map(output => {
-        Some(output)
-      })
-    "item" =>
-      compile_prelude_mapped(call, context, "li", MixedChildren).map(output => {
-        Some(output)
-      })
-    "fig" =>
-      compile_prelude_mapped(call, context, "figure", InlineChildren).map(output => {
-        Some(output)
-      })
-    "block" =>
-      compile_prelude_mapped(call, context, "div", MixedChildren).map(output => {
-        Some(output)
-      })
-    "note" | "warning" | "tip" =>
-      compile_prelude_admonition(call.tag, call, context).map(output => {
-        Some(output)
-      })
-    "codeblock" =>
-      compile_prelude_code(call, context).map(output => Some(output))
-    "slot" => compile_prelude_slot(call, context).map(output => Some(output))
-    "h" => compile_hspace(call, context).map(output => Some(output))
+    "_" => (context.compile_inline)(call.children).map(f)
+    "h" => self.compile_hspace().map(f)
+    "list" => self.compile_alias("ul", InlineChildren).map(f)
+    "enum" => self.compile_alias("ol", InlineChildren).map(f)
+    "item" => self.compile_alias("li", MixedChildren).map(f)
+    "fig" => self.compile_alias("figure", InlineChildren).map(f)
+    "block" => self.compile_alias("div", MixedChildren).map(f)
+    "slot" => self.compile_slot().map(f)
+    "codeblock" => self.compile_code().map(f)
+    "section" => self.compile_section().map(f)
+    "note" | "warning" | "tip" => self.compile_admonition(call.tag).map(f)
     _ => Ok(None)
   }
 }
 
 ///|
-fn prelude_block_tag(tag : String) -> Bool? {
+fn Prelude::is_block(tag : String) -> Bool? {
   match tag {
     "_" | "h" => Some(false)
     "section"
@@ -65,12 +49,12 @@ fn prelude_block_tag(tag : String) -> Bool? {
 }
 
 ///|
-fn compile_prelude_mapped(
-  call : ElementCall,
-  context : CompileContext,
+fn CallContext::compile_alias(
+  self : CallContext,
   tag : String,
   flow : PreludeChildFlow,
 ) -> Result[ElementOutput, Diagnostic] {
+  let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
     let children = match flow {
       InlineChildren => (context.compile_inline)(call.children)
@@ -84,10 +68,10 @@ fn compile_prelude_mapped(
 }
 
 ///|
-fn compile_prelude_section(
-  call : ElementCall,
-  context : CompileContext,
+fn CallContext::compile_section(
+  self : CallContext,
 ) -> Result[ElementOutput, Diagnostic] {
+  let { call, context } = self
   let html_attrs : Array[(String, String?)] = []
   let section_children : Array[HtmlNode] = []
   let mut title : String? = None
@@ -123,11 +107,11 @@ fn compile_prelude_section(
 }
 
 ///|
-fn compile_prelude_admonition(
+fn CallContext::compile_admonition(
+  self : CallContext,
   kind : String,
-  call : ElementCall,
-  context : CompileContext,
 ) -> Result[ElementOutput, Diagnostic] {
+  let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
     @sexp.HtmlAttrs(html_attrs).append_class(kind)
     (context.compile_block)(call.children).map(output => {
@@ -138,10 +122,10 @@ fn compile_prelude_admonition(
 }
 
 ///|
-fn compile_prelude_code(
-  call : ElementCall,
-  context : CompileContext,
+fn CallContext::compile_code(
+  self : CallContext,
 ) -> Result[ElementOutput, Diagnostic] {
+  let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
     let lang = html_attrs.iter().find_first(a => a.0 == "lang").bind(a => a.1)
     (context.compile_text_only)(call.children).map(source => {
@@ -159,10 +143,10 @@ fn compile_prelude_code(
 }
 
 ///|
-fn compile_prelude_slot(
-  call : ElementCall,
-  context : CompileContext,
+fn CallContext::compile_slot(
+  self : CallContext,
 ) -> Result[ElementOutput, Diagnostic] {
+  let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
     (context.compile_text_only)(call.children).map(source => {
       body_output([
@@ -173,10 +157,10 @@ fn compile_prelude_slot(
 }
 
 ///|
-fn compile_hspace(
-  call : ElementCall,
-  context : CompileContext,
+fn CallContext::compile_hspace(
+  self : CallContext,
 ) -> Result[ElementOutput, Diagnostic] {
+  let { call, context } = self
   guard call.attrs.is_empty() else {
     return Err(
       call.span.diagnostic(

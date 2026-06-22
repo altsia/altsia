@@ -77,15 +77,19 @@ fn RenderState::render_resolved_content_nodes(
   let placeholders : Array[RenderPlaceholder] = []
   let nodes = resolved_contents_to_core_nodes(contents, placeholders)
   let next_placeholder = [0]
-  let resolver : @html.ElementResolver = (call, _context) => {
-    if call.tag != placeholder_tag() {
+  let resolver : @html.ElementResolver = compiler => {
+    if compiler.call.tag != placeholder_tag() {
       return Ok(None)
     }
     let index = next_placeholder[0]
     next_placeholder[0] = index + 1
     guard placeholders.get(index) is Some(placeholder) else {
       return Err(
-        @model.diagnostic(call.span, Binding, "missing render placeholder"),
+        @model.diagnostic(
+          compiler.call.span,
+          Binding,
+          "missing render placeholder",
+        ),
       )
     }
     match placeholder {

@@ -50,13 +50,13 @@ fn render_html(input_path : String, source : String) -> String? {
 
 ///|
 fn html_include_resolver(base_dir : String) -> @backend_html.ElementResolver {
-  (call, context) => {
-    if call.tag != "html.include" {
+  compiler => {
+    if compiler.call.tag != "html.include" {
       return Ok(None)
     }
-    include_path(call, context).bind(path => {
+    include_path(compiler.call, compiler.context).bind(path => {
       let resolved = resolve_include_path(base_dir, path)
-      read_include(resolved, call.span).map(content => {
+      read_include(resolved, compiler.call.span).map(content => {
         let raw = @sexp.SexpNode::RawHtml(content)
         Some(@backend_html.ElementOutput::body([raw]))
       })

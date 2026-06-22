@@ -46,6 +46,12 @@ pub(all) struct CompileContext {
 }
 
 ///|
+pub struct CallContext {
+  call : ElementCall
+  context : CompileContext
+}
+
+///|
 priv struct ElementCompileInput {
   call : ElementCall
   env : CompileEnv
@@ -80,10 +86,7 @@ fn body_output(nodes : Array[HtmlNode]) -> ElementOutput {
 }
 
 ///|
-pub type ElementResolver = (ElementCall, CompileContext) -> Result[
-  ElementOutput?,
-  Diagnostic,
-]
+pub type ElementResolver = (CallContext) -> Result[ElementOutput?, Diagnostic]
 
 ///|
 pub(all) struct CompileOptions {
@@ -332,8 +335,9 @@ fn compile_element(
       )
     },
   }
+  let compiler = CallContext::{ call, context }
   for resolver in element_resolvers(extensions) {
-    let result = resolver(call, context)
+    let result = resolver(compiler)
     if result is Ok(Some(output)) {
       return Ok(output)
     }
@@ -341,7 +345,7 @@ fn compile_element(
       return Err(error)
     }
   }
-  match compile_prelude_element(call, context) {
+  match compiler.compile_prelude_element() {
     Ok(Some(output)) => return Ok(output)
     Err(error) => return Err(error)
     _ => ()
@@ -363,13 +367,12 @@ fn element_resolvers(
 
 ///|
 fn html_head_resolver(
-  call : ElementCall,
-  context : CompileContext,
+  compiler : CallContext,
 ) -> Result[ElementOutput?, Diagnostic] {
-  if call.tag != "html.head" {
+  if compiler.call.tag != "html.head" {
     return Ok(None)
   }
-  (context.compile_inline)(call.children).map(output => {
+  (compiler.context.compile_inline)(compiler.call.children).map(output => {
     let head = output.body
     head.append(output.head)
     Some({ body: [], head })
@@ -494,11 +497,12 @@ fn interpolation_has_paragraph_break(template : Interpolation) -> Bool {
 ///|
 fn is_source_block_tag(tag : String) -> Bool {
   let normalized = source_tag_name(tag)
-  match prelude_block_tag(normalized) {
+  match Prelude::is_block(normalized) {
     Some(value) => value
-    None => [
-      "table", "thead", "tbody", "tr", "p", "blockquote", "hr", "style",
-    ].contains(normalized)
+    None =>
+      ["table", "thead", "tbody", "tr", "p", "blockquote", "hr", "style"].contains(
+        normalized,
+      )
   }
 }
 

@@ -583,8 +583,8 @@ test "html document appends extra head after defaults" {
 
 ///|
 test "extension resolver handles element and fallback preserves html" {
-  let resolver : ElementResolver = (call, _context) => {
-    if call.tag == "icon" {
+  let resolver : ElementResolver = compiler => {
+    if compiler.call.tag == "icon" {
       Ok(
         Some(
           ElementOutput::body([
@@ -611,8 +611,8 @@ test "extension resolver handles element and fallback preserves html" {
 
 ///|
 test "extension resolver can emit document head nodes" {
-  let resolver : ElementResolver = (call, _context) => {
-    if call.tag == "asset" {
+  let resolver : ElementResolver = compiler => {
+    if compiler.call.tag == "asset" {
       return Ok(
         Some(
           ElementOutput::head([
@@ -649,9 +649,14 @@ test "extension resolver can emit document head nodes" {
 
 ///|
 test "extension resolver diagnostic keeps source span" {
-  let resolver : ElementResolver = (call, _context) => {
-    if call.tag == "boom" {
-      Err(call.span.diagnostic(@core.DiagnosticPhase::ContentModel, "boom"))
+  let resolver : ElementResolver = compiler => {
+    if compiler.call.tag == "boom" {
+      Err(
+        compiler.call.span.diagnostic(
+          @core.DiagnosticPhase::ContentModel,
+          "boom",
+        ),
+      )
     } else {
       Ok(None)
     }

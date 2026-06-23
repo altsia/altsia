@@ -25,7 +25,9 @@ pub fn basename(path : String) -> String {
 
 ///|
 pub fn join_path(base : String, child : String) -> String {
-  @posix.Path::join(normalize_path(base), slash_path(child)).normalize().to_string()
+  @posix.Path::join(normalize_path(base), slash_path(child))
+  .normalize()
+  .to_string()
 }
 
 ///|
@@ -69,7 +71,8 @@ pub fn tree_slug_from_target(
   current_path : String,
   target : String,
 ) -> TreeSlug {
-  if target.length() > 0 && slash_path(target).unsafe_substring(start=0, end=1) == "/" {
+  if target.length() > 0 &&
+    slash_path(target).unsafe_substring(start=0, end=1) == "/" {
     let target = slash_path(target)
     TreeSlug::parse(target.unsafe_substring(start=1, end=target.length()))
   } else {
@@ -124,13 +127,7 @@ test "logical paths are slash-normalized" {
   @test.assert_eq(join_path("/repo/site", "trees"), "/repo/site/trees")
   @test.assert_eq(dirname("math/c.alt"), "math")
   @test.assert_eq(basename("a/auto date.sia"), "auto date.sia")
-  @test.assert_eq(
-    resolve_relative("math/c.alt", "a.alt"),
-    "math/a.alt",
-  )
-  @test.assert_eq(
-    resolve_relative("math/deep/c.alt", "../a.alt"),
-    "math/a.alt",
-  )
+  @test.assert_eq(resolve_relative("math/c.alt", "a.alt"), "math/a.alt")
+  @test.assert_eq(resolve_relative("math/deep/c.alt", "../a.alt"), "math/a.alt")
   @test.assert_eq(module_name_from_path("a\\auto date.sia"), "auto_date")
 }

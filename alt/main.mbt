@@ -110,10 +110,9 @@ fn find_project_root(start : String) -> ProjectRoot? {
   let start_path : @path.Path = start
   let mut current = start_path.normalize().to_string()
   while true {
-    let config_path = @path.Path::join(
-      current,
-      @project.config_file_name(),
-    ).normalize().to_string()
+    let config_path = @path.Path::join(current, @project.config_file_name())
+      .normalize()
+      .to_string()
     if @fs.path_exists(config_path) {
       return Some({ root: current, config_path })
     }

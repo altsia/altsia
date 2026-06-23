@@ -1,11 +1,11 @@
 ///|
+pub type Prelude
+
+///|
 pub enum PreludeChildFlow {
   InlineChildren
   MixedChildren
 }
-
-///|
-pub type Prelude
 
 ///|
 fn CallContext::compile_prelude_element(
@@ -25,6 +25,8 @@ fn CallContext::compile_prelude_element(
     "codeblock" => self.compile_code().map(f)
     "section" => self.compile_section().map(f)
     "note" | "warning" | "tip" => self.compile_admonition(call.tag).map(f)
+    _ if builtin_languages.contains(call.tag) =>
+      self.compile_language_span(normalize_bcp47(call.tag)).map(f)
     _ => Ok(None)
   }
 }
@@ -63,6 +65,23 @@ fn CallContext::compile_alias(
     children.map(output => {
       body: [HtmlNode::Element(tag, html_attrs, output.body)],
       head: output.head,
+    })
+  })
+}
+
+///|
+fn CallContext::compile_language_span(
+  self : CallContext,
+  language_tag : String,
+) -> Result[ElementOutput, Diagnostic] {
+  let { call, context } = self
+  compile_attrs(call.attrs, context.env).bind(html_attrs => {
+    (context.compile_inline)(call.children).map(output => {
+      html_attrs.push(("lang", Some(language_tag)))
+      {
+        body: [HtmlNode::Element("span", html_attrs, output.body)],
+        head: output.head,
+      }
     })
   })
 }

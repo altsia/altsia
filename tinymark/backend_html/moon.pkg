@@ -2,4 +2,5 @@ import {
   "moonbitlang/core/test",
   "kokic/tinymark/core",
   "kokic/sexp-html" @sexp,
+  "moonbitlang/core/immut/hashset" @immut_set,
 }

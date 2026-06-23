@@ -33,11 +33,11 @@ fn output_path_for(input_path : String) -> String {
 
 ///|
 fn render_html(input_path : String, source : String) -> String? {
-  let options = {
+  let options = Some({
     ..@backend_html.HtmlDocumentOptions::default(),
     extensions: [html_include_resolver(input_dir(input_path))],
-  }
-  let result = @backend_html.to_html_document(source, options~)
+  })
+  let result = @backend_html.to_html_document(source, options)
   if result is Err(error) {
     return {
       println(error.render())

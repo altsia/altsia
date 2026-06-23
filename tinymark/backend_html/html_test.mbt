@@ -11,17 +11,9 @@ fn render_html_document_result(
   source : String,
   options? : HtmlDocumentOptions,
 ) -> Result[String, String] {
-  match options {
-    Some(options) =>
-      match to_html_document(source, options~) {
-        Ok(html) => Ok(html)
-        Err(diagnostic) => Err(diagnostic.render())
-      }
-    None =>
-      match to_html_document(source) {
-        Ok(html) => Ok(html)
-        Err(diagnostic) => Err(diagnostic.render())
-      }
+  match to_html_document(source, options) {
+    Ok(html) => Ok(html)
+    Err(diagnostic) => Err(diagnostic.render())
   }
 }
 
@@ -560,6 +552,56 @@ test "html doc attrs apply to body wrapper" {
     render_html_document_result(input, options=HtmlDocumentOptions::empty()),
     Ok(expected),
   )
+}
+
+///|
+test "html doc paper applies body layout and print page style" {
+  let input = "(doc (:title \"Doc\" :paper `a4`))Body"
+  let expected =
+    #|<html>
+    #|  <head>
+    #|    <title>Doc</title>
+    #|    <style>@media print { @page { size: A4; margin: 24mm; } }</style>
+    #|  </head>
+    #|  <body>
+    #|    <div style="max-width: 210mm; margin: 24mm auto; font-size: 11pt"><p>Body</p></div>
+    #|  </body>
+    #|</html>
+  @test.assert_eq(
+    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    Ok(expected),
+  )
+}
+
+///|
+test "html doc paper merges with explicit body style" {
+  let input = "(doc (:paper `iso-b5` :style `line-height: 1.6`))Body"
+  let expected =
+    #|<html>
+    #|  <head>
+    #|    <style>@media print { @page { size: 176mm 250mm; margin: 18mm; } }</style>
+    #|  </head>
+    #|  <body>
+    #|    <div style="max-width: 176mm; margin: 18mm auto; font-size: 10.5pt; line-height: 1.6"><p>Body</p></div>
+    #|  </body>
+    #|</html>
+  @test.assert_eq(
+    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    Ok(expected),
+  )
+}
+
+///|
+test "html doc paper rejects unknown preset" {
+  match
+    render_html_document_result(
+      "(doc (:paper `letter`))Body",
+      options=HtmlDocumentOptions::empty(),
+    ) {
+    Err(message) =>
+      @test.assert_eq(message.contains("unknown paper preset: letter"), true)
+    Ok(_) => abort("expected paper preset error")
+  }
 }
 
 ///|

@@ -133,7 +133,7 @@ pub fn to_html(source : String) -> Result[String, Diagnostic] {
 ///|
 pub fn to_html_document(
   source : String,
-  options? : HtmlDocumentOptions,
+  options : HtmlDocumentOptions?,
 ) -> Result[String, Diagnostic] {
   let document_options = options.unwrap_or(HtmlDocumentOptions::default())
   parse(source).bind(doc => compile_html_document(doc, options=document_options))

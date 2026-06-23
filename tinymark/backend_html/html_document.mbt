@@ -104,15 +104,18 @@ fn compile_html_document_nodes(
     }
   }
   flush_paragraph(inline_run, body)
-  html_document_attrs(doc_attrs, local_env).bind(html_attrs => {
-    html_body_wrapper_attrs(doc_attrs, local_env).bind(body_attrs => {
-      html_head_nodes(doc_attrs, explicit_head, local_env, options).map(head => {
-        let wrapped_body = [HtmlNode::Element("div", body_attrs, body)]
-        @sexp.render_html_document(
-          html_attrs,
-          head,
-          wrapped_body,
-          options.doctype,
+  paper_spec(doc_attrs, local_env).bind(paper => {
+    html_document_attrs(doc_attrs, local_env).bind(html_attrs => {
+      html_body_wrapper_attrs(doc_attrs, local_env, paper).bind(body_attrs => {
+        html_head_nodes(doc_attrs, explicit_head, local_env, options, paper).map(head => {
+            let wrapped_body = [HtmlNode::Element("div", body_attrs, body)]
+            @sexp.render_html_document(
+              html_attrs,
+              head,
+              wrapped_body,
+              options.doctype,
+            )
+          },
         )
       })
     })
@@ -139,18 +142,14 @@ fn html_document_attrs(
 }
 
 ///|
-fn is_html_document_attr(name : String) -> Bool {
-  ["lang", "dir"].contains(name)
-}
-
-///|
 fn html_body_wrapper_attrs(
   doc_attrs : Array[Attr],
   env : CompileEnv,
+  paper : PaperSpecification?,
 ) -> Result[Array[(String, String?)], Diagnostic] {
   let attrs : Array[(String, String?)] = []
   for attr in doc_attrs {
-    if is_html_document_attr(attr.name) || is_html_head_doc_attr(attr.name) {
+    if is_consumed_doc_attr(attr.name) {
       continue
     }
     match compile_attr_value(attr.value, env) {
@@ -158,7 +157,22 @@ fn html_body_wrapper_attrs(
       Err(error) => return Err(error)
     }
   }
+  if paper is Some(spec) {
+    merge_body_style(attrs, paper_body_style(spec))
+  }
   Ok(attrs)
+}
+
+///|
+fn is_consumed_doc_attr(name : String) -> Bool {
+  is_html_document_attr(name) ||
+  is_html_head_doc_attr(name) ||
+  is_html_paper_doc_attr(name)
+}
+
+///|
+fn is_html_document_attr(name : String) -> Bool {
+  ["lang", "dir"].contains(name)
 }
 
 ///|
@@ -167,11 +181,17 @@ fn is_html_head_doc_attr(name : String) -> Bool {
 }
 
 ///|
+fn is_html_paper_doc_attr(name : String) -> Bool {
+  name == "paper"
+}
+
+///|
 fn html_head_nodes(
   doc_attrs : Array[Attr],
   explicit_head : Array[HtmlNode],
   env : CompileEnv,
   options : HtmlDocumentOptions,
+  paper : PaperSpecification?,
 ) -> Result[Array[HtmlNode], Diagnostic] {
   let head : Array[HtmlNode] = []
   let charset = match
@@ -193,9 +213,33 @@ fn html_head_nodes(
   if push_optional_head_doc(head, doc_attrs, env) is Err(error) {
     return Err(error)
   }
+  if paper is Some(spec) {
+    head.push(paper_print_style(spec))
+  }
   head.append(options.extra_head)
   head.append(explicit_head)
   Ok(head)
+}
+
+///|
+fn merge_body_style(attrs : Array[(String, String?)], style : String) -> Unit {
+  for index, attr in attrs {
+    let (name, value) = attr
+    if name == "style" {
+      attrs[index] = (name, Some(append_css_style(style, value)))
+      return
+    }
+  }
+  attrs.push(("style", Some(style)))
+}
+
+///|
+fn append_css_style(base : String, extra : String?) -> String {
+  match extra {
+    None => base
+    Some(text) if text.trim().is_empty() => base
+    Some(text) => base + "; " + text
+  }
 }
 
 ///|
@@ -257,9 +301,7 @@ fn doc_scalar(
 ) -> Result[String?, Diagnostic] {
   let mut found : String? = None
   for attr in doc_attrs {
-    if attr.name != key {
-      continue
-    }
+    guard attr.name == key else { continue }
     guard attr.value is Some(value) else { continue }
     match value_to_scalar(value, env) {
       Ok(text) => found = Some(text)

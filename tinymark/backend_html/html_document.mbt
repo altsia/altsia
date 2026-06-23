@@ -195,7 +195,7 @@ fn html_head_nodes(
 ) -> Result[Array[HtmlNode], Diagnostic] {
   let head : Array[HtmlNode] = []
   let charset = match
-    doc_scalar_or_default(doc_attrs, "charset", options.charset, env) {
+    scalar_or_default(doc_attrs, "charset", options.charset, env) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -203,7 +203,7 @@ fn html_head_nodes(
     head.push(HtmlNode::Element("meta", [("charset", Some(text))], []))
   }
   let viewport = match
-    doc_scalar_or_default(doc_attrs, "viewport", options.viewport, env) {
+    scalar_or_default(doc_attrs, "viewport", options.viewport, env) {
     Ok(value) => value
     Err(error) => return Err(error)
   }
@@ -271,7 +271,7 @@ fn push_optional_doc_head_node(
   env : CompileEnv,
   make_node : (String) -> HtmlNode,
 ) -> Result[Unit, Diagnostic] {
-  doc_scalar(doc_attrs, name, env).map(text_opt => {
+  scalar(doc_attrs, name, env).map(text_opt => {
     if text_opt is Some(text) {
       head.push(make_node(text))
     }
@@ -279,22 +279,21 @@ fn push_optional_doc_head_node(
 }
 
 ///|
-fn doc_scalar_or_default(
+fn scalar_or_default(
   doc_attrs : Array[Attr],
   key : String,
   default : String?,
   env : CompileEnv,
 ) -> Result[String?, Diagnostic] {
-  doc_scalar(doc_attrs, key, env).map(found => {
-    match found {
-      Some(_) => found
-      None => default
-    }
-  })
+  match scalar(doc_attrs, key, env) {
+    Ok(Some(text)) => Ok(Some(text))
+    Ok(None) => Ok(default)
+    Err(error) => Err(error)
+  }
 }
 
 ///|
-fn doc_scalar(
+fn scalar(
   doc_attrs : Array[Attr],
   key : String,
   env : CompileEnv,

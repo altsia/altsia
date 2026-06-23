@@ -24,6 +24,23 @@ pub(all) struct HtmlDocumentOptions {
 }
 
 ///|
+priv struct DocumentHeadSettings {
+  charset : String?
+  viewport : String?
+  title : String?
+  description : String?
+  author : String?
+}
+
+///|
+priv struct DocumentSettings {
+  html_attrs : Array[(String, String?)]
+  body_attrs : Array[(String, String?)]
+  head : DocumentHeadSettings
+  paper : PaperSpecification?
+}
+
+///|
 pub fn HtmlDocumentOptions::default() -> HtmlDocumentOptions {
   {
     initial_heading_level: 1,
@@ -104,121 +121,124 @@ fn compile_html_document_nodes(
     }
   }
   flush_paragraph(inline_run, body)
-  paper_spec(doc_attrs, local_env).bind(paper => {
-    html_document_attrs(doc_attrs, local_env).bind(html_attrs => {
-      html_body_wrapper_attrs(doc_attrs, local_env, paper).bind(body_attrs => {
-        html_head_nodes(doc_attrs, explicit_head, local_env, options, paper).map(head => {
-            let wrapped_body = [HtmlNode::Element("div", body_attrs, body)]
-            @sexp.render_html_document(
-              html_attrs,
-              head,
-              wrapped_body,
-              options.doctype,
-            )
-          },
-        )
-      })
-    })
+  let settings = match document_settings(doc_attrs, local_env, options) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  let head = html_head_nodes(settings, explicit_head, options.extra_head)
+  Ok(
+    @sexp.render_html_document(
+      settings.html_attrs,
+      head,
+      [HtmlNode::Element("div", settings.body_attrs, body)],
+      options.doctype,
+    ),
+  )
+}
+
+///|
+fn document_settings(
+  doc_attrs : Array[Attr],
+  env : CompileEnv,
+  options : HtmlDocumentOptions,
+) -> Result[DocumentSettings, Diagnostic] {
+  let html_attrs : Array[(String, String?)] = []
+  let body_attrs : Array[(String, String?)] = []
+  let mut charset = options.charset
+  let mut viewport = options.viewport
+  let mut title : String? = None
+  let mut description : String? = None
+  let mut author : String? = None
+  let mut paper : PaperSpecification? = None
+  for attr in doc_attrs {
+    match attr.name {
+      "lang" | "dir" =>
+        match optional_doc_scalar(attr, env) {
+          Ok(Some(text)) =>
+            @sexp.HtmlAttrs(html_attrs).upsert(attr.name, Some(text))
+          Ok(None) => ()
+          Err(error) => return Err(error)
+        }
+      "charset" =>
+        match optional_doc_scalar(attr, env) {
+          Ok(value) => charset = value
+          Err(error) => return Err(error)
+        }
+      "viewport" =>
+        match optional_doc_scalar(attr, env) {
+          Ok(value) => viewport = value
+          Err(error) => return Err(error)
+        }
+      "title" =>
+        match optional_doc_scalar(attr, env) {
+          Ok(value) => title = value
+          Err(error) => return Err(error)
+        }
+      "description" =>
+        match optional_doc_scalar(attr, env) {
+          Ok(value) => description = value
+          Err(error) => return Err(error)
+        }
+      "author" =>
+        match optional_doc_scalar(attr, env) {
+          Ok(value) => author = value
+          Err(error) => return Err(error)
+        }
+      "paper" =>
+        match required_doc_scalar(attr, env, "paper requires a value") {
+          Ok(name) =>
+            match paper_spec_from_name(name, attr.span) {
+              Ok(spec) => paper = Some(spec)
+              Err(error) => return Err(error)
+            }
+          Err(error) => return Err(error)
+        }
+      _ =>
+        match compile_attr_value(attr.value, env) {
+          Ok(value) => body_attrs.push((attr.name, value))
+          Err(error) => return Err(error)
+        }
+    }
+  }
+  if paper is Some(spec) {
+    merge_body_style(body_attrs, paper_body_style(spec))
+  }
+  Ok({
+    html_attrs,
+    body_attrs,
+    head: { charset, viewport, title, description, author },
+    paper,
   })
 }
 
 ///|
-fn html_document_attrs(
-  doc_attrs : Array[Attr],
-  env : CompileEnv,
-) -> Result[Array[(String, String?)], Diagnostic] {
-  let attrs : Array[(String, String?)] = []
-  for attr in doc_attrs {
-    if !is_html_document_attr(attr.name) {
-      continue
-    }
-    guard attr.value is Some(value) else { continue }
-    match value_to_scalar(value, env) {
-      Ok(text) => @sexp.HtmlAttrs(attrs).upsert(attr.name, Some(text))
-      Err(error) => return Err(error)
-    }
-  }
-  Ok(attrs)
-}
-
-///|
-fn html_body_wrapper_attrs(
-  doc_attrs : Array[Attr],
-  env : CompileEnv,
-  paper : PaperSpecification?,
-) -> Result[Array[(String, String?)], Diagnostic] {
-  let attrs : Array[(String, String?)] = []
-  for attr in doc_attrs {
-    if is_consumed_doc_attr(attr.name) {
-      continue
-    }
-    match compile_attr_value(attr.value, env) {
-      Ok(value) => attrs.push((attr.name, value))
-      Err(error) => return Err(error)
-    }
-  }
-  if paper is Some(spec) {
-    merge_body_style(attrs, paper_body_style(spec))
-  }
-  Ok(attrs)
-}
-
-///|
-fn is_consumed_doc_attr(name : String) -> Bool {
-  is_html_document_attr(name) ||
-  is_html_head_doc_attr(name) ||
-  is_html_paper_doc_attr(name)
-}
-
-///|
-fn is_html_document_attr(name : String) -> Bool {
-  ["lang", "dir"].contains(name)
-}
-
-///|
-fn is_html_head_doc_attr(name : String) -> Bool {
-  ["charset", "viewport", "title", "description", "author"].contains(name)
-}
-
-///|
-fn is_html_paper_doc_attr(name : String) -> Bool {
-  name == "paper"
-}
-
-///|
 fn html_head_nodes(
-  doc_attrs : Array[Attr],
+  settings : DocumentSettings,
   explicit_head : Array[HtmlNode],
-  env : CompileEnv,
-  options : HtmlDocumentOptions,
-  paper : PaperSpecification?,
-) -> Result[Array[HtmlNode], Diagnostic] {
+  extra_head : Array[HtmlNode],
+) -> Array[HtmlNode] {
   let head : Array[HtmlNode] = []
-  let charset = match
-    scalar_or_default(doc_attrs, "charset", options.charset, env) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  if charset is Some(text) {
+  if settings.head.charset is Some(text) {
     head.push(HtmlNode::Element("meta", [("charset", Some(text))], []))
   }
-  let viewport = match
-    scalar_or_default(doc_attrs, "viewport", options.viewport, env) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  if viewport is Some(text) {
+  if settings.head.viewport is Some(text) {
     head.push(html_named_meta("viewport", text))
   }
-  if push_optional_head_doc(head, doc_attrs, env) is Err(error) {
-    return Err(error)
+  if settings.head.title is Some(text) {
+    head.push(HtmlNode::Element("title", [], [HtmlNode::Text(text)]))
   }
-  if paper is Some(spec) {
+  if settings.head.description is Some(text) {
+    head.push(html_named_meta("description", text))
+  }
+  if settings.head.author is Some(text) {
+    head.push(html_named_meta("author", text))
+  }
+  if settings.paper is Some(spec) {
     head.push(paper_print_style(spec))
   }
-  head.append(options.extra_head)
+  head.append(extra_head)
   head.append(explicit_head)
-  Ok(head)
+  head
 }
 
 ///|
@@ -226,7 +246,12 @@ fn merge_body_style(attrs : Array[(String, String?)], style : String) -> Unit {
   for index, attr in attrs {
     let (name, value) = attr
     if name == "style" {
-      attrs[index] = (name, Some(append_css_style(style, value)))
+      let merged = match value {
+        None => style
+        Some(text) if text.trim().is_empty() => style
+        Some(text) => style + "; " + text
+      }
+      attrs[index] = (name, Some(merged))
       return
     }
   }
@@ -234,80 +259,26 @@ fn merge_body_style(attrs : Array[(String, String?)], style : String) -> Unit {
 }
 
 ///|
-fn append_css_style(base : String, extra : String?) -> String {
-  match extra {
-    None => base
-    Some(text) if text.trim().is_empty() => base
-    Some(text) => base + "; " + text
-  }
-}
-
-///|
-fn push_optional_head_doc(
-  head : Array[HtmlNode],
-  doc_attrs : Array[Attr],
-  env : CompileEnv,
-) -> Result[Unit, Diagnostic] {
-  push_optional_doc_head_node(head, doc_attrs, "title", env, text => {
-    HtmlNode::Element("title", [], [HtmlNode::Text(text)])
-  })
-  .bind(_ => {
-    push_optional_doc_head_node(head, doc_attrs, "description", env, text => {
-      html_named_meta("description", text)
-    })
-  })
-  .bind(_ => {
-    push_optional_doc_head_node(head, doc_attrs, "author", env, text => {
-      html_named_meta("author", text)
-    })
-  })
-}
-
-///|
-fn push_optional_doc_head_node(
-  head : Array[HtmlNode],
-  doc_attrs : Array[Attr],
-  name : String,
-  env : CompileEnv,
-  make_node : (String) -> HtmlNode,
-) -> Result[Unit, Diagnostic] {
-  scalar(doc_attrs, name, env).map(text_opt => {
-    if text_opt is Some(text) {
-      head.push(make_node(text))
-    }
-  })
-}
-
-///|
-fn scalar_or_default(
-  doc_attrs : Array[Attr],
-  key : String,
-  default : String?,
+fn optional_doc_scalar(
+  attr : Attr,
   env : CompileEnv,
 ) -> Result[String?, Diagnostic] {
-  match scalar(doc_attrs, key, env) {
-    Ok(Some(text)) => Ok(Some(text))
-    Ok(None) => Ok(default)
-    Err(error) => Err(error)
+  match attr.value {
+    Some(value) => value_to_scalar(value, env).map(text => Some(text))
+    None => Ok(None)
   }
 }
 
 ///|
-fn scalar(
-  doc_attrs : Array[Attr],
-  key : String,
+fn required_doc_scalar(
+  attr : Attr,
   env : CompileEnv,
-) -> Result[String?, Diagnostic] {
-  let mut found : String? = None
-  for attr in doc_attrs {
-    guard attr.name == key else { continue }
-    guard attr.value is Some(value) else { continue }
-    match value_to_scalar(value, env) {
-      Ok(text) => found = Some(text)
-      Err(error) => return Err(error)
-    }
+  missing_message : String,
+) -> Result[String, Diagnostic] {
+  guard attr.value is Some(value) else {
+    return Err(attr.span.diagnostic(DiagnosticPhase::Type, missing_message))
   }
-  Ok(found)
+  value_to_scalar(value, env)
 }
 
 ///|

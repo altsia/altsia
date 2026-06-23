@@ -486,12 +486,7 @@ fn node_needs_paragraph_context(node : Node, env : CompileEnv) -> Bool {
 
 ///|
 fn interpolation_has_paragraph_break(template : Interpolation) -> Bool {
-  template.any(part => {
-    match part {
-      Literal(text) => has_paragraph_break(text)
-      Name(_) => false
-    }
-  })
+  template.any(part => part is Literal(text) && has_paragraph_break(text))
 }
 
 ///|

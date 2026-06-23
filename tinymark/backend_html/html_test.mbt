@@ -592,6 +592,25 @@ test "html doc paper merges with explicit body style" {
 }
 
 ///|
+test "html doc settings use later duplicate attrs" {
+  let input = "(doc (:title `Old` :title `New` :paper `a4` :paper `iso-b5`))Body"
+  let expected =
+    #|<html>
+    #|  <head>
+    #|    <title>New</title>
+    #|    <style>@media print { @page { size: 176mm 250mm; margin: 18mm; } }</style>
+    #|  </head>
+    #|  <body>
+    #|    <div style="max-width: 176mm; margin: 18mm auto; font-size: 10.5pt"><p>Body</p></div>
+    #|  </body>
+    #|</html>
+  @test.assert_eq(
+    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    Ok(expected),
+  )
+}
+
+///|
 test "html doc paper rejects unknown preset" {
   match
     render_html_document_result(

@@ -8,7 +8,7 @@ pub let builtin_languages : @immut_set.HashSet[LanguageTag] = @immut_set.HashSet
 )
 
 ///|
-pub fn normalize_bcp47(tag : LanguageTag) -> String {
+pub fn normalize_builtin_language(tag : LanguageTag) -> String {
   match tag {
     "cn" => "zh-Hans-CN"
     "hk" => "zh-Hans-HK"

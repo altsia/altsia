@@ -22,9 +22,7 @@ fn paper_spec_from_name(
         font_size: "10.5pt",
       })
     _ =>
-      Err(
-        span.diagnostic(DiagnosticPhase::Type, "unknown paper preset: " + name),
-      )
+      Err(span.diagnostic(DiagnosticPhase::Type, "unknown paper size: \{name}"))
   }
 }
 

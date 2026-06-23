@@ -561,10 +561,10 @@ test "html doc paper applies body layout and print page style" {
     #|<html>
     #|  <head>
     #|    <title>Doc</title>
-    #|    <style>@media print { @page { size: A4; margin: 24mm; } }</style>
+    #|    <style>@media print { @page { size: A4; margin: 24mm 24mm 24mm 24mm; } }</style>
     #|  </head>
     #|  <body>
-    #|    <div style="max-width: 210mm; margin: 24mm auto; font-size: 11pt"><p>Body</p></div>
+    #|    <div style="max-width: 210mm; margin: 0 auto; padding: 24mm 24mm 24mm 24mm; box-sizing: border-box; font-size: 11pt"><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -579,10 +579,10 @@ test "html doc paper merges with explicit body style" {
   let expected =
     #|<html>
     #|  <head>
-    #|    <style>@media print { @page { size: 176mm 250mm; margin: 18mm; } }</style>
+    #|    <style>@media print { @page { size: 176mm 250mm; margin: 18mm 18mm 18mm 18mm; } }</style>
     #|  </head>
     #|  <body>
-    #|    <div style="max-width: 176mm; margin: 18mm auto; font-size: 10.5pt; line-height: 1.6"><p>Body</p></div>
+    #|    <div style="max-width: 176mm; margin: 0 auto; padding: 18mm 18mm 18mm 18mm; box-sizing: border-box; font-size: 10.5pt; line-height: 1.6"><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -598,10 +598,28 @@ test "html doc settings use later duplicate attrs" {
     #|<html>
     #|  <head>
     #|    <title>New</title>
-    #|    <style>@media print { @page { size: 176mm 250mm; margin: 18mm; } }</style>
+    #|    <style>@media print { @page { size: 176mm 250mm; margin: 18mm 18mm 18mm 18mm; } }</style>
     #|  </head>
     #|  <body>
-    #|    <div style="max-width: 176mm; margin: 18mm auto; font-size: 10.5pt"><p>Body</p></div>
+    #|    <div style="max-width: 176mm; margin: 0 auto; padding: 18mm 18mm 18mm 18mm; box-sizing: border-box; font-size: 10.5pt"><p>Body</p></div>
+    #|  </body>
+    #|</html>
+  @test.assert_eq(
+    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    Ok(expected),
+  )
+}
+
+///|
+test "html doc paper staple increases left margin" {
+  let input = "(doc (:paper `a4` :staple true))Body"
+  let expected =
+    #|<html>
+    #|  <head>
+    #|    <style>@media print { @page { size: A4; margin: 24mm 24mm 24mm calc(24mm + 8mm); } }</style>
+    #|  </head>
+    #|  <body>
+    #|    <div style="max-width: 210mm; margin: 0 auto; padding: 24mm 24mm 24mm calc(24mm + 8mm); box-sizing: border-box; font-size: 11pt"><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(

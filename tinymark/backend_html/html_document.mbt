@@ -149,7 +149,8 @@ fn document_settings(
   let mut title : String? = None
   let mut description : String? = None
   let mut author : String? = None
-  let mut paper : PaperSpecification? = None
+  let mut paper_name : (String, SourceSpan)? = None
+  let mut staple = false
   for attr in doc_attrs {
     match attr.name {
       "lang" | "dir" =>
@@ -186,11 +187,12 @@ fn document_settings(
         }
       "paper" =>
         match required_doc_scalar(attr, env, "paper requires a value") {
-          Ok(name) =>
-            match paper_spec_from_name(name, attr.span) {
-              Ok(spec) => paper = Some(spec)
-              Err(error) => return Err(error)
-            }
+          Ok(name) => paper_name = Some((name, attr.span))
+          Err(error) => return Err(error)
+        }
+      "staple" =>
+        match doc_bool_attr(attr, env) {
+          Ok(value) => staple = value
           Err(error) => return Err(error)
         }
       _ =>
@@ -199,6 +201,14 @@ fn document_settings(
           Err(error) => return Err(error)
         }
     }
+  }
+  let paper = match paper_name {
+    Some((name, span)) =>
+      match paper_spec_from_name(name, span, staple~) {
+        Ok(spec) => Some(spec)
+        Err(error) => return Err(error)
+      }
+    None => None
   }
   if paper is Some(spec) {
     merge_body_style(body_attrs, paper_body_style(spec))
@@ -279,6 +289,27 @@ fn required_doc_scalar(
     return Err(attr.span.diagnostic(DiagnosticPhase::Type, missing_message))
   }
   value_to_scalar(value, env)
+}
+
+///|
+fn doc_bool_attr(attr : Attr, env : CompileEnv) -> Result[Bool, Diagnostic] {
+  match attr.value {
+    None => Ok(true)
+    Some(value) =>
+      value_to_scalar(value, env).bind(text => {
+        match text {
+          "true" => Ok(true)
+          "false" => Ok(false)
+          _ =>
+            Err(
+              attr.span.diagnostic(
+                DiagnosticPhase::Type,
+                "doc option requires a boolean value: " + attr.name,
+              ),
+            )
+        }
+      })
+  }
 }
 
 ///|

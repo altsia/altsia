@@ -37,7 +37,7 @@ priv struct DocumentSettings {
   html_attrs : Array[(String, String?)]
   body_attrs : Array[(String, String?)]
   head : DocumentHeadSettings
-  paper : PaperSpecification?
+  paper : ComputedPaper?
 }
 
 ///|
@@ -149,7 +149,7 @@ fn document_settings(
   let mut title : String? = None
   let mut description : String? = None
   let mut author : String? = None
-  let mut paper_name : (String, SourceSpan)? = None
+  let mut paper_options : (PaperOptions, SourceSpan)? = None
   let mut staple = false
   for attr in doc_attrs {
     match attr.name {
@@ -187,12 +187,18 @@ fn document_settings(
         }
       "paper" =>
         match required_doc_scalar(attr, env, "paper requires a value") {
-          Ok(name) => paper_name = Some((name, attr.span))
+          Ok(name) =>
+            paper_options = Some(({ slate_name: name, staple }, attr.span))
           Err(error) => return Err(error)
         }
       "staple" =>
         match doc_bool_attr(attr, env) {
-          Ok(value) => staple = value
+          Ok(value) => {
+            staple = value
+            if paper_options is Some((options, span)) {
+              paper_options = Some(({ ..options, staple: value }, span))
+            }
+          }
           Err(error) => return Err(error)
         }
       _ =>
@@ -202,16 +208,16 @@ fn document_settings(
         }
     }
   }
-  let paper = match paper_name {
-    Some((name, span)) =>
-      match paper_spec_from_name(name, span, staple~) {
-        Ok(spec) => Some(spec)
+  let paper = match paper_options {
+    Some((options, span)) =>
+      match compute_paper(options, span) {
+        Ok(paper) => Some(paper)
         Err(error) => return Err(error)
       }
     None => None
   }
-  if paper is Some(spec) {
-    merge_body_style(body_attrs, paper_body_style(spec))
+  if paper is Some(_) {
+    merge_body_class(body_attrs, "tinymark-paper")
   }
   Ok({
     html_attrs,
@@ -244,7 +250,7 @@ fn html_head_nodes(
     head.push(html_named_meta("author", text))
   }
   if settings.paper is Some(spec) {
-    head.push(paper_print_style(spec))
+    head.push(paper_style_node(spec))
   }
   head.append(extra_head)
   head.append(explicit_head)
@@ -252,20 +258,23 @@ fn html_head_nodes(
 }
 
 ///|
-fn merge_body_style(attrs : Array[(String, String?)], style : String) -> Unit {
+fn merge_body_class(
+  attrs : Array[(String, String?)],
+  class_name : String,
+) -> Unit {
   for index, attr in attrs {
     let (name, value) = attr
-    if name == "style" {
+    if name == "class" {
       let merged = match value {
-        None => style
-        Some(text) if text.trim().is_empty() => style
-        Some(text) => style + "; " + text
+        None => class_name
+        Some(text) if text.trim().is_empty() => class_name
+        Some(text) => text + " " + class_name
       }
       attrs[index] = (name, Some(merged))
       return
     }
   }
-  attrs.push(("style", Some(style)))
+  attrs.push(("class", Some(class_name)))
 }
 
 ///|

@@ -1,13 +1,5 @@
 ///|
-pub struct PaperSpecification {
-  page_size : String
-  width : String
-  margins : PaperMargins
-  font_size : String
-}
-
-///|
-pub struct PaperMargins {
+priv struct PaperMargins {
   top : String
   right : String
   bottom : String
@@ -15,67 +7,130 @@ pub struct PaperMargins {
 }
 
 ///|
-priv struct PaperPreset {
+priv struct ComputedPrintPaper {
   page_size : String
-  width : String
   margins : PaperMargins
-  staple_extra : String
   font_size : String
 }
 
 ///|
-fn paper_spec_from_name(
-  name : String,
+priv struct ComputedScreenPaper {
+  max_width : String
+  padding : PaperMargins
+  font_size : String
+}
+
+///|
+priv struct ComputedPaper {
+  print : ComputedPrintPaper
+  screen : ComputedScreenPaper
+}
+
+///|
+priv struct PrintPaperSlate {
+  page_size : String
+  margins : PaperMargins
+  font_size : String
+  staple_extra : String
+}
+
+///|
+priv struct ScreenPaperSlate {
+  max_width : String
+  padding : PaperMargins
+  font_size : String
+}
+
+///|
+priv struct PaperSlate {
+  print : PrintPaperSlate
+  screen : ScreenPaperSlate
+}
+
+///|
+priv struct PaperOptions {
+  slate_name : String
+  staple : Bool
+}
+
+///|
+fn compute_paper(
+  options : PaperOptions,
   span : SourceSpan,
-  staple~ : Bool,
-) -> Result[PaperSpecification, Diagnostic] {
-  match paper_preset_from_name(name) {
-    Some(preset) =>
-      Ok({
-        page_size: preset.page_size,
-        width: preset.width,
-        margins: preset.margins.with_staple(staple, preset.staple_extra),
-        font_size: preset.font_size,
-      })
-    _ =>
+) -> Result[ComputedPaper, Diagnostic] {
+  match paper_slate_from_name(options.slate_name) {
+    Some(slate) => Ok(slate.compute(options))
+    None =>
       Err(
-        span.diagnostic(DiagnosticPhase::Type, "unknown paper preset: \{name}"),
+        span.diagnostic(
+          DiagnosticPhase::Type,
+          "unknown paper slate: \{options.slate_name}",
+        ),
       )
   }
 }
 
 ///|
-fn paper_body_style(spec : PaperSpecification) -> String {
-  "max-width: \{spec.width}; margin: 0 auto; padding: \{spec.margins.css_box()}; box-sizing: border-box; font-size: \{spec.font_size}"
+fn PaperSlate::compute(
+  self : PaperSlate,
+  options : PaperOptions,
+) -> ComputedPaper {
+  {
+    print: {
+      page_size: self.print.page_size,
+      margins: self.print.margins.with_staple(
+        options.staple,
+        self.print.staple_extra,
+      ),
+      font_size: self.print.font_size,
+    },
+    screen: {
+      max_width: self.screen.max_width,
+      padding: self.screen.padding,
+      font_size: self.screen.font_size,
+    },
+  }
 }
 
 ///|
-fn paper_print_style(spec : PaperSpecification) -> HtmlNode {
+fn paper_style_node(paper : ComputedPaper) -> HtmlNode {
   HtmlNode::Element("style", [], [
     HtmlNode::RawHtml(
-      "@media print { @page { size: \{spec.page_size}; margin: \{spec.margins.css_box()}; } }",
+      "@media screen { .tinymark-paper { max-width: \{paper.screen.max_width}; margin: 0 auto; padding: \{paper.screen.padding.css_box()}; box-sizing: border-box; font-size: \{paper.screen.font_size}; } } @media print { @page { size: \{paper.print.page_size}; margin: \{paper.print.margins.css_box()}; } .tinymark-paper { max-width: none; margin: 0; padding: 0; box-sizing: border-box; font-size: \{paper.print.font_size}; } }",
     ),
   ])
 }
 
 ///|
-fn paper_preset_from_name(name : String) -> PaperPreset? {
+fn paper_slate_from_name(name : String) -> PaperSlate? {
   match name {
     "a4" =>
       Some({
-        page_size: "A4",
-        width: "210mm",
-        margins: PaperMargins::same("24mm"),
-        staple_extra: "8mm",
-        font_size: "11pt",
+        print: {
+          page_size: "A4",
+          margins: PaperMargins::same("24mm"),
+          font_size: "11pt",
+          staple_extra: "8mm",
+        },
+        screen: {
+          max_width: "820px",
+          padding: PaperMargins::same("32px"),
+          font_size: "16px",
+        },
       })
     "iso-b5" =>
       Some({
-        page_size: "176mm 250mm",
-        width: "176mm",
-        margins: PaperMargins::same("18mm"),
-        staple_extra: "8mm",
-        font_size: "10.5pt",
+        print: {
+          page_size: "176mm 250mm",
+          margins: PaperMargins::same("18mm"),
+          font_size: "10.5pt",
+          staple_extra: "8mm",
+        },
+        screen: {
+          max_width: "760px",
+          padding: PaperMargins::same("28px"),
+          font_size: "16px",
+        },
       })
     _ => None
   }

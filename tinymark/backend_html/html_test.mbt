@@ -561,10 +561,10 @@ test "html doc paper applies body layout and print page style" {
     #|<html>
     #|  <head>
     #|    <title>Doc</title>
-    #|    <style>@media print { @page { size: A4; margin: 24mm 24mm 24mm 24mm; } }</style>
+    #|    <style>@media screen { .tinymark-paper { max-width: 820px; margin: 0 auto; padding: 32px 32px 32px 32px; box-sizing: border-box; font-size: 16px; } } @media print { @page { size: A4; margin: 24mm 24mm 24mm 24mm; } .tinymark-paper { max-width: none; margin: 0; padding: 0; box-sizing: border-box; font-size: 11pt; } }</style>
     #|  </head>
     #|  <body>
-    #|    <div style="max-width: 210mm; margin: 0 auto; padding: 24mm 24mm 24mm 24mm; box-sizing: border-box; font-size: 11pt"><p>Body</p></div>
+    #|    <div class="tinymark-paper"><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -579,10 +579,10 @@ test "html doc paper merges with explicit body style" {
   let expected =
     #|<html>
     #|  <head>
-    #|    <style>@media print { @page { size: 176mm 250mm; margin: 18mm 18mm 18mm 18mm; } }</style>
+    #|    <style>@media screen { .tinymark-paper { max-width: 760px; margin: 0 auto; padding: 28px 28px 28px 28px; box-sizing: border-box; font-size: 16px; } } @media print { @page { size: 176mm 250mm; margin: 18mm 18mm 18mm 18mm; } .tinymark-paper { max-width: none; margin: 0; padding: 0; box-sizing: border-box; font-size: 10.5pt; } }</style>
     #|  </head>
     #|  <body>
-    #|    <div style="max-width: 176mm; margin: 0 auto; padding: 18mm 18mm 18mm 18mm; box-sizing: border-box; font-size: 10.5pt; line-height: 1.6"><p>Body</p></div>
+    #|    <div style="line-height: 1.6" class="tinymark-paper"><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -598,10 +598,10 @@ test "html doc settings use later duplicate attrs" {
     #|<html>
     #|  <head>
     #|    <title>New</title>
-    #|    <style>@media print { @page { size: 176mm 250mm; margin: 18mm 18mm 18mm 18mm; } }</style>
+    #|    <style>@media screen { .tinymark-paper { max-width: 760px; margin: 0 auto; padding: 28px 28px 28px 28px; box-sizing: border-box; font-size: 16px; } } @media print { @page { size: 176mm 250mm; margin: 18mm 18mm 18mm 18mm; } .tinymark-paper { max-width: none; margin: 0; padding: 0; box-sizing: border-box; font-size: 10.5pt; } }</style>
     #|  </head>
     #|  <body>
-    #|    <div style="max-width: 176mm; margin: 0 auto; padding: 18mm 18mm 18mm 18mm; box-sizing: border-box; font-size: 10.5pt"><p>Body</p></div>
+    #|    <div class="tinymark-paper"><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -616,10 +616,10 @@ test "html doc paper staple increases left margin" {
   let expected =
     #|<html>
     #|  <head>
-    #|    <style>@media print { @page { size: A4; margin: 24mm 24mm 24mm calc(24mm + 8mm); } }</style>
+    #|    <style>@media screen { .tinymark-paper { max-width: 820px; margin: 0 auto; padding: 32px 32px 32px 32px; box-sizing: border-box; font-size: 16px; } } @media print { @page { size: A4; margin: 24mm 24mm 24mm calc(24mm + 8mm); } .tinymark-paper { max-width: none; margin: 0; padding: 0; box-sizing: border-box; font-size: 11pt; } }</style>
     #|  </head>
     #|  <body>
-    #|    <div style="max-width: 210mm; margin: 0 auto; padding: 24mm 24mm 24mm calc(24mm + 8mm); box-sizing: border-box; font-size: 11pt"><p>Body</p></div>
+    #|    <div class="tinymark-paper"><p>Body</p></div>
     #|  </body>
     #|</html>
   @test.assert_eq(
@@ -636,7 +636,7 @@ test "html doc paper rejects unknown preset" {
       options=HtmlDocumentOptions::empty(),
     ) {
     Err(message) =>
-      @test.assert_eq(message.contains("unknown paper preset: letter"), true)
+      @test.assert_eq(message.contains("unknown paper slate: letter"), true)
     Ok(_) => abort("expected paper preset error")
   }
 }

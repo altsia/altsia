@@ -8,6 +8,13 @@ pub enum PreludeChildFlow {
 }
 
 ///|
+priv struct SectionElement {
+  html_attrs : Array[(String, String?)]
+  title : String?
+  children : Array[Node]
+}
+
+///|
 fn CallContext::compile_prelude_element(
   self : CallContext,
 ) -> Result[ElementOutput?, Diagnostic] {
@@ -91,38 +98,69 @@ fn CallContext::compile_section(
   self : CallContext,
 ) -> Result[ElementOutput, Diagnostic] {
   let { call, context } = self
+  let section = match SectionElement::from_call(call, context.env) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  (context.compile_block_at)(
+    section.children,
+    context.current_heading_level + 1,
+  ).map(output => {
+    let section_children = section.heading_nodes(context.current_heading_level)
+    section_children.append(output.body)
+    section.to_output(section_children, output.head)
+  })
+}
+
+///|
+fn SectionElement::from_call(
+  call : ElementCall,
+  env : CompileEnv,
+) -> Result[SectionElement, Diagnostic] {
   let html_attrs : Array[(String, String?)] = []
-  let section_children : Array[HtmlNode] = []
   let mut title : String? = None
   for attr in call.attrs {
-    if attr.name == "title" {
-      if attr.value is Some(value) {
-        match value_to_scalar(value, context.env) {
-          Ok(text) => title = Some(text)
+    match attr.name {
+      "title" =>
+        match attr.value {
+          Some(value) =>
+            match value_to_scalar(value, env) {
+              Ok(text) => title = Some(text)
+              Err(error) => return Err(error)
+            }
+          None => ()
+        }
+      _ =>
+        match compile_attr_value(attr.value, env) {
+          Ok(compiled) => html_attrs.push((attr.name, compiled))
           Err(error) => return Err(error)
         }
-      }
-    } else {
-      match compile_attr_value(attr.value, context.env) {
-        Ok(compiled) => html_attrs.push((attr.name, compiled))
-        Err(error) => return Err(error)
-      }
     }
   }
-  if title is Some(text) {
-    let level = clamp_heading_level(context.current_heading_level)
-    section_children.push(
-      HtmlNode::Element("h" + level.to_string(), [], [HtmlNode::Text(text)]),
-    )
+  Ok({ html_attrs, title, children: call.children })
+}
+
+///|
+fn SectionElement::heading_nodes(
+  self : SectionElement,
+  current_heading_level : Int,
+) -> Array[HtmlNode] {
+  match self.title {
+    Some(text) => {
+      let level = clamp_heading_level(current_heading_level)
+      [HtmlNode::Element("h" + level.to_string(), [], [HtmlNode::Text(text)])]
+    }
+    None => []
   }
-  (context.compile_block_at)(call.children, context.current_heading_level + 1).map(output => {
-      section_children.append(output.body)
-      {
-        body: [HtmlNode::Element("section", html_attrs, section_children)],
-        head: output.head,
-      }
-    },
-  )
+}
+
+///|
+fn SectionElement::to_output(
+  self : SectionElement,
+  children : Array[HtmlNode],
+  head : Array[HtmlNode],
+) -> ElementOutput {
+  { body: [HtmlNode::Element("section", self.html_attrs, children)], head }
 }
 
 ///|

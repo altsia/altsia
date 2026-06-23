@@ -66,6 +66,20 @@ pub(all) struct ElementOutput {
 }
 
 ///|
+priv struct CompiledNodeSequence {
+  body : Array[HtmlNode]
+  head : Array[HtmlNode]
+  doc_attrs : Array[Attr]
+  env : CompileEnv
+}
+
+///|
+priv enum DocAttrMode {
+  BindDocAttrs
+  CollectDocAttrs
+}
+
+///|
 pub fn ElementOutput::empty() -> ElementOutput {
   { body: [], head: [] }
 }
@@ -160,8 +174,28 @@ fn compile_node_sequence_output(
   wrap_inline_content : Bool,
   extensions : Array[ElementResolver],
 ) -> Result[ElementOutput, Diagnostic] {
+  compile_node_sequence_full(
+    nodes,
+    env,
+    current_heading_level,
+    wrap_inline_content,
+    extensions,
+    doc_attr_mode=BindDocAttrs,
+  ).map(compiled => { body: compiled.body, head: compiled.head })
+}
+
+///|
+fn compile_node_sequence_full(
+  nodes : Array[Node],
+  env : CompileEnv,
+  current_heading_level : Int,
+  wrap_inline_content : Bool,
+  extensions : Array[ElementResolver],
+  doc_attr_mode~ : DocAttrMode,
+) -> Result[CompiledNodeSequence, Diagnostic] {
   let out : Array[HtmlNode] = []
   let head : Array[HtmlNode] = []
+  let doc_attrs : Array[Attr] = []
   let inline_run : Array[HtmlNode] = []
   let local_env = collect_scope_env(nodes, env)
   for node in nodes {
@@ -170,6 +204,10 @@ fn compile_node_sequence_output(
       Def(name, params, body, _) => local_env.bind_template(name, params, body)
       Doc(attrs, _) =>
         for attr in attrs {
+          match doc_attr_mode {
+            CollectDocAttrs => doc_attrs.push(attr)
+            BindDocAttrs => ()
+          }
           local_env.bind_doc_attr(attr)
         }
       _ =>
@@ -187,7 +225,7 @@ fn compile_node_sequence_output(
     }
   }
   flush_paragraph(inline_run, out)
-  Ok({ body: out, head })
+  Ok({ body: out, head, doc_attrs, env: local_env })
 }
 
 ///|

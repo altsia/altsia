@@ -23,6 +23,18 @@ pub(all) struct Template {
 }
 
 ///|
+priv struct TemplateCall {
+  attrs : Array[Attr]
+  children : Array[Node]
+  span : SourceSpan
+}
+
+///|
+priv struct TemplateArguments {
+  values : Array[Value?]
+}
+
+///|
 pub(all) struct BindingCollectOptions {
   include_doc : Bool
   include_let : Bool
@@ -50,17 +62,31 @@ pub fn CompileEnv::append(self : CompileEnv, other : CompileEnv) -> Unit {
 }
 
 ///|
+fn Binding::value_named(self : Binding, name : String) -> Value? {
+  if self.name == name && self.value is BoundValue(value) {
+    Some(value)
+  } else {
+    None
+  }
+}
+
+///|
+fn Binding::template_named(self : Binding, name : String) -> Template? {
+  if self.name == name && self.value is BoundTemplate(template) {
+    Some(template)
+  } else {
+    None
+  }
+}
+
+///|
 // Scans in reverse so the most recently bound name wins (shadowing).
 pub fn CompileEnv::lookup_value(self : CompileEnv, name : String) -> Value? {
-  let env = self.bindings
-  let mut index = env.length()
+  let bindings = self.bindings
+  let mut index = bindings.length()
   while index > 0 {
     index -= 1
-    let binding = env[index]
-    if binding.name != name {
-      continue
-    }
-    if binding.value is BoundValue(value) {
+    if bindings[index].value_named(name) is Some(value) {
       return Some(value)
     }
   }
@@ -82,15 +108,11 @@ pub fn CompileEnv::lookup_template(
   self : CompileEnv,
   name : String,
 ) -> Template? {
-  let env = self.bindings
-  let mut index = env.length()
+  let bindings = self.bindings
+  let mut index = bindings.length()
   while index > 0 {
     index -= 1
-    let binding = env[index]
-    if binding.name != name {
-      continue
-    }
-    if binding.value is BoundTemplate(template) {
+    if bindings[index].template_named(name) is Some(template) {
       return Some(template)
     }
   }
@@ -168,69 +190,57 @@ pub fn bind_template_call_env(
   call_env : CompileEnv,
   call_span : SourceSpan,
 ) -> Result[CompileEnv, Diagnostic] {
-  template_call_values(template, attrs, children, call_span).map(values => {
+  template.bind_call({ attrs, children, span: call_span }, call_env)
+}
+
+///|
+fn Template::bind_call(
+  self : Template,
+  call : TemplateCall,
+  call_env : CompileEnv,
+) -> Result[CompileEnv, Diagnostic] {
+  self
+  .resolve_call_values(call)
+  .map(values => {
     let template_env = call_env.copy()
-    template_env.append(template.env)
-    for index in 0..<template.params.length() {
-      template_env.bind_value(template.params[index], values[index])
+    template_env.append(self.env)
+    for index in 0..<self.params.length() {
+      template_env.bind_value(self.params[index], values[index])
     }
     template_env
   })
 }
 
 ///|
-fn template_call_values(
-  template : Template,
-  attrs : Array[Attr],
-  children : Array[Node],
-  call_span : SourceSpan,
+fn Template::resolve_call_values(
+  self : Template,
+  call : TemplateCall,
 ) -> Result[Array[Value], Diagnostic] {
-  let values : Array[Value?] = []
-  for _ in template.params {
-    values.push(None)
-  }
-  for attr in attrs {
-    if bind_named_template_arg(values, template.params, attr) is Err(error) {
+  let args = TemplateArguments::for_params(self.params)
+  for attr in call.attrs {
+    if args.bind_named(self.params, attr) is Err(error) {
       return Err(error)
     }
   }
-  let mut next_param = 0
-  for arg in positional_values(children) {
-    let mut found_slot = false
-    while next_param < values.length() && !found_slot {
-      match values[next_param] {
-        Some(_) => next_param += 1
-        None => found_slot = true
-      }
-    }
-    if next_param >= values.length() {
-      return Err(
-        arg
-        .span()
-        .diagnostic(DiagnosticPhase::Template, "too many template arguments"),
-      )
-    }
-    values[next_param] = Some(arg)
-    next_param += 1
+  match args.bind_positional(self.params, positional_values(call.children)) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
   }
-  let bound : Array[Value] = []
-  for index in 0..<template.params.length() {
-    guard values[index] is Some(value) else {
-      return Err(
-        call_span.diagnostic(
-          DiagnosticPhase::Template,
-          "missing template argument: " + template.params[index],
-        ),
-      )
-    }
-    bound.push(value)
-  }
-  Ok(bound)
+  args.finish(self.params, call.span)
 }
 
 ///|
-fn bind_named_template_arg(
-  values : Array[Value?],
+fn TemplateArguments::for_params(params : Array[String]) -> TemplateArguments {
+  let values : Array[Value?] = []
+  for _ in params {
+    values.push(None)
+  }
+  { values, }
+}
+
+///|
+fn TemplateArguments::bind_named(
+  self : TemplateArguments,
   params : Array[String],
   attr : Attr,
 ) -> Result[Unit, Diagnostic] {
@@ -250,7 +260,7 @@ fn bind_named_template_arg(
       ),
     )
   }
-  if values[index] is Some(_) {
+  if self.values[index] is Some(_) {
     return Err(
       attr.span.diagnostic(
         DiagnosticPhase::Template,
@@ -258,8 +268,57 @@ fn bind_named_template_arg(
       ),
     )
   }
-  values[index] = Some(value)
+  self.values[index] = Some(value)
   Ok(())
+}
+
+///|
+fn TemplateArguments::bind_positional(
+  self : TemplateArguments,
+  params : Array[String],
+  positional : Array[Value],
+) -> Result[Unit, Diagnostic] {
+  let mut next_param = 0
+  for arg in positional {
+    let mut found_slot = false
+    while next_param < self.values.length() && !found_slot {
+      match self.values[next_param] {
+        Some(_) => next_param += 1
+        None => found_slot = true
+      }
+    }
+    if next_param >= params.length() {
+      return Err(
+        arg
+        .span()
+        .diagnostic(DiagnosticPhase::Template, "too many template arguments"),
+      )
+    }
+    self.values[next_param] = Some(arg)
+    next_param += 1
+  }
+  Ok(())
+}
+
+///|
+fn TemplateArguments::finish(
+  self : TemplateArguments,
+  params : Array[String],
+  call_span : SourceSpan,
+) -> Result[Array[Value], Diagnostic] {
+  let bound : Array[Value] = []
+  for index in 0..<params.length() {
+    guard self.values[index] is Some(value) else {
+      return Err(
+        call_span.diagnostic(
+          DiagnosticPhase::Template,
+          "missing template argument: " + params[index],
+        ),
+      )
+    }
+    bound.push(value)
+  }
+  Ok(bound)
 }
 
 ///|

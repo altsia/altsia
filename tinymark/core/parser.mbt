@@ -1,4 +1,10 @@
 ///|
+priv struct ParsedNodes {
+  nodes : Array[Node]
+  next : Cursor
+}
+
+///|
 pub fn parse(
   source : String,
   source_info? : SourceInfo,
@@ -6,7 +12,7 @@ pub fn parse(
   let info = source_info.unwrap_or(SourceInfo::default())
   parse_node_sequence(Cursor::new_with_source(source, info), None).map(result => {
     source: info,
-    nodes: result.0,
+    nodes: result.nodes,
   })
 }
 
@@ -30,20 +36,20 @@ fn parse_nodes_at(
   parse_node_sequence(
     Cursor::new_at_with_source(source, source_id, line_offset, column_offset),
     None,
-  ).map(result => result.0)
+  ).map(result => result.nodes)
 }
 
 ///|
 fn parse_node_sequence(
   start : Cursor,
   close : Char?,
-) -> Result[(Array[Node], Cursor), Diagnostic] {
+) -> Result[ParsedNodes, Diagnostic] {
   let nodes : Array[Node] = []
   let mut cursor = skip_content_layout(start, close, true)
   while !cursor.is_end() {
     match close {
       Some(ch) if cursor.peek() == Some(ch) =>
-        return Ok((nodes, cursor.advance(1)))
+        return Ok({ nodes, next: cursor.advance(1) })
       _ => ()
     }
     if cursor.peek() == Some(')') {
@@ -61,7 +67,7 @@ fn parse_node_sequence(
   }
   match close {
     Some(_) => Err(start.error("unterminated list"))
-    None => Ok((nodes, cursor))
+    None => Ok({ nodes, next: cursor })
   }
 }
 
@@ -253,13 +259,12 @@ fn parse_conditional(
   parse_condition_ref(condition_start).bind(result => {
     let (name, after_condition) = result
     parse_node_sequence(after_condition, Some(')')).map(result => {
-      let (children, next) = result
       let node = if is_when {
-        Node::When(name, children, head_start.source_span())
+        Node::When(name, result.nodes, head_start.source_span())
       } else {
-        Node::Unless(name, children, head_start.source_span())
+        Node::Unless(name, result.nodes, head_start.source_span())
       }
-      (node, next)
+      (node, result.next)
     })
   })
 }
@@ -296,13 +301,12 @@ fn parse_element_or_ref(
     }
   }
   parse_node_sequence(cursor, Some(')')).map(result => {
-    let (children, next) = result
-    let node = if attrs.is_empty() && children.is_empty() {
+    let node = if attrs.is_empty() && result.nodes.is_empty() {
       Node::Ref(tag, head_start.source_span())
     } else {
-      Node::Element(tag, attrs, children, head_start.source_span())
+      Node::Element(tag, attrs, result.nodes, head_start.source_span())
     }
-    (node, next)
+    (node, result.next)
   })
 }
 

@@ -217,7 +217,7 @@ fn document_settings(
     None => None
   }
   if paper is Some(_) {
-    merge_body_class(body_attrs, "tinymark-paper")
+    merge_body_class(body_attrs, "\{PAPER_CLASS_NAME}")
   }
   Ok({
     html_attrs,
@@ -234,24 +234,31 @@ fn html_head_nodes(
   extra_head : Array[HtmlNode],
 ) -> Array[HtmlNode] {
   let head : Array[HtmlNode] = []
+  
   if settings.head.charset is Some(text) {
     head.push(HtmlNode::Element("meta", [("charset", Some(text))], []))
   }
+
   if settings.head.viewport is Some(text) {
     head.push(html_named_meta("viewport", text))
   }
+  
   if settings.head.title is Some(text) {
     head.push(HtmlNode::Element("title", [], [HtmlNode::Text(text)]))
   }
+  
   if settings.head.description is Some(text) {
     head.push(html_named_meta("description", text))
   }
+  
   if settings.head.author is Some(text) {
     head.push(html_named_meta("author", text))
   }
+  
   if settings.paper is Some(spec) {
     head.push(paper_style_node(spec))
   }
+  
   head.append(extra_head)
   head.append(explicit_head)
   head

@@ -93,12 +93,37 @@ fn PaperSlate::compute(
 }
 
 ///|
+pub const PAPER_CLASS_NAME : String = "paper"
+
+///|
 fn paper_style_node(paper : ComputedPaper) -> HtmlNode {
-  HtmlNode::Element("style", [], [
-    HtmlNode::RawHtml(
-      "@media screen { .tinymark-paper { max-width: \{paper.screen.max_width}; margin: 0 auto; padding: \{paper.screen.padding.css_box()}; box-sizing: border-box; font-size: \{paper.screen.font_size}; } } @media print { @page { size: \{paper.print.page_size}; margin: \{paper.print.margins.css_box()}; } .tinymark-paper { max-width: none; margin: 0; padding: 0; box-sizing: border-box; font-size: \{paper.print.font_size}; } }",
-    ),
-  ])
+  let raw_css =
+    $|@media screen {
+    $|  .\{PAPER_CLASS_NAME} {
+    $|    max-width: \{paper.screen.max_width}; 
+    $|    margin: 0 auto; 
+    $|    padding: \{paper.screen.padding.css_box()}; 
+    $|    box-sizing: border-box;
+    $|    font-size: \{paper.screen.font_size}; 
+    $|  }
+    $|}
+    $|
+    $|@media print {
+    $|  @page {
+    $|    size: \{paper.print.page_size};
+    $|    margin: \{paper.print.margins.css_box()};
+    $|  }
+    $|  
+    $|  .\{PAPER_CLASS_NAME} {
+    $|    max-width: none;
+    $|    margin: 0; 
+    $|    padding: 0; 
+    $|    box-sizing: border-box;
+    $|    font-size: \{paper.print.font_size};
+    $|  }
+    $|}
+
+  HtmlNode::Element("style", [], [HtmlNode::RawHtml(raw_css)])
 }
 
 ///|

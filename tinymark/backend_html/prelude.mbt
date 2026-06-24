@@ -131,7 +131,7 @@ fn SectionElement::from_call(
           None => ()
         }
       _ =>
-        match compile_attr_value(attr.value, env) {
+        match attr.optional_scalar(env) {
           Ok(compiled) => html_attrs.push((attr.name, compiled))
           Err(error) => return Err(error)
         }

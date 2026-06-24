@@ -570,7 +570,7 @@ fn compile_style_attrs(
       }
       continue
     }
-    match compile_attr_value(attr.value, env) {
+    match attr.optional_scalar(env) {
       Ok(compiled) => html_attrs.push((attr.name, compiled))
       Err(error) => return Err(error)
     }
@@ -858,23 +858,12 @@ fn compile_attrs(
 ) -> Result[Array[(String, String?)], Diagnostic] {
   let html_attrs : Array[(String, String?)] = []
   for attr in attrs {
-    match compile_attr_value(attr.value, env) {
+    match attr.optional_scalar(env) {
       Ok(compiled) => html_attrs.push((attr.name, compiled))
       Err(error) => return Err(error)
     }
   }
   Ok(html_attrs)
-}
-
-///|
-fn compile_attr_value(
-  value : Value?,
-  env : CompileEnv,
-) -> Result[String?, Diagnostic] {
-  match value {
-    None => Ok(None)
-    Some(v) => v.to_scalar(env).map(text => Some(text))
-  }
 }
 
 ///|

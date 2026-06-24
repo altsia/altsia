@@ -296,8 +296,12 @@ fn lower_tree_nodes(
   let mut next_index = next_section_index
   for node in nodes {
     match node {
-      Element("tree", attrs, children, span) =>
-        match tree_slug_attr(attrs) {
+      Element("tree", attrs, children, span) => {
+        let slug_attr = match tree_slug_attr(attrs) {
+          Ok(value) => value
+          Err(error) => return Err(error)
+        }
+        match slug_attr {
           Some(local_slug) => {
             let slug = @model.child_tree_slug(top_level_slug, local_slug)
             let child = match
@@ -342,7 +346,12 @@ fn lower_tree_nodes(
             }
             trees.push(extracted_tree)
             trees.append(child.trees)
-            inline_nodes.push(embedded_tree_reference_node(slug, attrs, span))
+            let reference = match
+              embedded_tree_reference_node(slug, attrs, span) {
+              Ok(value) => value
+              Err(error) => return Err(error)
+            }
+            inline_nodes.push(reference)
           }
           None => {
             next_index += 1
@@ -373,6 +382,7 @@ fn lower_tree_nodes(
             )
           }
         }
+      }
       Element(tag, attrs, children, span) => {
         let child = match
           lower_tree_nodes(
@@ -431,15 +441,15 @@ fn lower_tree_nodes(
 }
 
 ///|
-fn tree_slug_attr(attrs : Array[@core.Attr]) -> String? {
+fn tree_slug_attr(
+  attrs : Array[@core.Attr],
+) -> Result[String?, @core.Diagnostic] {
   for attr in attrs {
     if attr.name == "slug" {
-      if attr_scalar(attr) is Some(value) {
-        return Some(value)
-      }
+      return attr.optional_literal_scalar("tree slug requires a literal scalar")
     }
   }
-  None
+  Ok(None)
 }
 
 ///|
@@ -456,24 +466,30 @@ fn embedded_tree_reference_node(
   slug : @model.TreeSlug,
   attrs : Array[@core.Attr],
   span : @core.SourceSpan,
-) -> @core.Node {
+) -> Result[@core.Node, @core.Diagnostic] {
   let children : Array[@core.Node] = [Text("/" + slug.canonical(), span)]
-  if tree_title_attr(attrs) is Some(title) {
+  let title = match tree_title_attr(attrs) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if title is Some(title) {
     children.push(Text(title, span))
   }
-  Element("embed", [], children, span)
+  Ok(Element("embed", [], children, span))
 }
 
 ///|
-fn tree_title_attr(attrs : Array[@core.Attr]) -> String? {
+fn tree_title_attr(
+  attrs : Array[@core.Attr],
+) -> Result[String?, @core.Diagnostic] {
   for attr in attrs {
     if attr.name == "title" {
-      if attr_scalar(attr) is Some(value) {
-        return Some(value)
-      }
+      return attr.optional_literal_scalar(
+        "tree title requires a literal scalar",
+      )
     }
   }
-  None
+  Ok(None)
 }
 
 ///|

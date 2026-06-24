@@ -199,7 +199,7 @@ fn DocumentMetadata::apply_html_attr(
   attr : Attr,
   env : CompileEnv,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  match optional_doc_scalar(attr, env) {
+  match attr.optional_scalar(env) {
     Ok(Some(text)) => {
       @sexp.HtmlAttrs(self.html_attrs).upsert(attr.name, Some(text))
       Ok(self)
@@ -216,7 +216,9 @@ fn DocumentMetadata::with_head_value(
   env : CompileEnv,
   update : (DocumentHeadMetadata, String?) -> DocumentHeadMetadata,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  optional_doc_scalar(attr, env).map(value => {
+  attr
+  .optional_scalar(env)
+  .map(value => {
     let head = update(self.head, value)
     { ..self, head, }
   })
@@ -228,7 +230,9 @@ fn DocumentMetadata::with_paper(
   attr : Attr,
   env : CompileEnv,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  required_doc_scalar(attr, env, "paper requires a value").map(name => {
+  attr
+  .required_scalar(env, "paper requires a value")
+  .map(name => {
     ..self,
     paper: Some({
       options: { slate_name: name, staple: self.staple },
@@ -242,7 +246,9 @@ fn DocumentMetadata::with_staple(
   self : DocumentMetadata,
   attr : Attr,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  doc_bool_attr(attr).map(value => {
+  attr
+  .flag_bool("doc option requires a boolean value: " + attr.name)
+  .map(value => {
     let paper = match self.paper {
       Some(request) =>
         Some({ ..request, options: { ..request.options, staple: value } })
@@ -258,7 +264,7 @@ fn DocumentMetadata::apply_body_attr(
   attr : Attr,
   env : CompileEnv,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  match compile_attr_value(attr.value, env) {
+  match attr.optional_scalar(env) {
     Ok(value) => {
       self.body_attrs.push((attr.name, value))
       Ok(self)
@@ -325,41 +331,6 @@ fn merge_body_class(
     }
   }
   attrs.push(("class", Some(class_name)))
-}
-
-///|
-fn optional_doc_scalar(
-  attr : Attr,
-  env : CompileEnv,
-) -> Result[String?, Diagnostic] {
-  match attr.value {
-    Some(value) => value.to_scalar(env).map(text => Some(text))
-    None => Ok(None)
-  }
-}
-
-///|
-fn required_doc_scalar(
-  attr : Attr,
-  env : CompileEnv,
-  missing_message : String,
-) -> Result[String, Diagnostic] {
-  guard attr.value is Some(value) else {
-    return Err(attr.span.diagnostic(DiagnosticPhase::Type, missing_message))
-  }
-  value.to_scalar(env)
-}
-
-///|
-fn doc_bool_attr(attr : Attr) -> Result[Bool, Diagnostic] {
-  match attr.value {
-    None => Ok(true)
-    Some(value) =>
-      value.to_bool(
-        attr.span,
-        "doc option requires a boolean value: " + attr.name,
-      )
-  }
 }
 
 ///|

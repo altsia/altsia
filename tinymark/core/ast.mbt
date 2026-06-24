@@ -95,14 +95,6 @@ pub fn Diagnostic::render(self : Diagnostic) -> String {
 }
 
 ///|
-pub(all) enum Value {
-  Scalar(String, SourceSpan)
-  Bool(Bool, SourceSpan)
-  Fragment(Array[Node], SourceSpan)
-  Interp(Interpolation, SourceSpan)
-}
-
-///|
 pub(all) enum InterpolationPart {
   Literal(String)
   Name(String)
@@ -110,13 +102,6 @@ pub(all) enum InterpolationPart {
 
 ///|
 pub type Interpolation = Array[InterpolationPart]
-
-///|
-pub(all) struct Attr {
-  name : String
-  value : Value?
-  span : SourceSpan
-}
 
 ///|
 pub(all) enum Node {
@@ -129,14 +114,6 @@ pub(all) enum Node {
   Doc(Array[Attr], SourceSpan)
   When(String, Array[Node], SourceSpan)
   Unless(String, Array[Node], SourceSpan)
-}
-
-///|
-pub fn Value::span(self : Value) -> SourceSpan {
-  match self {
-    Scalar(_, span) | Bool(_, span) | Fragment(_, span) | Interp(_, span) =>
-      span
-  }
 }
 
 ///|

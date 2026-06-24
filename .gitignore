@@ -3,4 +3,5 @@
 target/
 .local/
 *.mbti
+AGENTS.md
 _build

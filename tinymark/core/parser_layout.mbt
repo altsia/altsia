@@ -1,7 +1,7 @@
 ///|
 fn skip_line_comment(cursor : Cursor) -> Cursor {
   let mut index = cursor.index
-  while index < cursor.length() && !is_newline(cursor.char_at(index)) {
+  while index < cursor.chars.length() && !is_newline(cursor.chars[index]) {
     index += 1
   }
   cursor.at(index)
@@ -11,8 +11,8 @@ fn skip_line_comment(cursor : Cursor) -> Cursor {
 fn skip_attach_space(cursor : Cursor) -> (Cursor, Bool) {
   let mut index = cursor.index
   let mut newline_count = 0
-  while index < cursor.length() {
-    let ch = cursor.char_at(index)
+  while index < cursor.chars.length() {
+    let ch = cursor.chars[index]
     if is_layout_space(ch) {
       index += 1
       continue

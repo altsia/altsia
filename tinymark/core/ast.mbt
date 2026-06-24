@@ -95,6 +95,15 @@ pub fn Diagnostic::render(self : Diagnostic) -> String {
 }
 
 ///|
+fn repeat_string(text : String, count : Int) -> String {
+  let builder = StringBuilder()
+  for _ in 0..<count {
+    builder.write_string(text)
+  }
+  builder.to_string()
+}
+
+///|
 pub(all) enum InterpolationPart {
   Literal(String)
   Name(String)

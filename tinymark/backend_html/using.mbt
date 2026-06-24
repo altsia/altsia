@@ -2,9 +2,9 @@
 using @core {
   bind_template_call_env,
   bool_binding,
-  collect_scope_env,
   interpolate_scalar,
   parse,
+  visit_scoped_nodes,
   type Attr,
   type CompileEnv,
   type Diagnostic,

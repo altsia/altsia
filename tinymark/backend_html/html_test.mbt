@@ -139,6 +139,25 @@ test "mixed block wraps paragraphs only when needed #2" {
 }
 
 ///|
+test "h-prefixed unknown tag remains inline" {
+  @test.assert_eq(
+    render_html_result("Before (happy ok) after."),
+    Ok("<p>Before <happy>ok</happy> after.</p>"),
+  )
+}
+
+///|
+test "custom block elements use mixed flow" {
+  let input =
+    #|(x-card
+    #|First paragraph.
+    #|
+    #|Second paragraph.)
+  let expected = "<x-card><p>First paragraph.</p><p>Second paragraph.</p></x-card>"
+  @test.assert_eq(render_html_result(input), Ok(expected))
+}
+
+///|
 test "mixed block detects paragraph need through local refs" {
   let input =
     #|(block
@@ -314,7 +333,7 @@ test "syntax errors include source id when provided" {
     line_offset: 0,
     column_offset: 0,
   }
-  match @core.parse_nodes("first\n)", source_info=info) {
+  match @core.parse("first\n)", source_info=info) {
     Ok(_) => abort("expected parse error")
     Err(diagnostic) => @test.assert_eq(diagnostic.render(), expected)
   }

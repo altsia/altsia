@@ -10,19 +10,9 @@ pub fn parse(
   source_info? : SourceInfo,
 ) -> Result[Document, Diagnostic] {
   let info = source_info.unwrap_or(SourceInfo::default())
-  parse_node_sequence(Cursor::new_with_source(source, info), None).map(result => {
+  parse_node_sequence(Cursor::new(source, info), None).map(result => {
     source: info,
     nodes: result.nodes,
-  })
-}
-
-///|
-pub fn parse_nodes(
-  source : String,
-  source_info? : SourceInfo,
-) -> Result[Array[Node], Diagnostic] {
-  parse(source, source_info=source_info.unwrap_or(SourceInfo::default())).map(doc => {
-    doc.nodes
   })
 }
 
@@ -33,10 +23,10 @@ fn parse_nodes_at(
   line_offset : Int,
   column_offset : Int,
 ) -> Result[Array[Node], Diagnostic] {
-  parse_node_sequence(
-    Cursor::new_at_with_source(source, source_id, line_offset, column_offset),
-    None,
-  ).map(result => result.nodes)
+  let source_info : SourceInfo = { id: source_id, line_offset, column_offset }
+  parse_node_sequence(Cursor::new(source, source_info), None).map(result => {
+    result.nodes
+  })
 }
 
 ///|
@@ -113,7 +103,8 @@ fn parse_list(open : Cursor) -> Result[(Node, Cursor), Diagnostic] {
     "doc" => parse_doc(head_start, after_head)
     "when" => parse_conditional(head_start, after_head, true)
     "unless" => parse_conditional(head_start, after_head, false)
-    _ => parse_element_or_ref(head, head_start, after_head)
+    _ =>
+      parse_element_or_ref(normalize_source_tag(head), head_start, after_head)
   }
 }
 
@@ -316,6 +307,14 @@ fn peek_attr_list(cursor : Cursor) -> Bool {
 }
 
 ///|
+fn normalize_source_tag(tag : String) -> String {
+  match tag {
+    "-" => "item"
+    _ => tag
+  }
+}
+
+///|
 fn parse_attr_list(open : Cursor) -> Result[(Array[Attr], Cursor), Diagnostic] {
   let attrs : Array[Attr] = []
   let mut cursor = open.advance(1).skip_layout()
@@ -323,39 +322,36 @@ fn parse_attr_list(open : Cursor) -> Result[(Array[Attr], Cursor), Diagnostic] {
     cursor = cursor.skip_layout()
     match cursor.peek() {
       Some(')') => return Ok((attrs, cursor.advance(1)))
-      Some(':') => {
-        let (name, after_name) = parse_name(cursor.advance(1))
-        if name.is_empty() {
-          return Err(cursor.error("attribute name cannot be empty"))
-        }
-        let value_start = after_name.skip_layout()
-        match value_start.peek() {
-          Some(')') => {
-            attrs.push({ name, value: None, span: cursor.source_span() })
-            cursor = value_start
+      Some(':') =>
+        match parse_single_attr(cursor) {
+          Ok((attr, next)) => {
+            attrs.push(attr)
+            cursor = next
           }
-          Some(':') => {
-            attrs.push({ name, value: None, span: cursor.source_span() })
-            cursor = value_start
-          }
-          _ =>
-            match parse_value(value_start) {
-              Ok((value, next)) => {
-                attrs.push({
-                  name,
-                  value: Some(value),
-                  span: cursor.source_span(),
-                })
-                cursor = next
-              }
-              Err(error) => return Err(error)
-            }
+          Err(error) => return Err(error)
         }
-      }
       _ => return Err(cursor.error("expected attribute key"))
     }
   }
   Err(open.error("unterminated attribute list"))
+}
+
+///|
+fn parse_single_attr(cursor : Cursor) -> Result[(Attr, Cursor), Diagnostic] {
+  let (name, after_name) = parse_name(cursor.advance(1))
+  if name.is_empty() {
+    return Err(cursor.error("attribute name cannot be empty"))
+  }
+  let value_start = after_name.skip_layout()
+  let span = cursor.source_span()
+  match value_start.peek() {
+    Some(')') | Some(':') => Ok(({ name, value: None, span }, value_start))
+    _ =>
+      parse_value(value_start).map(result => {
+        let (value, next) = result
+        ({ name, value: Some(value), span }, next)
+      })
+  }
 }
 
 ///|

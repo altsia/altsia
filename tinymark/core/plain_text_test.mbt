@@ -47,11 +47,10 @@ test "value to plain text handles scalar bool and fragments" {
       @test.assert_eq(plain_value_or_abort(value, env~), "Important result")
     None => abort("expected title binding")
   }
-  match parse_nodes("true") {
-    Ok(nodes) =>
-      @test.assert_eq(plain_value_or_abort(nodes_to_value(nodes)), "true")
-    Err(diagnostic) => abort(diagnostic.render())
-  }
+  @test.assert_eq(
+    plain_value_or_abort(nodes_to_value(parse_doc("true").nodes)),
+    "true",
+  )
 }
 
 ///|

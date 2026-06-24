@@ -47,16 +47,20 @@ fn collect_prefixed_library_env(
     include_let: true,
     include_def: true,
   }
-  @core.collect_bindings(doc, base=builtin_env, options~).map(collected => {
-    let env = @core.CompileEnv::empty()
-    let base_count = builtin_env.bindings.length()
-    for i in base_count..<collected.bindings.length() {
-      let binding = collected.bindings[i]
-      env.bindings.push({
-        name: module_name + "." + binding.name,
-        value: binding.value,
-      })
-    }
-    env
+  @core.collect_bindings(doc, options~).bind(own => {
+    @core.collect_bindings(doc, base=builtin_env, options~).map(collected => {
+      let env = @core.CompileEnv::empty()
+      for name, _ in own.values {
+        if collected.lookup_value(name) is Some(value) {
+          env.bind_value(module_name + "." + name, value)
+        }
+      }
+      for name, _ in own.templates {
+        if collected.lookup_template(name) is Some(template) {
+          env.bind_template_value(module_name + "." + name, template)
+        }
+      }
+      env
+    })
   })
 }

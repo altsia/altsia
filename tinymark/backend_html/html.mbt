@@ -95,11 +95,6 @@ pub fn ElementOutput::head(nodes : Array[HtmlNode]) -> ElementOutput {
 }
 
 ///|
-fn body_output(nodes : Array[HtmlNode]) -> ElementOutput {
-  ElementOutput::body(nodes)
-}
-
-///|
 pub type ElementResolver = (CallContext) -> Result[ElementOutput?, Diagnostic]
 
 ///|
@@ -197,32 +192,28 @@ fn compile_node_sequence_full(
   let head : Array[HtmlNode] = []
   let doc_attrs : Array[Attr] = []
   let inline_run : Array[HtmlNode] = []
-  let local_env = collect_scope_env(nodes, env)
-  for node in nodes {
-    match node {
-      Let(name, value, _) => local_env.bind_value(name, value)
-      Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Doc(attrs, _) =>
-        for attr in attrs {
-          match doc_attr_mode {
-            CollectDocAttrs => doc_attrs.push(attr)
-            BindDocAttrs => ()
-          }
-          local_env.bind_doc_attr(attr)
-        }
-      _ =>
-        match compile_node(node, local_env, current_heading_level, extensions) {
-          Err(error) => return Err(error)
-          Ok(compiled) => {
-            head.append(compiled.head)
-            for html_node in compiled.body {
-              append_compiled_node(
-                inline_run, out, html_node, wrap_inline_content,
-              )
-            }
-          }
-        }
+  let on_doc_attr = attr => {
+    if doc_attr_mode is CollectDocAttrs {
+      doc_attrs.push(attr)
     }
+  }
+  let local_env = match
+    visit_scoped_nodes(nodes, env, on_doc_attr, (node, local_env) => {
+      match compile_node(node, local_env, current_heading_level, extensions) {
+        Err(error) => return Err(error)
+        Ok(compiled) => {
+          head.append(compiled.head)
+          for html_node in compiled.body {
+            append_compiled_node(
+              inline_run, out, html_node, wrap_inline_content,
+            )
+          }
+        }
+      }
+      Ok(())
+    }) {
+    Ok(value) => value
+    Err(error) => return Err(error)
   }
   flush_paragraph(inline_run, out)
   Ok({ body: out, head, doc_attrs, env: local_env })
@@ -276,10 +267,10 @@ fn compile_node(
   extensions : Array[ElementResolver],
 ) -> Result[ElementOutput, Diagnostic] {
   match node {
-    Text(text, _) => Ok(body_output([HtmlNode::Text(text)]))
+    Text(text, _) => Ok(ElementOutput::body([HtmlNode::Text(text)]))
     TextInterp(template, span) =>
       interpolate_scalar(template, env, span).map(value => {
-        body_output([HtmlNode::Text(value)])
+        ElementOutput::body([HtmlNode::Text(value)])
       })
     Ref(name, span) => {
       if env.lookup_value(name) is Some(value) {
@@ -310,7 +301,7 @@ fn compile_node(
         )
       }
       compile_element({
-        call: { tag: source_tag_name(tag), attrs, children, span },
+        call: { tag, attrs, children, span },
         env,
         current_heading_level,
         extensions,
@@ -374,7 +365,7 @@ fn compile_element(
     },
   }
   let compiler = CallContext::{ call, context }
-  for resolver in element_resolvers(extensions) {
+  for resolver in extensions {
     let result = resolver(compiler)
     if result is Ok(Some(output)) {
       return Ok(output)
@@ -382,6 +373,11 @@ fn compile_element(
     if result is Err(error) {
       return Err(error)
     }
+  }
+  match html_head_resolver(compiler) {
+    Ok(Some(output)) => return Ok(output)
+    Err(error) => return Err(error)
+    _ => ()
   }
   match compiler.compile_prelude_element() {
     Ok(Some(output)) => return Ok(output)
@@ -392,15 +388,6 @@ fn compile_element(
     "style" => compile_scoped_style(input)
     _ => compile_mapped_element(call.tag, input)
   }
-}
-
-///|
-fn element_resolvers(
-  extensions : Array[ElementResolver],
-) -> Array[ElementResolver] {
-  let resolvers = extensions.copy()
-  resolvers.push(html_head_resolver)
-  resolvers
 }
 
 ///|
@@ -415,14 +402,6 @@ fn html_head_resolver(
     head.append(output.head)
     Some({ body: [], head })
   })
-}
-
-///|
-fn source_tag_name(tag : String) -> String {
-  match tag {
-    "-" => "item"
-    _ => tag
-  }
 }
 
 ///|
@@ -473,25 +452,25 @@ fn content_model(tag : String) -> ContentModel {
   match tag {
     "blockquote" => ContentModel::BlockFlow
     "li" | "div" => ContentModel::MixedFlow
+    _ if is_block_tag(tag) => ContentModel::MixedFlow
+    _ if is_custom_block_tag(tag) => ContentModel::MixedFlow
     _ => ContentModel::InlineOnly
   }
 }
 
 ///|
 fn children_need_paragraphs(children : Array[Node], env : CompileEnv) -> Bool {
-  let local_env = collect_scope_env(children, env)
-  for child in children {
-    match child {
-      Let(name, value, _) => local_env.bind_value(name, value)
-      Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Doc(attrs, _) =>
-        for attr in attrs {
-          local_env.bind_doc_attr(attr)
-        }
-      _ => if node_needs_paragraph_context(child, local_env) { return true }
-    }
+  let mut needs_paragraphs = false
+  match
+    visit_scoped_nodes(children, env, _ => (), (child, local_env) => {
+      if node_needs_paragraph_context(child, local_env) {
+        needs_paragraphs = true
+      }
+      Ok(())
+    }) {
+    Ok(_) => needs_paragraphs
+    Err(_) => false
   }
-  false
 }
 
 ///|
@@ -529,14 +508,15 @@ fn interpolation_has_paragraph_break(template : Interpolation) -> Bool {
 
 ///|
 fn is_source_block_tag(tag : String) -> Bool {
-  let normalized = source_tag_name(tag)
-  match Prelude::is_block(normalized) {
+  match prelude_is_block(tag) {
     Some(value) => value
-    None =>
-      ["table", "thead", "tbody", "tr", "p", "blockquote", "hr", "style"].contains(
-        normalized,
-      )
+    None => is_block_tag(tag) || is_custom_block_tag(tag)
   }
+}
+
+///|
+fn is_custom_block_tag(tag : String) -> Bool {
+  tag.contains(".") || tag.contains("-")
 }
 
 ///|
@@ -545,7 +525,7 @@ fn compile_scoped_style(
 ) -> Result[ElementOutput, Diagnostic] {
   compile_style_attrs(input.call.attrs, input.env).bind(style_attrs => {
     compile_css_rule_nodes(input.call.children, style_attrs.scope, input.env).map(rules => {
-        body_output([
+        ElementOutput::body([
           HtmlNode::Element("style", style_attrs.html_attrs, [
             HtmlNode::RawHtml(rules.join("")),
           ]),
@@ -806,47 +786,41 @@ fn compile_text_only_children(
   extensions : Array[ElementResolver],
 ) -> Result[String, Diagnostic] {
   let parts : Array[String] = []
-  let local_env = collect_scope_env(children, env)
-  for child in children {
-    match child {
-      Let(name, value, _) => local_env.bind_value(name, value)
-      Def(name, params, body, _) => local_env.bind_template(name, params, body)
-      Doc(attrs, _) =>
-        for attr in attrs {
-          local_env.bind_doc_attr(attr)
-        }
-      _ => {
-        let nodes = match
-          compile_node(child, local_env, current_heading_level, extensions) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
-        if !nodes.head.is_empty() {
-          return Err(
-            child
-            .span()
-            .diagnostic(
-              DiagnosticPhase::ContentModel,
-              "expected plain text content",
-            ),
-          )
-        }
-        for node in nodes.body {
-          match node {
-            HtmlNode::Text(text) => parts.push(text)
-            _ =>
-              return Err(
-                child
-                .span()
-                .diagnostic(
-                  DiagnosticPhase::ContentModel,
-                  "expected plain text content",
-                ),
-              )
-          }
+  match
+    visit_scoped_nodes(children, env, _ => (), (child, local_env) => {
+      let nodes = match
+        compile_node(child, local_env, current_heading_level, extensions) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
+      if !nodes.head.is_empty() {
+        return Err(
+          child
+          .span()
+          .diagnostic(
+            DiagnosticPhase::ContentModel,
+            "expected plain text content",
+          ),
+        )
+      }
+      for node in nodes.body {
+        match node {
+          HtmlNode::Text(text) => parts.push(text)
+          _ =>
+            return Err(
+              child
+              .span()
+              .diagnostic(
+                DiagnosticPhase::ContentModel,
+                "expected plain text content",
+              ),
+            )
         }
       }
-    }
+      Ok(())
+    }) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
   }
   Ok(parts.join(""))
 }
@@ -874,12 +848,16 @@ fn value_to_nodes(
   extensions : Array[ElementResolver],
 ) -> Result[ElementOutput, Diagnostic] {
   match value {
-    Scalar(text, _) => Ok(body_output([HtmlNode::Text(text)]))
+    Scalar(text, _) => Ok(ElementOutput::body([HtmlNode::Text(text)]))
     Bool(value, _) =>
-      Ok(body_output([HtmlNode::Text(if value { "true" } else { "false" })]))
+      Ok(
+        ElementOutput::body([
+          HtmlNode::Text(if value { "true" } else { "false" }),
+        ]),
+      )
     Interp(template, span) =>
       interpolate_scalar(template, env, span).map(text => {
-        body_output([HtmlNode::Text(text)])
+        ElementOutput::body([HtmlNode::Text(text)])
       })
     Fragment(nodes, _) =>
       compile_inline_children_output(

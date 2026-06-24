@@ -1,7 +1,4 @@
 ///|
-pub type Prelude
-
-///|
 pub enum PreludeChildFlow {
   InlineChildren
   MixedChildren
@@ -39,7 +36,7 @@ fn CallContext::compile_prelude_element(
 }
 
 ///|
-fn Prelude::is_block(tag : String) -> Bool? {
+fn prelude_is_block(tag : String) -> Bool? {
   match tag {
     "_" | "h" => Some(false)
     "section"
@@ -190,7 +187,7 @@ fn CallContext::compile_code(
       if lang is Some(value) {
         code_attrs.push(("class", Some("lang-" + value)))
       }
-      body_output([
+      ElementOutput::body([
         HtmlNode::Element("pre", [], [
           HtmlNode::Element("code", code_attrs, [HtmlNode::Text(source)]),
         ]),
@@ -206,7 +203,7 @@ fn CallContext::compile_slot(
   let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
     (context.compile_text_only)(call.children).map(source => {
-      body_output([
+      ElementOutput::body([
         HtmlNode::Element("pre", html_attrs, [HtmlNode::Text(source)]),
       ])
     })
@@ -247,6 +244,6 @@ fn CallContext::compile_hspace(
       ],
       [],
     )
-    Ok(body_output([html]))
+    Ok(ElementOutput::body([html]))
   })
 }

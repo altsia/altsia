@@ -2,12 +2,12 @@
 fn parse_name(cursor : Cursor) -> (String, Cursor) {
   let start = cursor.index
   let mut index = cursor.index
-  while index < cursor.length() {
-    let ch = cursor.char_at(index)
+  while index < cursor.chars.length() {
+    let ch = cursor.chars[index]
     if is_name_boundary(ch) {
       break
     }
-    if ch == '\\' && index + 1 < cursor.length() {
+    if ch == '\\' && index + 1 < cursor.chars.length() {
       index += 2
     } else {
       index += 1
@@ -20,16 +20,16 @@ fn parse_name(cursor : Cursor) -> (String, Cursor) {
 fn parse_raw_string(cursor : Cursor) -> Result[(String, Cursor), Diagnostic] {
   let buffer : Array[Char] = []
   let mut index = cursor.index + 1
-  while index < cursor.length() {
-    let ch = cursor.char_at(index)
+  while index < cursor.chars.length() {
+    let ch = cursor.chars[index]
     if ch == '\\' &&
-      index + 1 < cursor.length() &&
-      is_raw_string_delimiter(cursor.char_at(index + 1)) {
+      index + 1 < cursor.chars.length() &&
+      cursor.chars[index + 1] == '`' {
       buffer.push('`')
       index += 2
       continue
     }
-    if is_raw_string_delimiter(ch) {
+    if ch == '`' {
       return Ok((String::from_array(buffer.view()), cursor.at(index + 1)))
     }
     buffer.push(ch)
@@ -45,10 +45,10 @@ fn parse_quoted_string(
   let parts : Interpolation = []
   let buffer : Array[Char] = []
   let mut index = cursor.index + 1
-  while index < cursor.length() {
-    let ch = cursor.char_at(index)
-    if ch == '\\' && index + 1 < cursor.length() {
-      buffer.push(cursor.char_at(index + 1))
+  while index < cursor.chars.length() {
+    let ch = cursor.chars[index]
+    if ch == '\\' && index + 1 < cursor.chars.length() {
+      buffer.push(cursor.chars[index + 1])
       index += 2
       continue
     }
@@ -88,22 +88,22 @@ fn flush_interpolation_literal(
 fn parse_text(cursor : Cursor) -> (String, Cursor) {
   let buffer : Array[Char] = []
   let mut index = cursor.index
-  while index < cursor.length() {
-    let ch = cursor.char_at(index)
+  while index < cursor.chars.length() {
+    let ch = cursor.chars[index]
     if is_text_boundary(ch) || is_line_comment_start(cursor, index) {
       break
     }
     if is_newline(ch) {
       let mut next = index + 1
-      while next < cursor.length() {
-        let space = cursor.char_at(next)
+      while next < cursor.chars.length() {
+        let space = cursor.chars[next]
         if is_layout_space(space) {
           next += 1
         } else {
           break
         }
       }
-      if next < cursor.length() && is_newline(cursor.char_at(next)) {
+      if next < cursor.chars.length() && is_newline(cursor.chars[next]) {
         buffer.push('\n')
         buffer.push('\n')
         index = next + 1
@@ -112,8 +112,8 @@ fn parse_text(cursor : Cursor) -> (String, Cursor) {
       }
       continue
     }
-    if ch == '\\' && index + 1 < cursor.length() {
-      let escaped = cursor.char_at(index + 1)
+    if ch == '\\' && index + 1 < cursor.chars.length() {
+      let escaped = cursor.chars[index + 1]
       if is_escapable_text_char(escaped) {
         buffer.push(escaped)
         index += 2
@@ -169,7 +169,7 @@ fn capture_until(
         (String::from_array(buffer.view()), scan.advance(marker.length())),
       )
     }
-    buffer.push(scan.char_at(scan.index))
+    buffer.push(scan.chars[scan.index])
     scan = scan.advance(1)
   }
   Err(cursor.error("unterminated inline marker"))

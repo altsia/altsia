@@ -1,18 +1,7 @@
 ///|
 pub(all) struct CompileEnv {
-  bindings : Array[Binding]
-}
-
-///|
-pub(all) struct Binding {
-  name : String
-  value : BindingValue
-}
-
-///|
-pub(all) enum BindingValue {
-  BoundValue(Value)
-  BoundTemplate(Template)
+  values : Map[String, Value]
+  templates : Map[String, Template]
 }
 
 ///|
@@ -32,6 +21,7 @@ priv struct TemplateCall {
 ///|
 priv struct TemplateArguments {
   values : Array[Value?]
+  indexes : Map[String, Int]
 }
 
 ///|
@@ -48,49 +38,27 @@ pub fn BindingCollectOptions::default() -> BindingCollectOptions {
 
 ///|
 pub fn CompileEnv::empty() -> CompileEnv {
-  { bindings: [] }
+  { values: {}, templates: {} }
 }
 
 ///|
 pub fn CompileEnv::copy(self : CompileEnv) -> CompileEnv {
-  { bindings: self.bindings.copy() }
+  { values: self.values.copy(), templates: self.templates.copy() }
 }
 
 ///|
 pub fn CompileEnv::append(self : CompileEnv, other : CompileEnv) -> Unit {
-  self.bindings.append(other.bindings)
-}
-
-///|
-fn Binding::value_named(self : Binding, name : String) -> Value? {
-  if self.name == name && self.value is BoundValue(value) {
-    Some(value)
-  } else {
-    None
+  for name, value in other.values {
+    self.values[name] = value
+  }
+  for name, template in other.templates {
+    self.templates[name] = template
   }
 }
 
 ///|
-fn Binding::template_named(self : Binding, name : String) -> Template? {
-  if self.name == name && self.value is BoundTemplate(template) {
-    Some(template)
-  } else {
-    None
-  }
-}
-
-///|
-// Scans in reverse so the most recently bound name wins (shadowing).
 pub fn CompileEnv::lookup_value(self : CompileEnv, name : String) -> Value? {
-  let bindings = self.bindings
-  let mut index = bindings.length()
-  while index > 0 {
-    index -= 1
-    if bindings[index].value_named(name) is Some(value) {
-      return Some(value)
-    }
-  }
-  None
+  self.values.get(name)
 }
 
 ///|
@@ -99,24 +67,15 @@ pub fn CompileEnv::bind_value(
   name : String,
   value : Value,
 ) -> Unit {
-  self.bindings.push({ name, value: BindingValue::BoundValue(value) })
+  self.values[name] = value
 }
 
 ///|
-// Scans in reverse so the most recently bound name wins (shadowing).
 pub fn CompileEnv::lookup_template(
   self : CompileEnv,
   name : String,
 ) -> Template? {
-  let bindings = self.bindings
-  let mut index = bindings.length()
-  while index > 0 {
-    index -= 1
-    if bindings[index].template_named(name) is Some(template) {
-      return Some(template)
-    }
-  }
-  None
+  self.templates.get(name)
 }
 
 ///|
@@ -126,10 +85,16 @@ pub fn CompileEnv::bind_template(
   params : Array[String],
   body : Array[Node],
 ) -> Unit {
-  self.bindings.push({
-    name,
-    value: BindingValue::BoundTemplate({ params, body, env: self.copy() }),
-  })
+  self.templates[name] = { params, body, env: self.copy() }
+}
+
+///|
+pub fn CompileEnv::bind_template_value(
+  self : CompileEnv,
+  name : String,
+  template : Template,
+) -> Unit {
+  self.templates[name] = template
 }
 
 ///|
@@ -137,6 +102,51 @@ pub fn CompileEnv::bind_doc_attr(self : CompileEnv, attr : Attr) -> Unit {
   if attr.value is Some(value) {
     self.bind_value(attr.name, value)
   }
+}
+
+///|
+pub fn CompileEnv::bind_scope_node(
+  self : CompileEnv,
+  node : Node,
+  on_doc_attr : (Attr) -> Unit,
+) -> Bool {
+  match node {
+    Let(name, value, _) => {
+      self.bind_value(name, value)
+      true
+    }
+    Def(name, params, body, _) => {
+      self.bind_template(name, params, body)
+      true
+    }
+    Doc(attrs, _) => {
+      for attr in attrs {
+        on_doc_attr(attr)
+        self.bind_doc_attr(attr)
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+pub fn visit_scoped_nodes(
+  nodes : Array[Node],
+  env : CompileEnv,
+  on_doc_attr : (Attr) -> Unit,
+  visit : (Node, CompileEnv) -> Result[Unit, Diagnostic],
+) -> Result[CompileEnv, Diagnostic] {
+  let local_env = collect_scope_env(nodes, env)
+  for node in nodes {
+    if !local_env.bind_scope_node(node, on_doc_attr) {
+      match visit(node, local_env) {
+        Ok(_) => ()
+        Err(error) => return Err(error)
+      }
+    }
+  }
+  Ok(local_env)
 }
 
 ///|
@@ -218,7 +228,7 @@ fn Template::resolve_call_values(
 ) -> Result[Array[Value], Diagnostic] {
   let args = TemplateArguments::for_params(self.params)
   for attr in call.attrs {
-    if args.bind_named(self.params, attr) is Err(error) {
+    if args.bind_named(attr) is Err(error) {
       return Err(error)
     }
   }
@@ -231,17 +241,16 @@ fn Template::resolve_call_values(
 
 ///|
 fn TemplateArguments::for_params(params : Array[String]) -> TemplateArguments {
-  let values : Array[Value?] = []
-  for _ in params {
-    values.push(None)
+  let indexes : Map[String, Int] = {}
+  for index, name in params {
+    indexes[name] = index
   }
-  { values, }
+  { values: Array::make(params.length(), None), indexes }
 }
 
 ///|
 fn TemplateArguments::bind_named(
   self : TemplateArguments,
-  params : Array[String],
   attr : Attr,
 ) -> Result[Unit, Diagnostic] {
   guard attr.value is Some(value) else {
@@ -252,7 +261,7 @@ fn TemplateArguments::bind_named(
       ),
     )
   }
-  guard param_index(params, attr.name) is Some(index) else {
+  guard self.indexes.get(attr.name) is Some(index) else {
     return Err(
       attr.span.diagnostic(
         DiagnosticPhase::Template,
@@ -340,11 +349,6 @@ fn text_arg_value(text : String, span : SourceSpan) -> Value? {
     return None
   }
   Some(Value::Scalar(trimmed, span))
-}
-
-///|
-fn param_index(params : Array[String], name : String) -> Int? {
-  params.search_by(param => param == name)
 }
 
 ///|

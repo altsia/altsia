@@ -8,7 +8,7 @@ priv struct Cursor {
 }
 
 ///|
-fn Cursor::new_with_source(source : String, source_info : SourceInfo) -> Cursor {
+fn Cursor::new(source : String, source_info : SourceInfo) -> Cursor {
   {
     chars: source.to_array(),
     index: 0,
@@ -19,28 +19,8 @@ fn Cursor::new_with_source(source : String, source_info : SourceInfo) -> Cursor 
 }
 
 ///|
-fn Cursor::new_at_with_source(
-  source : String,
-  source_id : String?,
-  line_offset : Int,
-  column_offset : Int,
-) -> Cursor {
-  { chars: source.to_array(), index: 0, source_id, line_offset, column_offset }
-}
-
-///|
 fn Cursor::is_end(self : Cursor) -> Bool {
   self.index >= self.chars.length()
-}
-
-///|
-fn Cursor::length(self : Cursor) -> Int {
-  self.chars.length()
-}
-
-///|
-fn Cursor::char_at(self : Cursor, index : Int) -> Char {
-  self.chars[index]
 }
 
 ///|
@@ -48,7 +28,7 @@ fn Cursor::peek(self : Cursor) -> Char? {
   if self.is_end() {
     return None
   }
-  Some(self.char_at(self.index))
+  Some(self.chars[self.index])
 }
 
 ///|
@@ -104,9 +84,13 @@ fn Cursor::local_line_column(self : Cursor) -> (Int, Int) {
   let mut line = 1
   let mut column = 1
   let mut index = 0
-  let end = if self.index > self.length() { self.length() } else { self.index }
+  let end = if self.index > self.chars.length() {
+    self.chars.length()
+  } else {
+    self.index
+  }
   while index < end {
-    if is_newline(self.char_at(index)) {
+    if is_newline(self.chars[index]) {
       line += 1
       column = 1
     } else {
@@ -119,44 +103,35 @@ fn Cursor::local_line_column(self : Cursor) -> (Int, Int) {
 
 ///|
 fn Cursor::line_bounds(self : Cursor) -> (Int, Int) {
-  let mut current = if self.index > self.length() {
-    self.length()
+  let mut current = if self.index > self.chars.length() {
+    self.chars.length()
   } else {
     self.index
   }
   if current > 0 &&
-    current == self.length() &&
-    is_newline(self.char_at(current - 1)) {
+    current == self.chars.length() &&
+    is_newline(self.chars[current - 1]) {
     current -= 1
   }
   let mut start = current
-  while start > 0 && !is_newline(self.char_at(start - 1)) {
+  while start > 0 && !is_newline(self.chars[start - 1]) {
     start -= 1
   }
   let mut end = current
-  while end < self.length() && !is_newline(self.char_at(end)) {
+  while end < self.chars.length() && !is_newline(self.chars[end]) {
     end += 1
   }
   (start, end)
 }
 
 ///|
-fn repeat_string(text : String, count : Int) -> String {
-  let parts : Array[String] = []
-  for _ in 0..<count {
-    parts.push(text)
-  }
-  parts.join("")
-}
-
-///|
 fn Cursor::starts_with(self : Cursor, text : String) -> Bool {
   let chars = text.to_array()
-  if self.index + chars.length() > self.length() {
+  if self.index + chars.length() > self.chars.length() {
     return false
   }
   for i in 0..<chars.length() {
-    if self.char_at(self.index + i) != chars[i] {
+    if self.chars[self.index + i] != chars[i] {
       return false
     }
   }
@@ -165,14 +140,14 @@ fn Cursor::starts_with(self : Cursor, text : String) -> Bool {
 
 ///|
 fn Cursor::at_line_start(self : Cursor) -> Bool {
-  self.index == 0 || is_newline(self.char_at(self.index - 1))
+  self.index == 0 || is_newline(self.chars[self.index - 1])
 }
 
 ///|
 fn Cursor::skip_spaces(self : Cursor) -> Cursor {
   let mut index = self.index
-  while index < self.length() {
-    let ch = self.char_at(index)
+  while index < self.chars.length() {
+    let ch = self.chars[index]
     if is_layout_space(ch) {
       index += 1
     } else {

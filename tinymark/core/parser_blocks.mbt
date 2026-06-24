@@ -9,7 +9,7 @@ fn parse_list_sugar(cursor : Cursor) -> Result[(Node, Cursor), Diagnostic] {
   while !scan.is_end() && scan.at_line_start() && scan.peek() == Some(marker) {
     let content_start = scan.advance(1)
     let mut line_end = content_start.index
-    while line_end < scan.length() && !is_line_end(scan.char_at(line_end)) {
+    while line_end < scan.chars.length() && !is_newline(scan.chars[line_end]) {
       line_end += 1
     }
     let (item_start, item_end) = trim_line_bounds(
@@ -69,20 +69,21 @@ fn maybe_attach_block_quote(node : Node, cursor : Cursor) -> (Node, Cursor) {
 ///|
 fn parse_block_quote(cursor : Cursor) -> Result[(String, Cursor), Diagnostic] {
   let mut fence_end = cursor.index
-  while fence_end < cursor.length() && !is_line_end(cursor.char_at(fence_end)) {
+  while fence_end < cursor.chars.length() &&
+        !is_newline(cursor.chars[fence_end]) {
     fence_end += 1
   }
   let fence = cursor.slice_to_string(cursor.index, fence_end)
   if !is_block_quote_fence(fence) {
     return Err(cursor.error("expected block quote fence"))
   }
-  let content_start = if fence_end < cursor.length() {
+  let content_start = if fence_end < cursor.chars.length() {
     fence_end + 1
   } else {
     fence_end
   }
   let mut index = content_start
-  while index < cursor.length() {
+  while index < cursor.chars.length() {
     if is_line_start_at(cursor, index) {
       let line_end = find_line_end(cursor, index)
       let line = cursor.slice_to_string(index, line_end)
@@ -100,7 +101,8 @@ fn parse_block_quote(cursor : Cursor) -> Result[(String, Cursor), Diagnostic] {
 ///|
 fn find_line_end(cursor : Cursor, start : Int) -> Int {
   let mut index = start
-  while index < cursor.length() && !is_line_or_list_end(cursor.char_at(index)) {
+  while index < cursor.chars.length() &&
+        !is_line_or_list_end(cursor.chars[index]) {
     index += 1
   }
   index
@@ -109,12 +111,12 @@ fn find_line_end(cursor : Cursor, start : Int) -> Int {
 ///|
 fn trim_line_bounds(cursor : Cursor, start : Int, end : Int) -> (Int, Int) {
   let mut trimmed_start = start
-  while trimmed_start < end && is_trim_space(cursor.char_at(trimmed_start)) {
+  while trimmed_start < end && cursor.chars[trimmed_start].is_whitespace() {
     trimmed_start += 1
   }
   let mut trimmed_end = end
   while trimmed_end > trimmed_start &&
-        is_trim_space(cursor.char_at(trimmed_end - 1)) {
+        cursor.chars[trimmed_end - 1].is_whitespace() {
     trimmed_end -= 1
   }
   (trimmed_start, trimmed_end)

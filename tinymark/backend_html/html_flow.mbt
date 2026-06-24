@@ -43,18 +43,18 @@ fn append_text_with_paragraph_splits(
   let mut start = 0
   let mut index = 0
   while index < chars.length() {
-    let break_end = paragraph_break_end(chars, index)
-    if break_end >= 0 {
-      if index > start {
-        inline_run.push(
-          HtmlNode::Text(String::from_array(chars.view(start~, end=index))),
-        )
+    match paragraph_break_end(chars, index) {
+      Some(break_end) => {
+        if index > start {
+          inline_run.push(
+            HtmlNode::Text(String::from_array(chars.view(start~, end=index))),
+          )
+        }
+        flush_paragraph(inline_run, out)
+        index = break_end
+        start = index
       }
-      flush_paragraph(inline_run, out)
-      index = break_end
-      start = index
-    } else {
-      index += 1
+      None => index += 1
     }
   }
   if start < chars.length() {
@@ -67,7 +67,7 @@ fn has_paragraph_break(text : String) -> Bool {
   let chars = text.to_array()
   let mut index = 0
   while index < chars.length() {
-    if paragraph_break_end(chars, index) >= 0 {
+    if paragraph_break_end(chars, index) is Some(_) {
       return true
     }
     index += 1
@@ -76,18 +76,18 @@ fn has_paragraph_break(text : String) -> Bool {
 }
 
 ///|
-fn paragraph_break_end(chars : Array[Char], index : Int) -> Int {
+fn paragraph_break_end(chars : Array[Char], index : Int) -> Int? {
   if chars[index] != '\n' {
-    return -1
+    return None
   }
   let mut scan = index + 1
   while scan < chars.length() && is_blank_line_space(chars[scan]) {
     scan += 1
   }
   if scan < chars.length() && chars[scan] == '\n' {
-    return scan + 1
+    return Some(scan + 1)
   }
-  -1
+  None
 }
 
 ///|
@@ -107,16 +107,32 @@ fn is_inline_html_node(node : HtmlNode) -> Bool {
 
 ///|
 fn is_block_tag(tag : String) -> Bool {
-  [
-    "section", "ul", "ol", "li", "table", "thead", "tbody", "tr", "figure", "aside",
-    "pre", "div", "p", "style", "blockquote", "hr",
-  ].contains(tag) ||
-  is_heading_tag(tag)
-}
-
-///|
-fn is_heading_tag(tag : String) -> Bool {
-  tag.has_prefix("h")
+  match tag {
+    "section"
+    | "ul"
+    | "ol"
+    | "li"
+    | "table"
+    | "thead"
+    | "tbody"
+    | "tr"
+    | "figure"
+    | "aside"
+    | "pre"
+    | "div"
+    | "p"
+    | "style"
+    | "blockquote"
+    | "hr"
+    | "h1"
+    | "h2"
+    | "h3"
+    | "h4"
+    | "h5"
+    | "h6" => true
+    _ if is_custom_block_tag(tag) => true
+    _ => false
+  }
 }
 
 ///|

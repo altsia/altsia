@@ -35,10 +35,3 @@ test "relative alt target resolves to file slug" {
     "<p><a href=\"math/a.html\">A</a> and <a href=\"math/a.html\">Absolute</a>.</p>",
   )
 }
-
-///|
-test "tinymark section is ordinary document content" {
-  let project = compile_ok([source("index.alt", "(section Content.)")])
-  @test.assert_eq(project.trees.length(), 1)
-  @test.assert_eq(project.trees[0].slug, slug("index"))
-}

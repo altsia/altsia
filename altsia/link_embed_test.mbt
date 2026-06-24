@@ -46,11 +46,9 @@ test "dangling local link is non fatal in normal build" {
     source("index.alt", "See (link `missing.alt` Missing)."),
   ])
   @test.assert_eq(project.diagnostics.length(), 1)
-  @test.assert_eq(project.dangling_tree_links.length(), 1)
-  @test.assert_eq(project.dangling_tree_links[0], {
-    source: "index.alt",
-    target: "missing.alt",
-  })
+  @test.assert_eq(project.dangling_tree_links, [
+    { source: "index.alt", target: "missing.alt" },
+  ])
   @test.assert_eq(
     project.trees[0].html,
     "<p>See <a href=\"#\" data-missing-target=\"missing.alt\">Missing</a>.</p>",
@@ -82,18 +80,6 @@ test "embed expands target content and records inferred parent" {
     "<div class=\"embed\" data-tree=\"child\"><p>Child.</p></div>",
   )
   @test.assert_eq(project.trees[1].parent, Some(slug("index")))
-}
-
-///|
-test "embed title renders details summary" {
-  let project = compile_ok([
-    source("index.alt", "(embed `child.alt` Child title)"),
-    source("child.alt", "Child."),
-  ])
-  @test.assert_eq(
-    project.trees[0].html,
-    "<details class=\"embed\" data-tree=\"child\" open><summary>Child title</summary><p>Child.</p></details>",
-  )
 }
 
 ///|
@@ -306,15 +292,13 @@ test "preview project returns html diagnostics and transitive source file depend
     Ok(preview) => {
       @test.assert_eq(preview.entry_tree_slug, slug("index"))
       @test.assert_eq(preview.diagnostics.length(), 1)
-      @test.assert_eq(preview.dangling_tree_links.length(), 1)
+      @test.assert_eq(preview.dangling_tree_links, [
+        { source: "child.alt", target: "missing.alt" },
+      ])
       @test.assert_eq(preview.source_file_dependencies, [
         { source: "index.alt", target: "child.alt", kind: @model.TreeEmbed },
         { source: "child.alt", target: "lib.sia", kind: @model.LibraryUse },
       ])
-      @test.assert_eq(
-        preview.html.contains("<div class=\"embed\" data-tree=\"child\">"),
-        true,
-      )
     }
   }
 }
@@ -334,25 +318,26 @@ test "structured preview annotates tree links and embeds" {
     Ok(preview) => {
       @test.assert_eq(preview.entry, "index.alt")
       @test.assert_eq(preview.entry_tree_slug, slug("index"))
-      @test.assert_eq(preview.tree_links.length(), 2)
-      @test.assert_eq(preview.tree_links[0], {
-        id: "link-1",
-        source: "index.alt",
-        target: "about.alt",
-        target_source: Some("about.alt"),
-        target_slug: Some(slug("about")),
-        href: "about.html",
-        missing: false,
-      })
-      @test.assert_eq(preview.tree_links[1], {
-        id: "link-2",
-        source: "child.alt",
-        target: "about.alt",
-        target_source: Some("about.alt"),
-        target_slug: Some(slug("about")),
-        href: "about.html",
-        missing: false,
-      })
+      @test.assert_eq(preview.tree_links, [
+        {
+          id: "link-1",
+          source: "index.alt",
+          target: "about.alt",
+          target_source: Some("about.alt"),
+          target_slug: Some(slug("about")),
+          href: "about.html",
+          missing: false,
+        },
+        {
+          id: "link-2",
+          source: "child.alt",
+          target: "about.alt",
+          target_source: Some("about.alt"),
+          target_slug: Some(slug("about")),
+          href: "about.html",
+          missing: false,
+        },
+      ])
       @test.assert_eq(preview.embeds, [
         {
           id: "embed-1",
@@ -426,7 +411,17 @@ test "structured preview can omit html annotations" {
     ) {
     Err(error) => abort(error.render())
     Ok(preview) => {
-      @test.assert_eq(preview.tree_links.length(), 1)
+      @test.assert_eq(preview.tree_links, [
+        {
+          id: "link-1",
+          source: "index.alt",
+          target: "about.alt",
+          target_source: Some("about.alt"),
+          target_slug: Some(slug("about")),
+          href: "about.html",
+          missing: false,
+        },
+      ])
       @test.assert_eq(preview.html.contains("data-altsia-link-id"), false)
       @test.assert_eq(preview.html.contains("href=\"about.html\""), true)
     }

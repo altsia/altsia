@@ -77,7 +77,7 @@ fn nodes_to_plain_text_with_env(
     Ok(_) => ()
     Err(error) => return Err(error)
   }
-  Ok(normalize_plain_text(parts.join("")))
+  Ok(parts.join(""))
 }
 
 ///|
@@ -141,24 +141,4 @@ fn conditional_plain_text(
     }
     nodes_to_plain_text_with_env(children, env).map(text => Some(text))
   })
-}
-
-///|
-fn normalize_plain_text(text : String) -> String {
-  let out : Array[Char] = []
-  let mut pending_space = false
-  for ch in text {
-    if ch == ' ' {
-      if !out.is_empty() {
-        pending_space = true
-      }
-      continue
-    }
-    if pending_space {
-      out.push(' ')
-      pending_space = false
-    }
-    out.push(ch)
-  }
-  String::from_array(out.view())
 }

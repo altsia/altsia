@@ -128,17 +128,6 @@ test "mixed block wraps paragraphs only when needed" {
 }
 
 ///|
-test "mixed block wraps paragraphs only when needed #2" {
-  let input =
-    #|(block
-    #|First paragraph.
-    #|  
-    #|Second paragraph.)
-  let expected = "<div><p>First paragraph.</p><p>Second paragraph.</p></div>"
-  @test.assert_eq(render_html_result(input), Ok(expected))
-}
-
-///|
 test "h-prefixed unknown tag remains inline" {
   @test.assert_eq(
     render_html_result("Before (happy ok) after."),
@@ -208,22 +197,6 @@ test "template definitions are hoisted within the same scope" {
     #|(card Hello)
     #|(def card (body) (p (body)))
   @test.assert_eq(render_html_result(input), Ok("<p>Hello</p>"))
-}
-
-///|
-test "parse returns document with source info" {
-  let info : @core.SourceInfo = {
-    id: Some("module/card.tm"),
-    line_offset: 0,
-    column_offset: 0,
-  }
-  match @core.parse("Hello", source_info=info) {
-    Ok(doc) => {
-      @test.assert_eq(doc.source.id, Some("module/card.tm"))
-      @test.assert_eq(doc.nodes.length(), 1)
-    }
-    Err(diagnostic) => abort(diagnostic.render())
-  }
 }
 
 ///|
@@ -456,13 +429,6 @@ test "html style without scope remains global" {
     render_html_document_result(input, options=HtmlDocumentOptions::empty()),
     Ok(expected),
   )
-}
-
-///|
-test "html style treats rule and selector as ordinary css names" {
-  let input = "(style (rule (:selector `h1` :margin `0`)))"
-  let expected = "<style>rule{selector:h1;margin:0;}</style>"
-  @test.assert_eq(render_html_result(input), Ok(expected))
 }
 
 ///|

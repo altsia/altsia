@@ -18,12 +18,9 @@ test "records use library dependency" {
     source("index.alt", "(use `lib.sia`)(p (lib.value))"),
     source("lib.sia", "(let value `ok`)"),
   ])
-  @test.assert_eq(project.source_file_dependencies.length(), 1)
-  @test.assert_eq(project.source_file_dependencies[0], {
-    source: "index.alt",
-    target: "lib.sia",
-    kind: @model.LibraryUse,
-  })
+  @test.assert_eq(project.source_file_dependencies, [
+    { source: "index.alt", target: "lib.sia", kind: @model.LibraryUse },
+  ])
 }
 
 ///|

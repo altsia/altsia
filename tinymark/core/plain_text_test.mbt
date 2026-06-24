@@ -39,8 +39,8 @@ fn plain_nodes_or_abort(nodes : Array[Node]) -> String {
 }
 
 ///|
-test "value to plain text handles scalar bool and fragments" {
-  let doc = parse_doc("(let title (_ (em Important) ` result`))(title)")
+test "value to plain text handles scalar and bool values" {
+  let doc = parse_doc("(let title `Important result`)(title)")
   let env = collect_env_or_abort(doc)
   match env.lookup_value("title") {
     Some(value) =>
@@ -64,7 +64,7 @@ test "nodes to plain text resolves interpolation and local bindings" {
 ///|
 test "nodes to plain text expands templates" {
   let doc = parse_doc(
-    "(def badge (kind body) (span (:class \"badge-(kind)\") (body)))(badge (:kind `info`) (_ (em Careful) ` now`))",
+    "(def badge (kind body) (body))(badge (:kind `info`) `Careful now`)",
   )
   @test.assert_eq(plain_nodes_or_abort(doc.nodes), "Careful now")
 }

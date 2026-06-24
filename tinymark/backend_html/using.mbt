@@ -5,7 +5,6 @@ using @core {
   collect_scope_env,
   interpolate_scalar,
   parse,
-  value_to_scalar,
   type Attr,
   type CompileEnv,
   type Diagnostic,

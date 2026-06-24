@@ -591,7 +591,9 @@ fn compile_style_scope(
       ),
     )
   }
-  value_to_scalar(value, env).bind(text => {
+  value
+  .to_scalar(env)
+  .bind(text => {
     if text.trim().is_empty() {
       Err(
         attr.span.diagnostic(
@@ -715,7 +717,7 @@ fn compile_css_declaration(
 ) -> Result[String, Diagnostic] {
   match attr.value {
     Some(value) =>
-      value_to_scalar(value, env).map(text => attr.name + ":" + text + ";")
+      value.to_scalar(env).map(text => attr.name + ":" + text + ";")
     None =>
       Err(
         attr.span.diagnostic(
@@ -871,7 +873,7 @@ fn compile_attr_value(
 ) -> Result[String?, Diagnostic] {
   match value {
     None => Ok(None)
-    Some(v) => value_to_scalar(v, env).map(text => Some(text))
+    Some(v) => v.to_scalar(env).map(text => Some(text))
   }
 }
 

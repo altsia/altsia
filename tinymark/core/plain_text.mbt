@@ -10,7 +10,7 @@ pub fn value_to_plain_text(
 ///|
 pub fn nodes_to_plain_text(
   nodes : Array[Node],
-  env? : CompileEnv,
+  env : CompileEnv?,
 ) -> Result[String, Diagnostic] {
   let text_env = env.unwrap_or(CompileEnv::empty())
   nodes_to_plain_text_with_env(nodes, text_env)

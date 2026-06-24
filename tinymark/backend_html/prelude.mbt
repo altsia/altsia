@@ -124,7 +124,7 @@ fn SectionElement::from_call(
       "title" =>
         match attr.value {
           Some(value) =>
-            match value_to_scalar(value, env) {
+            match value.to_scalar(env) {
               Ok(text) => title = Some(text)
               Err(error) => return Err(error)
             }

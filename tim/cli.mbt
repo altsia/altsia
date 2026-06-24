@@ -81,7 +81,7 @@ fn include_path(
         ),
       )
     }
-    return @core.value_to_scalar(value, context.env)
+    return value.to_scalar(context.env)
   }
   guard !call.children.is_empty() else {
     return Err(
@@ -91,7 +91,7 @@ fn include_path(
       ),
     )
   }
-  @core.value_to_scalar(@core.nodes_to_value(call.children), context.env)
+  @core.nodes_to_value(call.children).to_scalar(context.env)
 }
 
 ///|

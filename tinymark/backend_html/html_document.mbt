@@ -188,7 +188,7 @@ fn DocumentMetadata::apply_attr(
     "author" =>
       self.with_head_value(attr, env, (head, value) => { ..head, author: value })
     "paper" => self.with_paper(attr, env)
-    "staple" => self.with_staple(attr, env)
+    "staple" => self.with_staple(attr)
     _ => self.apply_body_attr(attr, env)
   }
 }
@@ -241,9 +241,8 @@ fn DocumentMetadata::with_paper(
 fn DocumentMetadata::with_staple(
   self : DocumentMetadata,
   attr : Attr,
-  env : CompileEnv,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  doc_bool_attr(attr, env).map(value => {
+  doc_bool_attr(attr).map(value => {
     let paper = match self.paper {
       Some(request) =>
         Some({ ..request, options: { ..request.options, staple: value } })
@@ -317,9 +316,9 @@ fn merge_body_class(
     let (name, value) = attr
     if name == "class" {
       let merged = match value {
-        None => class_name
         Some(text) if text.trim().is_empty() => class_name
-        Some(text) => text + " " + class_name
+        Some(text) => "\{text} \{class_name}"
+        None => class_name
       }
       attrs[index] = (name, Some(merged))
       return
@@ -334,7 +333,7 @@ fn optional_doc_scalar(
   env : CompileEnv,
 ) -> Result[String?, Diagnostic] {
   match attr.value {
-    Some(value) => value_to_scalar(value, env).map(text => Some(text))
+    Some(value) => value.to_scalar(env).map(text => Some(text))
     None => Ok(None)
   }
 }
@@ -348,27 +347,18 @@ fn required_doc_scalar(
   guard attr.value is Some(value) else {
     return Err(attr.span.diagnostic(DiagnosticPhase::Type, missing_message))
   }
-  value_to_scalar(value, env)
+  value.to_scalar(env)
 }
 
 ///|
-fn doc_bool_attr(attr : Attr, env : CompileEnv) -> Result[Bool, Diagnostic] {
+fn doc_bool_attr(attr : Attr) -> Result[Bool, Diagnostic] {
   match attr.value {
     None => Ok(true)
     Some(value) =>
-      value_to_scalar(value, env).bind(text => {
-        match text {
-          "true" => Ok(true)
-          "false" => Ok(false)
-          _ =>
-            Err(
-              attr.span.diagnostic(
-                DiagnosticPhase::Type,
-                "doc option requires a boolean value: " + attr.name,
-              ),
-            )
-        }
-      })
+      value.to_bool(
+        attr.span,
+        "doc option requires a boolean value: " + attr.name,
+      )
   }
 }
 

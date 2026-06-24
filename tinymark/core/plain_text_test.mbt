@@ -32,7 +32,7 @@ fn plain_value_or_abort(value : Value, env? : CompileEnv) -> String {
 
 ///|
 fn plain_nodes_or_abort(nodes : Array[Node]) -> String {
-  match nodes_to_plain_text(nodes) {
+  match nodes_to_plain_text(nodes, None) {
     Ok(text) => text
     Err(diagnostic) => abort(diagnostic.render())
   }
@@ -80,7 +80,7 @@ test "nodes to plain text observes conditionals" {
 
 ///|
 test "plain text reports unbound interpolation" {
-  match nodes_to_plain_text(parse_doc("\"Hello (name)\"").nodes) {
+  match nodes_to_plain_text(parse_doc("\"Hello (name)\"").nodes, None) {
     Ok(_) => abort("expected unbound interpolation")
     Err(diagnostic) =>
       @test.assert_eq(diagnostic.message, "unbound interpolation name: name")

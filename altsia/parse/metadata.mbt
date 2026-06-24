@@ -3,7 +3,7 @@ fn attr_scalar(attr : @core.Attr, env? : @core.CompileEnv) -> String? {
   match attr.value {
     Some(value) => {
       let text_env = env.unwrap_or(@core.CompileEnv::empty())
-      match @core.value_to_scalar(value, text_env) {
+      match value.to_scalar(text_env) {
         Ok(text) => Some(text)
         Err(_) => None
       }
@@ -13,11 +13,18 @@ fn attr_scalar(attr : @core.Attr, env? : @core.CompileEnv) -> String? {
 }
 
 ///|
-fn attr_bool(attr : @core.Attr, env? : @core.CompileEnv) -> Bool? {
-  match attr_scalar(attr, env?) {
-    Some("true") => Some(true)
-    Some("false") => Some(false)
-    _ => None
+fn attr_bool(attr : @core.Attr) -> Bool? {
+  match attr.value {
+    Some(value) =>
+      match
+        value.to_bool(
+          attr.span,
+          "metadata option requires a boolean value: " + attr.name,
+        ) {
+        Ok(value) => Some(value)
+        Err(_) => None
+      }
+    None => None
   }
 }
 
@@ -184,19 +191,19 @@ fn apply_metadata_attrs(
                 }
               }
             "references" =>
-              if attr_bool(attr, env~) is Some(value) {
+              if attr_bool(attr) is Some(value) {
                 metadata = { ..metadata, show_references: value }
               }
             "backlinks" =>
-              if attr_bool(attr, env~) is Some(value) {
+              if attr_bool(attr) is Some(value) {
                 metadata = { ..metadata, show_backlinks: value }
               }
             "asref" =>
-              if attr_bool(attr, env~) is Some(value) {
+              if attr_bool(attr) is Some(value) {
                 metadata = { ..metadata, asref: value }
               }
             "asback" =>
-              if attr_bool(attr, env~) is Some(value) {
+              if attr_bool(attr) is Some(value) {
                 metadata = { ..metadata, asback: value }
               }
             "footer-mode" =>

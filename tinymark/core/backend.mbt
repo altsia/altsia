@@ -348,11 +348,11 @@ fn param_index(params : Array[String], name : String) -> Int? {
 }
 
 ///|
-pub fn value_to_scalar(
-  value : Value,
+pub fn Value::to_scalar(
+  self : Value,
   env : CompileEnv,
 ) -> Result[String, Diagnostic] {
-  match value {
+  match self {
     Scalar(text, _) => Ok(text)
     Bool(value, _) => Ok(if value { "true" } else { "false" })
     Interp(template, span) => interpolate_scalar(template, env, span)
@@ -372,7 +372,19 @@ pub fn interpolate_scalar(
   env : CompileEnv,
   span : SourceSpan,
 ) -> Result[String, Diagnostic] {
-  interpolate_text(template, env, span, value_to_scalar)
+  interpolate_text(template, env, span, (value, env) => value.to_scalar(env))
+}
+
+///|
+pub fn Value::to_bool(
+  self : Value,
+  context_span : SourceSpan,
+  message : String,
+) -> Result[Bool, Diagnostic] {
+  match self {
+    Bool(value, _) => Ok(value)
+    _ => Err(context_span.diagnostic(DiagnosticPhase::Type, message))
+  }
 }
 
 ///|
@@ -424,16 +436,8 @@ pub fn bool_binding(
   span : SourceSpan,
 ) -> Result[Bool, Diagnostic] {
   match env.lookup_value(name) {
-    Some(Bool(value, _)) => Ok(value)
-    Some(Scalar("true", _)) => Ok(true)
-    Some(Scalar("false", _)) => Ok(false)
-    Some(_) =>
-      Err(
-        span.diagnostic(
-          DiagnosticPhase::Type,
-          "condition is not a boolean binding: " + name,
-        ),
-      )
+    Some(value) =>
+      value.to_bool(span, "condition is not a boolean binding: " + name)
     None =>
       Err(
         span.diagnostic(

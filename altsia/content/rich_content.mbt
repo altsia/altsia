@@ -3,11 +3,7 @@ pub fn text_from_node(node : @core.Node, env? : @core.CompileEnv) -> String? {
   match node {
     Text(text, _) => Some(text)
     TextInterp(_, _) =>
-      match
-        (match env {
-          Some(env) => @core.nodes_to_plain_text([node], env~)
-          None => @core.nodes_to_plain_text([node])
-        }) {
+      match @core.nodes_to_plain_text([node], env) {
         Ok(text) => Some(text)
         Err(_) => None
       }
@@ -167,7 +163,7 @@ fn lower_embed(
       @model.diagnostic(span, Binding, "(embed ...) requires a target"),
     )
   }
-  embed_option_from_attrs(attrs, env).map(option => {
+  embed_option_from_attrs(attrs).map(option => {
     [
       @model.RichDirective(
         @model.RichEmbedDirective({
@@ -222,7 +218,7 @@ fn normalize_attrs(
     match attr.value {
       None => normalized.push(attr)
       Some(value) =>
-        match @core.value_to_scalar(value, env) {
+        match value.to_scalar(env) {
           Ok(text) =>
             normalized.push({
               name: attr.name,
@@ -271,11 +267,10 @@ fn embed_target(
 ///|
 fn embed_option_from_attrs(
   attrs : Array[@core.Attr],
-  env : @core.CompileEnv,
 ) -> Result[@model.EmbedOption, @core.Diagnostic] {
   let mut option = @model.EmbedOption::default()
   for attr in attrs {
-    let value = match embed_bool_attr(attr, env) {
+    let value = match embed_bool_attr(attr) {
       Ok(value) => value
       Err(error) => return Err(error)
     }
@@ -297,25 +292,13 @@ fn embed_option_from_attrs(
 }
 
 ///|
-fn embed_bool_attr(
-  attr : @core.Attr,
-  env : @core.CompileEnv,
-) -> Result[Bool, @core.Diagnostic] {
+fn embed_bool_attr(attr : @core.Attr) -> Result[Bool, @core.Diagnostic] {
   match attr.value {
     None => Ok(true)
     Some(value) =>
-      match @core.value_to_scalar(value, env) {
-        Ok("true") => Ok(true)
-        Ok("false") => Ok(false)
-        Ok(_) =>
-          Err(
-            @model.diagnostic(
-              attr.span,
-              Type,
-              "embed option requires a boolean value: " + attr.name,
-            ),
-          )
-        Err(error) => Err(error)
-      }
+      value.to_bool(
+        attr.span,
+        "embed option requires a boolean value: " + attr.name,
+      )
   }
 }

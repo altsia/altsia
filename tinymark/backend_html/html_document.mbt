@@ -136,7 +136,7 @@ fn document_metadata(
     }
   }
   if metadata.paper is Some(_) {
-    merge_body_class(metadata.body_attrs, PAPER_CLASS_NAME)
+    @sexp.HtmlAttrs(metadata.body_attrs).append_class(PAPER_CLASS_NAME)
   }
   Ok(metadata)
 }
@@ -266,7 +266,7 @@ fn DocumentMetadata::apply_body_attr(
 ) -> Result[DocumentMetadata, Diagnostic] {
   match attr.optional_scalar(env) {
     Ok(value) => {
-      self.body_attrs.push((attr.name, value))
+      @sexp.HtmlAttrs(self.body_attrs).upsert(attr.name, value)
       Ok(self)
     }
     Err(error) => Err(error)
@@ -311,26 +311,6 @@ fn html_head_nodes(
   head.append(extra_head)
   head.append(explicit_head)
   Ok(head)
-}
-
-///|
-fn merge_body_class(
-  attrs : Array[(String, String?)],
-  class_name : String,
-) -> Unit {
-  for index, attr in attrs {
-    let (name, value) = attr
-    if name == "class" {
-      let merged = match value {
-        Some(text) if text.trim().is_empty() => class_name
-        Some(text) => "\{text} \{class_name}"
-        None => class_name
-      }
-      attrs[index] = (name, Some(merged))
-      return
-    }
-  }
-  attrs.push(("class", Some(class_name)))
 }
 
 ///|

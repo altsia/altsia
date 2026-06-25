@@ -540,6 +540,21 @@ test "html doc attrs apply to body wrapper" {
 }
 
 ///|
+test "html doc paper appends to final body class" {
+  let input = "(doc (:class \"page hero\" :data-x `1` :class `wide` :paper `a4`))Body"
+  @test.assert_eq(
+    render_html_document_result(input, options=HtmlDocumentOptions::empty()).map(html => {
+        html.contains(
+          "<div class=\"wide paper\" data-x=\"1\"><p>Body</p></div>",
+        ) &&
+        !html.contains("page hero")
+      },
+    ),
+    Ok(true),
+  )
+}
+
+///|
 test "html doc paper rejects unknown preset" {
   match
     render_html_document_result(

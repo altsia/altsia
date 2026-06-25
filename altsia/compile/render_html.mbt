@@ -23,11 +23,15 @@ fn RenderState::render_embed_html(
     let nodes = match embed.title {
       Some(title) => {
         if embed.option.details_open {
-          attrs.push(("open", None))
+          attrs.upsert("open", None)
         }
         let summary_children = embed_summary_children(title, number)
         let children : Array[@sexp.SexpNode] = [
-          @sexp.SexpNode::Element("summary", [], summary_children),
+          @sexp.SexpNode::Element(
+            "summary",
+            @sexp.HtmlAttrs({}),
+            summary_children,
+          ),
           @sexp.SexpNode::RawHtml(body_html),
         ]
         if catalog is Some(node) {
@@ -39,9 +43,11 @@ fn RenderState::render_embed_html(
         let children : Array[@sexp.SexpNode] = []
         if number is Some(number) {
           children.push(
-            @sexp.SexpNode::Element("div", [("class", Some("embed-number"))], [
-              @sexp.SexpNode::Text(number.to_string() + "."),
-            ]),
+            @sexp.SexpNode::Element(
+              "div",
+              @sexp.HtmlAttrs({ "class": Some("embed-number") }),
+              [@sexp.SexpNode::Text(number.to_string() + ".")],
+            ),
           )
         }
         children.push(@sexp.SexpNode::RawHtml(body_html))
@@ -186,13 +192,18 @@ fn RenderState::render_link_node(
   .map(label => {
     match link.slug {
       Some(slug) =>
-        Element("a", [("href", Some(@model.url_for_tree(slug)))], [
-          RawHtml(label),
-        ])
+        Element(
+          "a",
+          @sexp.HtmlAttrs({ "href": Some(@model.url_for_tree(slug)) }),
+          [RawHtml(label)],
+        )
       None =>
         Element(
           "a",
-          [("href", Some("#")), ("data-missing-target", Some(link.target))],
+          @sexp.HtmlAttrs({
+            "href": Some("#"),
+            "data-missing-target": Some(link.target),
+          }),
           [RawHtml(label)],
         )
     }

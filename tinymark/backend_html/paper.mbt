@@ -123,7 +123,7 @@ fn paper_style_node(paper : ComputedPaper) -> HtmlNode {
     $|  }
     $|}
 
-  HtmlNode::Element("style", [], [HtmlNode::RawHtml(raw_css)])
+  HtmlNode::Element("style", @sexp.HtmlAttrs({}), [HtmlNode::RawHtml(raw_css)])
 }
 
 ///|

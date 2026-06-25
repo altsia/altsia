@@ -10,7 +10,7 @@ priv enum ContentModel {
 
 ///|
 priv struct CssStyleAttrs {
-  html_attrs : Array[(String, String?)]
+  html_attrs : @sexp.HtmlAttrs
   scope : String?
 }
 
@@ -540,7 +540,7 @@ fn compile_style_attrs(
   attrs : Array[Attr],
   env : CompileEnv,
 ) -> Result[CssStyleAttrs, Diagnostic] {
-  let html_attrs : Array[(String, String?)] = []
+  let html_attrs = @sexp.HtmlAttrs({})
   let mut scope : String? = None
   for attr in attrs {
     if attr.name == "scope" {
@@ -551,7 +551,7 @@ fn compile_style_attrs(
       continue
     }
     match attr.optional_scalar(env) {
-      Ok(compiled) => html_attrs.push((attr.name, compiled))
+      Ok(compiled) => html_attrs.upsert(attr.name, compiled)
       Err(error) => return Err(error)
     }
   }
@@ -829,11 +829,11 @@ fn compile_text_only_children(
 fn compile_attrs(
   attrs : Array[Attr],
   env : CompileEnv,
-) -> Result[Array[(String, String?)], Diagnostic] {
-  let html_attrs : Array[(String, String?)] = []
+) -> Result[@sexp.HtmlAttrs, Diagnostic] {
+  let html_attrs = @sexp.HtmlAttrs({})
   for attr in attrs {
     match attr.optional_scalar(env) {
-      Ok(compiled) => html_attrs.push((attr.name, compiled))
+      Ok(compiled) => html_attrs.upsert(attr.name, compiled)
       Err(error) => return Err(error)
     }
   }

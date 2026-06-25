@@ -15,7 +15,7 @@ fn append_compiled_node(
 ///|
 fn flush_paragraph(inline_run : Array[HtmlNode], out : Array[HtmlNode]) -> Unit {
   if !inline_run.is_empty() {
-    out.push(HtmlNode::Element("p", [], inline_run.copy()))
+    out.push(HtmlNode::Element("p", @sexp.HtmlAttrs({}), inline_run.copy()))
     inline_run.clear()
   }
 }

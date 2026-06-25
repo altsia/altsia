@@ -6,7 +6,7 @@ pub enum PreludeChildFlow {
 
 ///|
 priv struct SectionElement {
-  html_attrs : Array[(String, String?)]
+  html_attrs : @sexp.HtmlAttrs
   title : String?
   children : Array[Node]
 }
@@ -81,7 +81,7 @@ fn CallContext::compile_language_span(
   let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
     (context.compile_inline)(call.children).map(output => {
-      html_attrs.push(("lang", Some(language_tag)))
+      html_attrs.upsert("lang", Some(language_tag))
       {
         body: [HtmlNode::Element("span", html_attrs, output.body)],
         head: output.head,
@@ -114,7 +114,7 @@ fn SectionElement::from_call(
   call : ElementCall,
   env : CompileEnv,
 ) -> Result[SectionElement, Diagnostic] {
-  let html_attrs : Array[(String, String?)] = []
+  let html_attrs = @sexp.HtmlAttrs({})
   let mut title : String? = None
   for attr in call.attrs {
     match attr.name {
@@ -129,7 +129,7 @@ fn SectionElement::from_call(
         }
       _ =>
         match attr.optional_scalar(env) {
-          Ok(compiled) => html_attrs.push((attr.name, compiled))
+          Ok(compiled) => html_attrs.upsert(attr.name, compiled)
           Err(error) => return Err(error)
         }
     }
@@ -145,7 +145,11 @@ fn SectionElement::heading_nodes(
   match self.title {
     Some(text) => {
       let level = clamp_heading_level(current_heading_level)
-      [HtmlNode::Element("h" + level.to_string(), [], [HtmlNode::Text(text)])]
+      [
+        HtmlNode::Element("h" + level.to_string(), @sexp.HtmlAttrs({}), [
+          HtmlNode::Text(text),
+        ]),
+      ]
     }
     None => []
   }
@@ -167,7 +171,7 @@ fn CallContext::compile_admonition(
 ) -> Result[ElementOutput, Diagnostic] {
   let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
-    @sexp.HtmlAttrs(html_attrs).append_class(kind)
+    html_attrs.append_class(kind)
     (context.compile_block)(call.children).map(output => {
       body: [HtmlNode::Element("aside", html_attrs, output.body)],
       head: output.head,
@@ -181,14 +185,14 @@ fn CallContext::compile_code(
 ) -> Result[ElementOutput, Diagnostic] {
   let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
-    let lang = html_attrs.iter().find_first(a => a.0 == "lang").bind(a => a.1)
+    let lang = html_attrs.0.get("lang").bind(value => value)
     (context.compile_text_only)(call.children).map(source => {
-      let code_attrs : Array[(String, String?)] = []
+      let code_attrs = @sexp.HtmlAttrs({})
       if lang is Some(value) {
-        code_attrs.push(("class", Some("lang-" + value)))
+        code_attrs.upsert("class", Some("lang-" + value))
       }
       ElementOutput::body([
-        HtmlNode::Element("pre", [], [
+        HtmlNode::Element("pre", @sexp.HtmlAttrs({}), [
           HtmlNode::Element("code", code_attrs, [HtmlNode::Text(source)]),
         ]),
       ])
@@ -233,15 +237,12 @@ fn CallContext::compile_hspace(
     let length = length.trim()
     let html = HtmlNode::Element(
       "span",
-      [
-        ("aria-hidden", Some("true")),
-        (
-          "style",
-          Some(
-            "display: inline-block; width: \{length}; height: 0; vertical-align: baseline",
-          ),
+      @sexp.HtmlAttrs({
+        "aria-hidden": Some("true"),
+        "style": Some(
+          "display: inline-block; width: \{length}; height: 0; vertical-align: baseline",
         ),
-      ],
+      }),
       [],
     )
     Ok(ElementOutput::body([html]))

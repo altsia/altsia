@@ -142,12 +142,12 @@ fn RenderState::render_preview_link_node(
           href,
           missing: false,
         })
-        let attrs : Array[(String, String?)] = [("href", Some(href))]
+        let attrs = @sexp.HtmlAttrs({ "href": Some(href) })
         if context.options.annotate_html {
-          attrs.push(("data-altsia-link-id", Some(id)))
-          attrs.push(("data-altsia-tree", Some(slug.canonical())))
+          attrs.upsert("data-altsia-link-id", Some(id))
+          attrs.upsert("data-altsia-tree", Some(slug.canonical()))
           if target_source is Some(path) {
-            attrs.push(("data-altsia-target-source", Some(path)))
+            attrs.upsert("data-altsia-target-source", Some(path))
           }
         }
         @sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)])
@@ -163,12 +163,12 @@ fn RenderState::render_preview_link_node(
           href,
           missing: true,
         })
-        let attrs : Array[(String, String?)] = [
-          ("href", Some(href)),
-          ("data-missing-target", Some(link.target)),
-        ]
+        let attrs = @sexp.HtmlAttrs({
+          "href": Some(href),
+          "data-missing-target": Some(link.target),
+        })
         if context.options.annotate_html {
-          attrs.push(("data-altsia-link-id", Some(id)))
+          attrs.upsert("data-altsia-link-id", Some(id))
         }
         @sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)])
       }
@@ -197,8 +197,8 @@ fn RenderState::render_preview_embed_html(
   })
   let attrs = embed_attrs(embed, resolved_key)
   if context.options.annotate_html {
-    attrs.push(("data-altsia-embed-id", Some(id)))
-    attrs.push(("data-altsia-target-source", Some(tree.path)))
+    attrs.upsert("data-altsia-embed-id", Some(id))
+    attrs.upsert("data-altsia-target-source", Some(tree.path))
   }
   self
   .render_preview_tree_body(tree, context)
@@ -216,11 +216,15 @@ fn RenderState::render_preview_embed_html(
     let nodes = match embed.title {
       Some(title) => {
         if embed.option.details_open {
-          attrs.push(("open", None))
+          attrs.upsert("open", None)
         }
         let summary_children = embed_summary_children(title, number)
         let children : Array[@sexp.SexpNode] = [
-          @sexp.SexpNode::Element("summary", [], summary_children),
+          @sexp.SexpNode::Element(
+            "summary",
+            @sexp.HtmlAttrs({}),
+            summary_children,
+          ),
           @sexp.SexpNode::RawHtml(body_html),
         ]
         if catalog is Some(node) {
@@ -232,9 +236,11 @@ fn RenderState::render_preview_embed_html(
         let children : Array[@sexp.SexpNode] = []
         if number is Some(number) {
           children.push(
-            @sexp.SexpNode::Element("div", [("class", Some("embed-number"))], [
-              @sexp.SexpNode::Text(number.to_string() + "."),
-            ]),
+            @sexp.SexpNode::Element(
+              "div",
+              @sexp.HtmlAttrs({ "class": Some("embed-number") }),
+              [@sexp.SexpNode::Text(number.to_string() + ".")],
+            ),
           )
         }
         children.push(@sexp.SexpNode::RawHtml(body_html))

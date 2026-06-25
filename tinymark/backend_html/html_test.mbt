@@ -593,9 +593,11 @@ test "extension resolver handles element and fallback preserves html" {
       Ok(
         Some(
           ElementOutput::body([
-            @sexp.SexpNode::Element("span", [("class", Some("icon"))], [
-              @sexp.SexpNode::Text("search"),
-            ]),
+            @sexp.SexpNode::Element(
+              "span",
+              @sexp.HtmlAttrs({ "class": Some("icon") }),
+              [@sexp.SexpNode::Text("search")],
+            ),
           ]),
         ),
       )

@@ -40,8 +40,8 @@ priv struct PaperRequest {
 
 ///|
 priv struct DocumentMetadata {
-  html_attrs : Array[(String, String?)]
-  body_attrs : Array[(String, String?)]
+  html_attrs : @sexp.HtmlAttrs
+  body_attrs : @sexp.HtmlAttrs
   head : DocumentHeadMetadata
   staple : Bool
   paper : PaperRequest?
@@ -136,7 +136,7 @@ fn document_metadata(
     }
   }
   if metadata.paper is Some(_) {
-    @sexp.HtmlAttrs(metadata.body_attrs).append_class(PAPER_CLASS_NAME)
+    metadata.body_attrs.append_class(PAPER_CLASS_NAME)
   }
   Ok(metadata)
 }
@@ -146,8 +146,8 @@ fn DocumentMetadata::from_options(
   options : HtmlDocumentOptions,
 ) -> DocumentMetadata {
   {
-    html_attrs: [],
-    body_attrs: [],
+    html_attrs: @sexp.HtmlAttrs({}),
+    body_attrs: @sexp.HtmlAttrs({}),
     head: {
       charset: options.charset,
       viewport: options.viewport,
@@ -201,7 +201,7 @@ fn DocumentMetadata::apply_html_attr(
 ) -> Result[DocumentMetadata, Diagnostic] {
   match attr.optional_scalar(env) {
     Ok(Some(text)) => {
-      @sexp.HtmlAttrs(self.html_attrs).upsert(attr.name, Some(text))
+      self.html_attrs.upsert(attr.name, Some(text))
       Ok(self)
     }
     Ok(None) => Ok(self)
@@ -266,7 +266,7 @@ fn DocumentMetadata::apply_body_attr(
 ) -> Result[DocumentMetadata, Diagnostic] {
   match attr.optional_scalar(env) {
     Ok(value) => {
-      @sexp.HtmlAttrs(self.body_attrs).upsert(attr.name, value)
+      self.body_attrs.upsert(attr.name, value)
       Ok(self)
     }
     Err(error) => Err(error)
@@ -282,7 +282,9 @@ fn html_head_nodes(
   let head : Array[HtmlNode] = []
 
   if metadata.head.charset is Some(text) {
-    head.push(HtmlNode::Element("meta", [("charset", Some(text))], []))
+    head.push(
+      HtmlNode::Element("meta", @sexp.HtmlAttrs({ "charset": Some(text) }), []),
+    )
   }
 
   if metadata.head.viewport is Some(text) {
@@ -290,7 +292,9 @@ fn html_head_nodes(
   }
 
   if metadata.head.title is Some(text) {
-    head.push(HtmlNode::Element("title", [], [HtmlNode::Text(text)]))
+    head.push(
+      HtmlNode::Element("title", @sexp.HtmlAttrs({}), [HtmlNode::Text(text)]),
+    )
   }
 
   if metadata.head.description is Some(text) {
@@ -317,7 +321,7 @@ fn html_head_nodes(
 fn html_named_meta(name : String, content : String) -> HtmlNode {
   HtmlNode::Element(
     "meta",
-    [("name", Some(name)), ("content", Some(content))],
+    @sexp.HtmlAttrs({ "name": Some(name), "content": Some(content) }),
     [],
   )
 }

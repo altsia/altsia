@@ -70,7 +70,7 @@ pub fn compile_alt_document(
   compile_alt_fragment(sources, entry).map(body => {
     let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
     @sexp.render_html_document(
-      [],
+      @sexp.HtmlAttrs({}),
       opts.extra_head,
       [RawHtml(body)],
       opts.doctype,
@@ -90,7 +90,7 @@ pub fn preview_project(
       Some(tree) => {
         let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
         let html = @sexp.render_html_document(
-          [],
+          @sexp.HtmlAttrs({}),
           opts.extra_head,
           [RawHtml(tree.html)],
           opts.doctype,
@@ -142,7 +142,7 @@ pub fn preview_project_structured(
         @html.HtmlDocumentOptions::default(),
       )
       let html = @sexp.render_html_document(
-        [],
+        @sexp.HtmlAttrs({}),
         opts.extra_head,
         [RawHtml(preview.html)],
         opts.doctype,

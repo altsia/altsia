@@ -6,9 +6,11 @@ fn embed_summary_children(
   match number {
     Some(number) =>
       [
-        @sexp.SexpNode::Element("span", [("class", Some("embed-number"))], [
-          @sexp.SexpNode::Text(number.to_string() + "."),
-        ]),
+        @sexp.SexpNode::Element(
+          "span",
+          @sexp.HtmlAttrs({ "class": Some("embed-number") }),
+          [@sexp.SexpNode::Text(number.to_string() + ".")],
+        ),
         @sexp.SexpNode::Text(" " + title),
       ]
     None => [@sexp.SexpNode::Text(title)]
@@ -28,11 +30,11 @@ fn RenderState::render_embed_catalog(
     Some(
       @sexp.SexpNode::Element(
         "nav",
-        [
-          ("class", Some("embed-catalog")),
-          ("aria-label", Some("Embedded content")),
-        ],
-        [@sexp.SexpNode::Element("ol", [], items)],
+        @sexp.HtmlAttrs({
+          "class": Some("embed-catalog"),
+          "aria-label": Some("Embedded content"),
+        }),
+        [@sexp.SexpNode::Element("ol", @sexp.HtmlAttrs({}), items)],
       ),
     )
   }
@@ -68,14 +70,18 @@ fn RenderState::push_embed_catalog_items(
           let content : Array[@sexp.SexpNode] = [
             @sexp.SexpNode::Element(
               "a",
-              [("href", Some(@model.url_for_tree(child.slug)))],
+              @sexp.HtmlAttrs({ "href": Some(@model.url_for_tree(child.slug)) }),
               [@sexp.SexpNode::Text(self.tree_footer_label(child_key))],
             ),
           ]
           if !children.is_empty() {
-            content.push(@sexp.SexpNode::Element("ol", [], children))
+            content.push(
+              @sexp.SexpNode::Element("ol", @sexp.HtmlAttrs({}), children),
+            )
           }
-          items.push(@sexp.SexpNode::Element("li", [], content))
+          items.push(
+            @sexp.SexpNode::Element("li", @sexp.HtmlAttrs({}), content),
+          )
         }
       }
       _ => ()
@@ -95,13 +101,16 @@ fn embed_is_open(embed : @model.EmbedDirective) -> Bool {
 fn embed_attrs(
   embed : @model.EmbedDirective,
   resolved_key : String,
-) -> Array[(String, String?)] {
-  let attrs = [("class", Some("embed")), ("data-tree", Some(resolved_key))]
+) -> @sexp.HtmlAttrs {
+  let attrs = @sexp.HtmlAttrs({
+    "class": Some("embed"),
+    "data-tree": Some(resolved_key),
+  })
   if embed.option.numbering {
-    attrs.push(("data-numbering", Some("true")))
+    attrs.upsert("data-numbering", Some("true"))
   }
   if !embed.option.catalog {
-    attrs.push(("data-catalog", Some("false")))
+    attrs.upsert("data-catalog", Some("false"))
   }
   attrs
 }

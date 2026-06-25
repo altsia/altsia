@@ -36,25 +36,6 @@ fn CallContext::compile_prelude_element(
 }
 
 ///|
-fn prelude_is_block(tag : String) -> Bool? {
-  match tag {
-    "_" | "h" => Some(false)
-    "section"
-    | "list"
-    | "enum"
-    | "item"
-    | "fig"
-    | "block"
-    | "note"
-    | "warning"
-    | "tip"
-    | "codeblock"
-    | "slot" => Some(true)
-    _ => None
-  }
-}
-
-///|
 fn CallContext::compile_alias(
   self : CallContext,
   tag : String,
@@ -69,6 +50,7 @@ fn CallContext::compile_alias(
     children.map(output => {
       body: [HtmlNode::Element(tag, html_attrs, output.body)],
       head: output.head,
+      inline_body: false,
     })
   })
 }
@@ -85,6 +67,7 @@ fn CallContext::compile_language_span(
       {
         body: [HtmlNode::Element("span", html_attrs, output.body)],
         head: output.head,
+        inline_body: true,
       }
     })
   })
@@ -161,7 +144,11 @@ fn SectionElement::to_output(
   children : Array[HtmlNode],
   head : Array[HtmlNode],
 ) -> ElementOutput {
-  { body: [HtmlNode::Element("section", self.html_attrs, children)], head }
+  {
+    body: [HtmlNode::Element("section", self.html_attrs, children)],
+    head,
+    inline_body: false,
+  }
 }
 
 ///|
@@ -175,6 +162,7 @@ fn CallContext::compile_admonition(
     (context.compile_block)(call.children).map(output => {
       body: [HtmlNode::Element("aside", html_attrs, output.body)],
       head: output.head,
+      inline_body: false,
     })
   })
 }
@@ -191,7 +179,7 @@ fn CallContext::compile_code(
       if lang is Some(value) {
         code_attrs.upsert("class", Some("lang-" + value))
       }
-      ElementOutput::body([
+      ElementOutput::flow([
         HtmlNode::Element("pre", @sexp.HtmlAttrs({}), [
           HtmlNode::Element("code", code_attrs, [HtmlNode::Text(source)]),
         ]),
@@ -207,7 +195,7 @@ fn CallContext::compile_slot(
   let { call, context } = self
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
     (context.compile_text_only)(call.children).map(source => {
-      ElementOutput::body([
+      ElementOutput::flow([
         HtmlNode::Element("pre", html_attrs, [HtmlNode::Text(source)]),
       ])
     })

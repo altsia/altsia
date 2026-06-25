@@ -63,6 +63,7 @@ priv struct ElementCompileInput {
 pub(all) struct ElementOutput {
   body : Array[HtmlNode]
   head : Array[HtmlNode]
+  inline_body : Bool
 }
 
 ///|
@@ -71,6 +72,7 @@ priv struct CompiledNodeSequence {
   head : Array[HtmlNode]
   doc_attrs : Array[Attr]
   env : CompileEnv
+  inline_body : Bool
 }
 
 ///|
@@ -81,17 +83,22 @@ priv enum DocAttrMode {
 
 ///|
 pub fn ElementOutput::empty() -> ElementOutput {
-  { body: [], head: [] }
+  { body: [], head: [], inline_body: true }
 }
 
 ///|
 pub fn ElementOutput::body(nodes : Array[HtmlNode]) -> ElementOutput {
-  { body: nodes, head: [] }
+  { body: nodes, head: [], inline_body: true }
+}
+
+///|
+pub fn ElementOutput::flow(nodes : Array[HtmlNode]) -> ElementOutput {
+  { body: nodes, head: [], inline_body: false }
 }
 
 ///|
 pub fn ElementOutput::head(nodes : Array[HtmlNode]) -> ElementOutput {
-  { body: [], head: nodes }
+  { body: [], head: nodes, inline_body: true }
 }
 
 ///|
@@ -176,7 +183,11 @@ fn compile_node_sequence_output(
     wrap_inline_content,
     extensions,
     doc_attr_mode=BindDocAttrs,
-  ).map(compiled => { body: compiled.body, head: compiled.head })
+  ).map(compiled => {
+    body: compiled.body,
+    head: compiled.head,
+    inline_body: compiled.inline_body,
+  })
 }
 
 ///|
@@ -192,6 +203,7 @@ fn compile_node_sequence_full(
   let head : Array[HtmlNode] = []
   let doc_attrs : Array[Attr] = []
   let inline_run : Array[HtmlNode] = []
+  let mut inline_body = true
   let on_doc_attr = attr => {
     if doc_attr_mode is CollectDocAttrs {
       doc_attrs.push(attr)
@@ -203,10 +215,18 @@ fn compile_node_sequence_full(
         Err(error) => return Err(error)
         Ok(compiled) => {
           head.append(compiled.head)
-          for html_node in compiled.body {
-            append_compiled_node(
-              inline_run, out, html_node, wrap_inline_content,
-            )
+          if compiled.inline_body {
+            if wrap_inline_content {
+              for html_node in compiled.body {
+                append_paragraph_content_node(inline_run, out, html_node)
+              }
+            } else {
+              out.append(compiled.body)
+            }
+          } else {
+            inline_body = false
+            flush_paragraph(inline_run, out)
+            out.append(compiled.body)
           }
         }
       }
@@ -216,7 +236,7 @@ fn compile_node_sequence_full(
     Err(error) => return Err(error)
   }
   flush_paragraph(inline_run, out)
-  Ok({ body: out, head, doc_attrs, env: local_env })
+  Ok({ body: out, head, doc_attrs, env: local_env, inline_body })
 }
 
 ///|
@@ -239,7 +259,7 @@ fn compile_block_children_output(
   extensions : Array[ElementResolver],
 ) -> Result[ElementOutput, Diagnostic] {
   compile_node_sequence_output(
-    children, env, current_heading_level, true, extensions,
+    children, env, current_heading_level, false, extensions,
   )
 }
 
@@ -251,11 +271,7 @@ fn compile_mixed_children_output(
   extensions : Array[ElementResolver],
 ) -> Result[ElementOutput, Diagnostic] {
   compile_node_sequence_output(
-    children,
-    env,
-    current_heading_level,
-    children_need_paragraphs(children, env),
-    extensions,
+    children, env, current_heading_level, false, extensions,
   )
 }
 
@@ -400,7 +416,7 @@ fn html_head_resolver(
   (compiler.context.compile_inline)(compiler.call.children).map(output => {
     let head = output.body
     head.append(output.head)
-    Some({ body: [], head })
+    Some({ body: [], head, inline_body: true })
   })
 }
 
@@ -411,8 +427,12 @@ fn compile_mapped_element(
 ) -> Result[ElementOutput, Diagnostic] {
   compile_attrs(input.call.attrs, input.env).bind(html_attrs => {
     compile_children_for_tag_output(tag, input).map(output => {
-      body: [HtmlNode::Element(tag, html_attrs, output.body)],
-      head: output.head,
+      let node = HtmlNode::Element(tag, html_attrs, output.body)
+      match content_model(tag) {
+        InlineOnly => { body: [node], head: output.head, inline_body: true }
+        BlockFlow | MixedFlow =>
+          { body: [node], head: output.head, inline_body: false }
+      }
     })
   })
 }
@@ -452,65 +472,53 @@ fn content_model(tag : String) -> ContentModel {
   match tag {
     "blockquote" => ContentModel::BlockFlow
     "li" | "div" => ContentModel::MixedFlow
-    _ if is_block_tag(tag) => ContentModel::MixedFlow
+    _ if is_flow_container_tag(tag) => ContentModel::MixedFlow
     _ if is_custom_block_tag(tag) => ContentModel::MixedFlow
     _ => ContentModel::InlineOnly
   }
 }
 
 ///|
-fn children_need_paragraphs(children : Array[Node], env : CompileEnv) -> Bool {
-  let mut needs_paragraphs = false
-  match
-    visit_scoped_nodes(children, env, _ => (), (child, local_env) => {
-      if node_needs_paragraph_context(child, local_env) {
-        needs_paragraphs = true
-      }
-      Ok(())
-    }) {
-    Ok(_) => needs_paragraphs
-    Err(_) => false
-  }
-}
-
-///|
-fn node_needs_paragraph_context(node : Node, env : CompileEnv) -> Bool {
-  match node {
-    Text(text, _) => has_paragraph_break(text)
-    TextInterp(template, _) => interpolation_has_paragraph_break(template)
-    Element("html.head", _, _, _) => false
-    Element(tag, _, _, _) => is_source_block_tag(tag)
-    Ref(name, _) =>
-      match env.lookup_value(name) {
-        Some(Scalar(text, _)) => has_paragraph_break(text)
-        Some(Interp(template, _)) => interpolation_has_paragraph_break(template)
-        Some(Fragment(nodes, _)) => children_need_paragraphs(nodes, env)
-        _ => false
-      }
-    When(name, children, span) =>
-      match bool_binding(env, name, span) {
-        Ok(true) => children_need_paragraphs(children, env)
-        _ => false
-      }
-    Unless(name, children, span) =>
-      match bool_binding(env, name, span) {
-        Ok(false) => children_need_paragraphs(children, env)
-        _ => false
-      }
-    Let(_, _, _) | Def(_, _, _, _) | Doc(_, _) => false
-  }
-}
-
-///|
-fn interpolation_has_paragraph_break(template : Interpolation) -> Bool {
-  template.any(part => part is Literal(text) && has_paragraph_break(text))
-}
-
-///|
-fn is_source_block_tag(tag : String) -> Bool {
-  match prelude_is_block(tag) {
-    Some(value) => value
-    None => is_block_tag(tag) || is_custom_block_tag(tag)
+fn is_flow_container_tag(tag : String) -> Bool {
+  match tag {
+    "address"
+    | "article"
+    | "aside"
+    | "blockquote"
+    | "details"
+    | "dialog"
+    | "div"
+    | "dl"
+    | "fieldset"
+    | "figcaption"
+    | "figure"
+    | "footer"
+    | "form"
+    | "h1"
+    | "h2"
+    | "h3"
+    | "h4"
+    | "h5"
+    | "h6"
+    | "header"
+    | "hr"
+    | "li"
+    | "main"
+    | "nav"
+    | "ol"
+    | "p"
+    | "pre"
+    | "section"
+    | "style"
+    | "table"
+    | "tbody"
+    | "td"
+    | "tfoot"
+    | "th"
+    | "thead"
+    | "tr"
+    | "ul" => true
+    _ => false
   }
 }
 

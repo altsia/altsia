@@ -20,7 +20,7 @@ test "anonymous tree renders as hash anchor without independent output" {
   @test.assert_eq(project.trees.length(), 1)
   @test.assert_eq(
     project.trees[0].html,
-    "<p>Root. </p><section id=\"math/a-1\"><p>Anonymous.</p></section>",
+    "<p>Root. </p><section id=\"math/a-1\">Anonymous.</section>",
   )
 }
 

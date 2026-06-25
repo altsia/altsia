@@ -104,7 +104,7 @@ fn RenderState::render_preview_content_nodes(
         self
         .render_preview_embed_html(embed, source, tree, counter, context)
         .map(html => {
-          Some(@html.ElementOutput::body([@sexp.SexpNode::RawHtml(html)]))
+          Some(@html.ElementOutput::flow([@sexp.SexpNode::RawHtml(html)]))
         })
     }
   }

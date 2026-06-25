@@ -102,7 +102,7 @@ test "unknown zero arg sexp is empty tag but bound name expands" {
 ///|
 test "section title and local condition" {
   let input = "(section (:title \"Intro\") (let draft true)(when (draft) (note draft)))"
-  let expected = "<section><h1>Intro</h1><aside class=\"note\"><p>draft</p></aside></section>"
+  let expected = "<section><h1>Intro</h1><aside class=\"note\">draft</aside></section>"
   @test.assert_eq(render_html_result(input), Ok(expected))
 }
 
@@ -117,13 +117,14 @@ test "mixed block keeps simple nested text unwrapped" {
 }
 
 ///|
-test "mixed block wraps paragraphs only when needed" {
+test "block children preserve explicit structure" {
   let input =
     #|(block
     #|First paragraph.
     #|
-    #|Second paragraph.)
-  let expected = "<div><p>First paragraph.</p><p>Second paragraph.</p></div>"
+    #|Second paragraph.
+    #|(p Explicit paragraph.))
+  let expected = "<div>First paragraph.\n\nSecond paragraph.<p>Explicit paragraph.</p></div>"
   @test.assert_eq(render_html_result(input), Ok(expected))
 }
 
@@ -136,25 +137,37 @@ test "h-prefixed unknown tag remains inline" {
 }
 
 ///|
-test "custom block elements use mixed flow" {
+test "custom structural elements preserve explicit structure" {
   let input =
     #|(x-card
     #|First paragraph.
     #|
     #|Second paragraph.)
-  let expected = "<x-card><p>First paragraph.</p><p>Second paragraph.</p></x-card>"
+  let expected = "<x-card>First paragraph.\n\nSecond paragraph.</x-card>"
   @test.assert_eq(render_html_result(input), Ok(expected))
 }
 
 ///|
-test "mixed block detects paragraph need through local refs" {
+test "flow containers are not wrapped in paragraphs" {
+  @test.assert_eq(
+    render_html_result("(header Site)Body"),
+    Ok("<header>Site</header><p>Body</p>"),
+  )
+  @test.assert_eq(
+    render_html_result("(nav (a (:href `/`) Home))Body"),
+    Ok("<nav><a href=\"/\">Home</a></nav><p>Body</p>"),
+  )
+}
+
+///|
+test "block children do not infer paragraphs through local refs" {
   let input =
     #|(block
     #|  (let body `First.
     #|
     #|Second.`)
     #|  (body))
-  let expected = "<div><p>First.</p><p>Second.</p></div>"
+  let expected = "<div>First.\n\nSecond.</div>"
   @test.assert_eq(render_html_result(input), Ok(expected))
 }
 
@@ -238,7 +251,7 @@ test "template hoisting does not cross child scopes" {
     #|  (section (:title "Inner")
     #|    (def card (body) (p (body))))
     #|  (card Hello))
-  let expected = "<section><h1>Outer</h1><section><h2>Inner</h2></section><p><card>Hello</card></p></section>"
+  let expected = "<section><h1>Outer</h1><section><h2>Inner</h2></section><card>Hello</card></section>"
   @test.assert_eq(render_html_result(input), Ok(expected))
 }
 

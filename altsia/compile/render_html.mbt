@@ -107,7 +107,7 @@ fn RenderState::render_resolved_content_nodes(
         self
         .render_embed_html(embed, tree, counter)
         .map(html => {
-          Some(@html.ElementOutput::body([@sexp.SexpNode::RawHtml(html)]))
+          Some(@html.ElementOutput::flow([@sexp.SexpNode::RawHtml(html)]))
         })
     }
   }

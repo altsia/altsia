@@ -3,7 +3,7 @@ name = "kokic/tim"
 version = "0.3.0"
 
 import {
-  "kokic/tinymark@0.3.4",
+  "kokic/tinymark@0.3.6",
   "kokic/sexp-html@0.3.0",
   "moonbitlang/x@0.4.43",
 }

@@ -10,7 +10,6 @@ using @core {
   type Diagnostic,
   type DiagnosticPhase,
   type Document,
-  type Interpolation,
   type Node,
   type SourceSpan,
   type Template,

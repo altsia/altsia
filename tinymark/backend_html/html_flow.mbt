@@ -1,27 +1,5 @@
 ///|
-fn append_compiled_node(
-  inline_run : Array[HtmlNode],
-  out : Array[HtmlNode],
-  node : HtmlNode,
-  wrap_inline_content : Bool,
-) -> Unit {
-  if wrap_inline_content && is_inline_html_node(node) {
-    return append_with_paragraph_splits(inline_run, out, node)
-  }
-  flush_paragraph(inline_run, out)
-  out.push(node)
-}
-
-///|
-fn flush_paragraph(inline_run : Array[HtmlNode], out : Array[HtmlNode]) -> Unit {
-  if !inline_run.is_empty() {
-    out.push(HtmlNode::Element("p", @sexp.HtmlAttrs({}), inline_run.copy()))
-    inline_run.clear()
-  }
-}
-
-///|
-fn append_with_paragraph_splits(
+fn append_paragraph_content_node(
   inline_run : Array[HtmlNode],
   out : Array[HtmlNode],
   node : HtmlNode,
@@ -31,6 +9,29 @@ fn append_with_paragraph_splits(
       append_text_with_paragraph_splits(inline_run, out, text)
     _ => inline_run.push(node)
   }
+}
+
+///|
+fn flush_paragraph(inline_run : Array[HtmlNode], out : Array[HtmlNode]) -> Unit {
+  if !inline_run.is_empty() {
+    if inline_run_only_blank_text(inline_run) {
+      out.append(inline_run.copy())
+    } else {
+      out.push(HtmlNode::Element("p", @sexp.HtmlAttrs({}), inline_run.copy()))
+    }
+    inline_run.clear()
+  }
+}
+
+///|
+fn inline_run_only_blank_text(inline_run : Array[HtmlNode]) -> Bool {
+  for node in inline_run {
+    match node {
+      HtmlNode::Text(text) if text.is_blank() => ()
+      _ => return false
+    }
+  }
+  true
 }
 
 ///|
@@ -93,46 +94,6 @@ fn paragraph_break_end(chars : Array[Char], index : Int) -> Int? {
 ///|
 fn is_blank_line_space(ch : Char) -> Bool {
   ch == ' ' || ch == '\t' || ch == '\r'
-}
-
-///|
-fn is_inline_html_node(node : HtmlNode) -> Bool {
-  match node {
-    HtmlNode::Text(_) => true
-    HtmlNode::Comment(_) => false
-    HtmlNode::RawHtml(_) => false
-    HtmlNode::Element(tag, _, _) => !is_block_tag(tag)
-  }
-}
-
-///|
-fn is_block_tag(tag : String) -> Bool {
-  match tag {
-    "section"
-    | "ul"
-    | "ol"
-    | "li"
-    | "table"
-    | "thead"
-    | "tbody"
-    | "tr"
-    | "figure"
-    | "aside"
-    | "pre"
-    | "div"
-    | "p"
-    | "style"
-    | "blockquote"
-    | "hr"
-    | "h1"
-    | "h2"
-    | "h3"
-    | "h4"
-    | "h5"
-    | "h6" => true
-    _ if is_custom_block_tag(tag) => true
-    _ => false
-  }
 }
 
 ///|

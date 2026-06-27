@@ -1,5 +1,5 @@
 ///|
-priv struct PaperMargins {
+pub struct PaperMargins {
   top : String
   right : String
   bottom : String
@@ -98,6 +98,7 @@ pub const PAPER_CLASS_NAME : String = "paper"
 ///|
 fn paper_style_node(paper : ComputedPaper) -> HtmlNode {
   let raw_css =
+    $|
     $|@media screen {
     $|  .\{PAPER_CLASS_NAME} {
     $|    max-width: \{paper.screen.max_width}; 
@@ -122,6 +123,7 @@ fn paper_style_node(paper : ComputedPaper) -> HtmlNode {
     $|    font-size: \{paper.print.font_size};
     $|  }
     $|}
+    $|
 
   HtmlNode::Element("style", @sexp.HtmlAttrs({}), [HtmlNode::RawHtml(raw_css)])
 }
@@ -140,7 +142,7 @@ fn paper_slate_from_name(name : String) -> PaperSlate? {
         screen: {
           max_width: "820px",
           padding: PaperMargins::same("32px"),
-          font_size: "16px",
+          font_size: "20px",
         },
       })
     "iso-b5" =>
@@ -154,7 +156,21 @@ fn paper_slate_from_name(name : String) -> PaperSlate? {
         screen: {
           max_width: "760px",
           padding: PaperMargins::same("28px"),
-          font_size: "16px",
+          font_size: "20px",
+        },
+      })
+    "ebook" =>
+      Some({
+        print: {
+          page_size: "152.4mm 228.6mm",
+          margins: small_margins,
+          staple_extra: "0mm",
+          font_size: "11.5pt",
+        },
+        screen: {
+          max_width: "820px",
+          padding: PaperMargins::same("16px"),
+          font_size: "20px",
         },
       })
     _ => None
@@ -164,6 +180,17 @@ fn paper_slate_from_name(name : String) -> PaperSlate? {
 ///|
 fn PaperMargins::same(value : String) -> PaperMargins {
   { top: value, right: value, bottom: value, left: value }
+}
+
+///|
+pub let small_margins : PaperMargins = PaperMargins::symmetry("4mm", "6mm")
+
+///|
+fn PaperMargins::symmetry(
+  vertical : String,
+  horizontal : String,
+) -> PaperMargins {
+  { top: vertical, right: horizontal, bottom: vertical, left: horizontal }
 }
 
 ///|

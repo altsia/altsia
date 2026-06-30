@@ -63,6 +63,16 @@ test "renders paragraphs and inline sugar" {
 }
 
 ///|
+test "trims line layout at text boundaries" {
+  @test.assert_eq(render_html_result("Body\n"), Ok("<p>Body</p>"))
+  @test.assert_eq(render_html_result("Body\n   "), Ok("<p>Body</p>"))
+  @test.assert_eq(
+    render_html_result("First\n\nSecond\n"),
+    Ok("<p>First</p><p>Second</p>"),
+  )
+}
+
+///|
 test "preserves spaces around inline sexp" {
   let input = "Open (span your) eyes."
   let expected = "<p>Open <span>your</span> eyes.</p>"

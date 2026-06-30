@@ -60,7 +60,7 @@ fn parse_quoted_string(
       flush_interpolation_literal(parts, buffer)
       let ref_start = cursor.at(index)
       let (name, after_name) = parse_name(ref_start.advance(1))
-      if name.is_empty() || after_name.peek() != Some(')') {
+      guard !name.is_empty() && after_name.peek() == Some(')') else {
         return Err(ref_start.error("invalid interpolation name"))
       }
       parts.push(Name(name))
@@ -78,52 +78,89 @@ fn flush_interpolation_literal(
   parts : Interpolation,
   buffer : Array[Char],
 ) -> Unit {
-  if !buffer.is_empty() {
-    parts.push(Literal(String::from_array(buffer.view())))
-    buffer.clear()
+  guard !buffer.is_empty() else { return }
+  parts.push(Literal(String::from_array(buffer.view())))
+  buffer.clear()
+}
+
+///|
+// Consumes plain text until the next syntax boundary. Soft line breaks are
+// layout: they do not emit text, while blank lines emit "\n\n" for paragraph
+// splitting in the HTML backend.
+fn parse_text(cursor : Cursor) -> (String, Cursor) {
+  let buffer : Array[Char] = []
+  let mut index = cursor.index
+  while index < cursor.chars.length() && !is_text_stop(cursor, index) {
+    index = consume_text_unit(cursor.chars, index, buffer)
+  }
+  (smart_dashes(String::from_array(buffer.view())), cursor.at(index))
+}
+
+///|
+fn is_text_stop(cursor : Cursor, index : Int) -> Bool {
+  is_text_boundary(cursor.chars[index]) || is_line_comment_start(cursor, index)
+}
+
+///|
+// Advances over one logical text unit and appends any emitted characters to
+// buffer. The returned index always moves forward.
+fn consume_text_unit(
+  chars : Array[Char],
+  index : Int,
+  buffer : Array[Char],
+) -> Int {
+  if is_crlf_at(chars, index) {
+    index + 1
+  } else if is_newline(chars[index]) {
+    consume_text_newline(chars, index, buffer)
+  } else if is_escaped_text_char_at(chars, index) {
+    buffer.push(chars[index + 1])
+    index + 2
+  } else {
+    buffer.push(chars[index])
+    index + 1
   }
 }
 
 ///|
-fn parse_text(cursor : Cursor) -> (String, Cursor) {
-  let buffer : Array[Char] = []
-  let mut index = cursor.index
-  while index < cursor.chars.length() {
-    let ch = cursor.chars[index]
-    if is_text_boundary(ch) || is_line_comment_start(cursor, index) {
-      break
-    }
-    if is_newline(ch) {
-      let mut next = index + 1
-      while next < cursor.chars.length() {
-        let space = cursor.chars[next]
-        if is_layout_space(space) {
-          next += 1
-        } else {
-          break
-        }
-      }
-      if next < cursor.chars.length() && is_newline(cursor.chars[next]) {
-        buffer.push('\n')
-        buffer.push('\n')
-        index = next + 1
-      } else {
-        index += 1
-      }
-      continue
-    }
-    if ch == '\\' && index + 1 < cursor.chars.length() {
-      let escaped = cursor.chars[index + 1]
-      if is_escapable_text_char(escaped) {
-        buffer.push(escaped)
-        index += 2
-        continue
-      }
-    }
-    buffer.push(ch)
+// Single newlines only join source lines. A second newline after optional
+// layout spaces is preserved as the paragraph-break marker.
+fn consume_text_newline(
+  chars : Array[Char],
+  index : Int,
+  buffer : Array[Char],
+) -> Int {
+  let next = skip_layout_spaces(chars, index + 1)
+  if next < chars.length() && is_newline(chars[next]) {
+    buffer.push('\n')
+    buffer.push('\n')
+    next + 1
+  } else {
+    next
+  }
+}
+
+///|
+fn is_crlf_at(chars : Array[Char], index : Int) -> Bool {
+  chars[index] == '\r' && index + 1 < chars.length() && is_newline(chars[index + 1])
+}
+
+///|
+fn skip_layout_spaces(chars : Array[Char], start : Int) -> Int {
+  let mut index = start
+  while index < chars.length() && is_layout_space(chars[index]) {
     index += 1
   }
-  (smart_dashes(String::from_array(buffer.view())), cursor.at(index))
+  index
+}
+
+///|
+// Backslash escapes are intentionally narrow: unknown escapes keep the
+// backslash literal instead of silently deleting it.
+fn is_escaped_text_char_at(chars : Array[Char], index : Int) -> Bool {
+  chars[index] == '\\' &&
+  index + 1 < chars.length() &&
+  is_escapable_text_char(chars[index + 1])
 }
 
 ///|

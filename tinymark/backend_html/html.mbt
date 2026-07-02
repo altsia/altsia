@@ -216,12 +216,9 @@ fn compile_node_sequence_full(
         Ok(compiled) => {
           head.append(compiled.head)
           if compiled.inline_body {
-            if wrap_inline_content {
-              for html_node in compiled.body {
-                append_paragraph_content_node(inline_run, out, html_node)
-              }
-            } else {
-              out.append(compiled.body)
+            guard wrap_inline_content else { out.append(compiled.body) }
+            for html_node in compiled.body {
+              append_paragraph_content_node(inline_run, out, html_node)
             }
           } else {
             inline_body = false

@@ -20,6 +20,7 @@ fn CallContext::compile_prelude_element(
   match call.tag {
     "_" => (context.compile_inline)(call.children).map(f)
     "h" => self.compile_hspace().map(f)
+    "lorem" => self.compile_lorem().map(f)
     "list" => self.compile_alias("ul", InlineChildren).map(f)
     "enum" => self.compile_alias("ol", InlineChildren).map(f)
     "item" => self.compile_alias("li", MixedChildren).map(f)
@@ -102,13 +103,11 @@ fn SectionElement::from_call(
   for attr in call.attrs {
     match attr.name {
       "title" =>
-        match attr.value {
-          Some(value) =>
-            match value.to_scalar(env) {
-              Ok(text) => title = Some(text)
-              Err(error) => return Err(error)
-            }
-          None => ()
+        if attr.value is Some(value) {
+          match value.to_scalar(env) {
+            Ok(text) => title = Some(text)
+            Err(error) => return Err(error)
+          }
         }
       _ =>
         match attr.optional_scalar(env) {
@@ -199,6 +198,63 @@ fn CallContext::compile_slot(
         HtmlNode::Element("pre", html_attrs, [HtmlNode::Text(source)]),
       ])
     })
+  })
+}
+
+///|
+fn CallContext::compile_lorem(
+  self : CallContext,
+) -> Result[ElementOutput, Diagnostic] {
+  let { call, context } = self
+
+  compile_attrs(call.attrs, context.env).bind(attrs => {
+    guard !call.children.is_empty() else {
+      return Err(
+        call.span.diagnostic(
+          DiagnosticPhase::Type,
+          "(lorem ...) requires a count",
+        ),
+      )
+    }
+
+    guard call.children[0] is Text(count, _) &&
+      (Ok(@string.parse_int(count)) catch { e => Err(e) }) is Ok(count) else {
+      return Err(
+        call.span.diagnostic(
+          DiagnosticPhase::Type,
+          "lorem <count> requires an integer",
+        ),
+      )
+    }
+
+    let mut corpus = attrs.0
+      .get("corpus")
+      .bind(x => x)
+      .unwrap_or(@ipsum.TEXT_LOREM)
+    let mut delimiter = attrs.0.get("lang").bind(x => x).unwrap_or("en")
+
+    if attrs.0
+      .get("scheme")
+      .bind(x => x)
+      .map(name => BuiltinScheme::get(name))
+      .bind(x => x)
+      is Some(scheme) {
+      corpus = scheme.corpus
+      delimiter = scheme.delimiter
+    }
+
+    let seed = attrs.0
+      .get("seed")
+      .bind(x => x)
+      .map(v => (Ok(@string.parse_int(v)) catch { e => Err(e) }).to_option())
+      .bind(x => x)
+      .unwrap_or(MAGIC_SEED_DEFAULT)
+
+    let lorem = @ipsum.lorem(delimiter, corpus, count, seed)
+    let html = HtmlNode::Element("span", @sexp.HtmlAttrs({}), [
+      @sexp.Text(lorem),
+    ])
+    Ok(ElementOutput::body([html]))
   })
 }
 

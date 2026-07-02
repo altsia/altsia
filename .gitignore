@@ -5,3 +5,5 @@ target/
 *.mbti
 AGENTS.md
 _build
+
+tinymark/tim

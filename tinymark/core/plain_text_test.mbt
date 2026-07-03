@@ -85,3 +85,18 @@ test "plain text reports unbound interpolation" {
       @test.assert_eq(diagnostic.message, "unbound interpolation name: name")
   }
 }
+
+///|
+test "plain text reports unbound refs" {
+  match nodes_to_plain_text(parse_doc("(missing)").nodes, None) {
+    Ok(_) => abort("expected unbound ref")
+    Err(diagnostic) =>
+      @test.assert_eq(diagnostic.message, "unbound plain text name: missing")
+  }
+}
+
+///|
+test "plain text interpolation flattens fragments" {
+  let doc = parse_doc("(let label (em hot))\"Sale: (label)\"")
+  @test.assert_eq(plain_nodes_or_abort(doc.nodes), "Sale: hot")
+}

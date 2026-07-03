@@ -91,13 +91,14 @@ fn compile_html_document_nodes(
   options : HtmlDocumentOptions,
 ) -> Result[String, Diagnostic] {
   let compiled = match
-    compile_node_sequence_full(
+    compile_backend_nodes_full(
       nodes,
       env,
       options.initial_heading_level,
       options.wrap_inline_content,
+      html_render_backend(),
       options.extensions,
-      doc_attr_mode=CollectDocAttrs,
+      doc_attr_mode=DocAttrMode::CollectDocAttrs,
     ) {
     Ok(value) => value
     Err(error) => return Err(error)

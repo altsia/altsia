@@ -151,6 +151,8 @@ fn PreviewRenderContext::new(
     options,
     tree_links: [],
     embeds: [],
+    // TODO(altsia): populate this when PreviewOptions::collect_assets has a
+    // concrete asset discovery contract.
     assets: [],
     link_counter: [0],
     embed_counter: [0],

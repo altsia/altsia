@@ -144,6 +144,8 @@ pub(all) struct PreviewResult {
 }
 
 ///|
+// TODO(altsia): decide whether structured preview owns asset discovery or
+// receives assets from a later project/filesystem layer.
 pub(all) struct PreviewOptions {
   annotate_html : Bool
   collect_assets : Bool
@@ -176,6 +178,8 @@ pub(all) struct PreviewEmbed {
 } derive(Eq, Debug)
 
 ///|
+// TODO(altsia): define the supported asset sources before relying on this
+// public shape; it is currently reserved for structured preview output.
 pub(all) struct PreviewAsset {
   id : String
   source : String

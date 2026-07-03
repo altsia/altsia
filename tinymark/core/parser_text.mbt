@@ -142,7 +142,9 @@ fn consume_text_newline(
 
 ///|
 fn is_crlf_at(chars : Array[Char], index : Int) -> Bool {
-  chars[index] == '\r' && index + 1 < chars.length() && is_newline(chars[index + 1])
+  chars[index] == '\r' &&
+  index + 1 < chars.length() &&
+  is_newline(chars[index + 1])
 }
 
 ///|

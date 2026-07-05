@@ -1,8 +1,9 @@
 import {
   "moonbitlang/core/test",
-  "moonbitlang/core/string",
-  "moonbitlang/core/immut/hashset" @immut_set,
   "kokic/tinymark/core",
+  "kokic/tinymark/css" @css,
+  "kokic/tinymark/i18n" @i18n,
+  "kokic/tinymark/lorem" @lorem,
+  "kokic/tinymark/paper" @paper,
   "kokic/sexp-html" @sexp,
-  "kokic/i18n-ipsum" @ipsum,
 }

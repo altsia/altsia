@@ -34,7 +34,7 @@ priv struct DocumentHeadMetadata {
 
 ///|
 priv struct PaperRequest {
-  options : PaperOptions
+  options : @paper.PaperOptions
   span : SourceSpan
 }
 
@@ -137,7 +137,7 @@ fn document_metadata(
     }
   }
   if metadata.paper is Some(_) {
-    metadata.body_attrs.append_class(PAPER_CLASS_NAME)
+    metadata.body_attrs.append_class(@paper.PAPER_CLASS_NAME)
   }
   Ok(metadata)
 }
@@ -307,8 +307,8 @@ fn html_head_nodes(
   }
 
   if metadata.paper is Some(request) {
-    match compute_paper(request.options, request.span) {
-      Ok(paper) => head.push(paper_style_node(paper))
+    match @paper.paper_style_css(request.options, request.span) {
+      Ok(css) => head.push(paper_style_node(css))
       Err(error) => return Err(error)
     }
   }
@@ -316,6 +316,11 @@ fn html_head_nodes(
   head.append(extra_head)
   head.append(explicit_head)
   Ok(head)
+}
+
+///|
+fn paper_style_node(css : String) -> HtmlNode {
+  HtmlNode::Element("style", @sexp.HtmlAttrs({}), [HtmlNode::RawHtml(css)])
 }
 
 ///|

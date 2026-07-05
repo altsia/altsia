@@ -30,8 +30,8 @@ fn CallContext::compile_prelude_element(
     "codeblock" => self.compile_code().map(f)
     "section" => self.compile_section().map(f)
     "note" | "warning" | "tip" => self.compile_admonition(call.tag).map(f)
-    _ if builtin_languages.contains(call.tag) =>
-      self.compile_language_span(normalize_builtin_language(call.tag)).map(f)
+    _ if @i18n.builtin_languages.contains(call.tag) =>
+      self.compile_language_span(@i18n.normalize_builtin_language(call.tag)).map(f)
     _ => Ok(None)
   }
 }
@@ -126,7 +126,7 @@ fn SectionElement::heading_nodes(
 ) -> Array[HtmlNode] {
   match self.title {
     Some(text) => {
-      let level = clamp_heading_level(current_heading_level)
+      let level = @core.clamp_heading_level(current_heading_level)
       [
         HtmlNode::Element("h" + level.to_string(), @sexp.HtmlAttrs({}), [
           HtmlNode::Text(text),

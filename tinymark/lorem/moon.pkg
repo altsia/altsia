@@ -1,0 +1,6 @@
+import {
+  "moonbitlang/core/test",
+  "moonbitlang/core/string",
+  "kokic/tinymark/core",
+  "kokic/i18n-ipsum" @ipsum,
+}

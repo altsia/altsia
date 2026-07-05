@@ -1,0 +1,4 @@
+import {
+  "moonbitlang/core/test",
+  "moonbitlang/core/immut/hashset" @immut_set,
+}

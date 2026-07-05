@@ -15,13 +15,21 @@ pub fn Value::span(self : Value) -> SourceSpan {
 }
 
 ///|
+pub fn Value::unsafe_primitive(self : Value) -> String {
+  match self {
+    Scalar(text, _) => text
+    Bool(value, _) => if value { "true" } else { "false" }
+    _ => abort("unreachable")
+  }
+}
+
+///|
 pub fn Value::to_scalar(
   self : Value,
   env : CompileEnv,
 ) -> Result[String, Diagnostic] {
   match self {
-    Scalar(text, _) => Ok(text)
-    Bool(value, _) => Ok(if value { "true" } else { "false" })
+    Scalar(_) | Bool(_) => Ok(self.unsafe_primitive())
     Interp(template, span) => interpolate_scalar(template, env, span)
     Fragment(_, span) =>
       Err(
@@ -40,8 +48,7 @@ pub fn Value::to_literal_scalar(
   message : String,
 ) -> Result[String, Diagnostic] {
   match self {
-    Scalar(text, _) => Ok(text)
-    Bool(value, _) => Ok(if value { "true" } else { "false" })
+    Scalar(_) | Bool(_) => Ok(self.unsafe_primitive())
     _ => Err(context_span.diagnostic(DiagnosticPhase::Type, message))
   }
 }

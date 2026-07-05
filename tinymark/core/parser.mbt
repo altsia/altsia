@@ -1,4 +1,7 @@
 ///|
+pub type Parser
+
+///|
 priv struct ParsedNodes {
   nodes : Array[Node]
   next : Cursor
@@ -72,11 +75,11 @@ fn parse_node_sequence(
 ///|
 fn parse_node(cursor : Cursor) -> Result[(Node, Cursor), Diagnostic] {
   let start = cursor
-  if is_line_comment_start(start, start.index) {
+  if Parser::is_line_comment_start(start, start.index) {
     return parse_node(skip_content_layout(skip_line_comment(start), None, true))
   }
   if start.at_line_start() &&
-    start.peek().map(is_list_sugar_marker).unwrap_or(false) {
+    start.peek().map(Parser::is_list_sugar_marker).unwrap_or(false) {
     return parse_list_sugar(start)
   }
   match start.peek() {

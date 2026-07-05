@@ -31,7 +31,9 @@ fn CallContext::compile_prelude_element(
     "section" => self.compile_section().map(f)
     "note" | "warning" | "tip" => self.compile_admonition(call.tag).map(f)
     _ if @i18n.builtin_languages.contains(call.tag) =>
-      self.compile_language_span(@i18n.normalize_builtin_language(call.tag)).map(f)
+      self
+      .compile_language_span(@i18n.normalize_builtin_language(call.tag))
+      .map(f)
     _ => Ok(None)
   }
 }

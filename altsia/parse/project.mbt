@@ -446,7 +446,9 @@ fn tree_slug_attr(
 ) -> Result[String?, @core.Diagnostic] {
   for attr in attrs {
     if attr.name == "slug" {
-      return optional_literal_attr_scalar(attr, "tree slug requires a literal scalar")
+      return optional_literal_attr_scalar(
+        attr, "tree slug requires a literal scalar",
+      )
     }
   }
   Ok(None)
@@ -485,8 +487,7 @@ fn tree_title_attr(
   for attr in attrs {
     if attr.name == "title" {
       return optional_literal_attr_scalar(
-        attr,
-        "tree title requires a literal scalar",
+        attr, "tree title requires a literal scalar",
       )
     }
   }

@@ -216,7 +216,9 @@ test "template definitions are hoisted within the same scope" {
 
 ///|
 test "compile fragment accepts injected env from collected bindings" {
-  let component = @core.parse_abort("(def badge (body) (span (:class `badge`) (body)))")
+  let component = @core.parse_abort(
+    "(def badge (body) (span (:class `badge`) (body)))",
+  )
   let env = collect_env(component)
   let doc = @core.parse_abort("(badge Hello)")
   @test.assert_eq(
@@ -626,7 +628,10 @@ test "extension resolver handles element and fallback preserves html" {
     extensions: [resolver],
   }
   @test.assert_eq(
-    render_fragment_result(@core.parse_abort("(icon search)(custom ok)"), options~),
+    render_fragment_result(
+      @core.parse_abort("(icon search)(custom ok)"),
+      options~,
+    ),
     Ok("<p><span class=\"icon\">search</span><custom>ok</custom></p>"),
   )
 }
@@ -664,7 +669,10 @@ test "extension resolver can emit document head nodes" {
     extensions: [resolver],
   }
   @test.assert_eq(
-    render_fragment_result(@core.parse_abort("(asset)Body"), options=fragment_options),
+    render_fragment_result(
+      @core.parse_abort("(asset)Body"),
+      options=fragment_options,
+    ),
     Ok("<p>Body</p>"),
   )
 }

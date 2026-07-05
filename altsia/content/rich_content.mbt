@@ -293,7 +293,10 @@ fn embed_option_from_attrs(
 fn embed_bool_attr(attr : @core.Attr) -> Result[Bool, @core.Diagnostic] {
   match attr.value {
     Some(value) =>
-      value.to_bool(attr.span, "embed option requires a boolean value: " + attr.name)
+      value.to_bool(
+        attr.span,
+        "embed option requires a boolean value: " + attr.name,
+      )
     None => Ok(true)
   }
 }

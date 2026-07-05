@@ -212,10 +212,11 @@ fn apply_metadata_attrs(
               }
             }
             "references" => {
-              let value = match optional_attr_bool(
-                attr,
-                "metadata option requires a boolean value: " + attr.name,
-              ) {
+              let value = match
+                optional_attr_bool(
+                  attr,
+                  "metadata option requires a boolean value: " + attr.name,
+                ) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -224,10 +225,11 @@ fn apply_metadata_attrs(
               }
             }
             "backlinks" => {
-              let value = match optional_attr_bool(
-                attr,
-                "metadata option requires a boolean value: " + attr.name,
-              ) {
+              let value = match
+                optional_attr_bool(
+                  attr,
+                  "metadata option requires a boolean value: " + attr.name,
+                ) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -236,10 +238,11 @@ fn apply_metadata_attrs(
               }
             }
             "asref" => {
-              let value = match optional_attr_bool(
-                attr,
-                "metadata option requires a boolean value: " + attr.name,
-              ) {
+              let value = match
+                optional_attr_bool(
+                  attr,
+                  "metadata option requires a boolean value: " + attr.name,
+                ) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -248,10 +251,11 @@ fn apply_metadata_attrs(
               }
             }
             "asback" => {
-              let value = match optional_attr_bool(
-                attr,
-                "metadata option requires a boolean value: " + attr.name,
-              ) {
+              let value = match
+                optional_attr_bool(
+                  attr,
+                  "metadata option requires a boolean value: " + attr.name,
+                ) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }

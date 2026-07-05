@@ -90,7 +90,7 @@ fn Cursor::local_line_column(self : Cursor) -> (Int, Int) {
     self.index
   }
   while index < end {
-    if is_newline(self.chars[index]) {
+    if Parser::is_newline(self.chars[index]) {
       line += 1
       column = 1
     } else {
@@ -110,15 +110,15 @@ fn Cursor::line_bounds(self : Cursor) -> (Int, Int) {
   }
   if current > 0 &&
     current == self.chars.length() &&
-    is_newline(self.chars[current - 1]) {
+    Parser::is_newline(self.chars[current - 1]) {
     current -= 1
   }
   let mut start = current
-  while start > 0 && !is_newline(self.chars[start - 1]) {
+  while start > 0 && !Parser::is_newline(self.chars[start - 1]) {
     start -= 1
   }
   let mut end = current
-  while end < self.chars.length() && !is_newline(self.chars[end]) {
+  while end < self.chars.length() && !Parser::is_newline(self.chars[end]) {
     end += 1
   }
   (start, end)
@@ -140,7 +140,7 @@ fn Cursor::starts_with(self : Cursor, text : String) -> Bool {
 
 ///|
 fn Cursor::at_line_start(self : Cursor) -> Bool {
-  self.index == 0 || is_newline(self.chars[self.index - 1])
+  self.index == 0 || Parser::is_newline(self.chars[self.index - 1])
 }
 
 ///|
@@ -148,7 +148,7 @@ fn Cursor::skip_spaces(self : Cursor) -> Cursor {
   let mut index = self.index
   while index < self.chars.length() {
     let ch = self.chars[index]
-    if is_layout_space(ch) {
+    if Parser::is_layout_space(ch) {
       index += 1
     } else {
       break
@@ -164,11 +164,11 @@ fn Cursor::skip_layout(self : Cursor) -> Cursor {
   while keep_going {
     keep_going = false
     cursor = cursor.skip_spaces()
-    if is_line_comment_start(cursor, cursor.index) {
+    if Parser::is_line_comment_start(cursor, cursor.index) {
       cursor = skip_line_comment(cursor)
       keep_going = true
     }
-    if cursor.peek().map(is_newline).unwrap_or(false) {
+    if cursor.peek().map(Parser::is_newline).unwrap_or(false) {
       cursor = cursor.advance(1)
       keep_going = true
     }

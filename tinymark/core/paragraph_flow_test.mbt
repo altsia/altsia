@@ -1,13 +1,15 @@
 ///|
 test "splits text at paragraph breaks" {
-  @test.assert_eq(
-    split_paragraph_text("First\n\nSecond"),
-    [ParagraphPart::Text("First"), Break, Text("Second")],
-  )
-  @test.assert_eq(
-    split_paragraph_text("First\n  \r\t\nSecond"),
-    [ParagraphPart::Text("First"), Break, Text("Second")],
-  )
+  @test.assert_eq(split_paragraph_text("First\n\nSecond"), [
+    ParagraphPart::Text("First"),
+    Break,
+    Text("Second"),
+  ])
+  @test.assert_eq(split_paragraph_text("First\n  \r\t\nSecond"), [
+    ParagraphPart::Text("First"),
+    Break,
+    Text("Second"),
+  ])
 }
 
 ///|

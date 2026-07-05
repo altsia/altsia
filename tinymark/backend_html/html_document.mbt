@@ -217,8 +217,7 @@ fn DocumentMetadata::with_head_value(
   env : CompileEnv,
   update : (DocumentHeadMetadata, String?) -> DocumentHeadMetadata,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  compile_optional_attr_scalar(attr, env)
-  .map(value => {
+  compile_optional_attr_scalar(attr, env).map(value => {
     let head = update(self.head, value)
     { ..self, head, }
   })
@@ -248,7 +247,8 @@ fn DocumentMetadata::with_staple(
   self : DocumentMetadata,
   attr : Attr,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  match flag_attr_bool(attr, "doc option requires a boolean value: " + attr.name) {
+  match
+    flag_attr_bool(attr, "doc option requires a boolean value: " + attr.name) {
     Ok(value) => {
       let paper = match self.paper {
         Some(request) =>

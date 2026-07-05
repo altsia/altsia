@@ -29,7 +29,10 @@ fn lorem_text_or_abort(source : String) -> String {
 ///|
 test "generates lorem text from default and named schemes" {
   @test.assert_eq(lorem_text_or_abort("(lorem 3)").length() > 0, true)
-  @test.assert_eq(lorem_text_or_abort("(lorem (:scheme `xiaoyaoyou`) 2)").length() > 0, true)
+  @test.assert_eq(
+    lorem_text_or_abort("(lorem (:scheme `xiaoyaoyou`) 2)").length() > 0,
+    true,
+  )
 }
 
 ///|

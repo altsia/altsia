@@ -1,8 +1,8 @@
 import {
   "moonbitlang/core/test",
   "kokic/tinymark/core",
-  "kokic/tinymark/i18n" @i18n,
-  "kokic/tinymark/lorem" @lorem,
-  "kokic/tinymark/paper" @paper,
+  "kokic/tinymark/i18n",
+  "kokic/tinymark/lorem",
+  "kokic/tinymark/paper",
   "kokic/sexp-html" @sexp,
 }

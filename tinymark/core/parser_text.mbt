@@ -4,7 +4,7 @@ fn parse_name(cursor : Cursor) -> (String, Cursor) {
   let mut index = cursor.index
   while index < cursor.chars.length() {
     let ch = cursor.chars[index]
-    if is_name_boundary(ch) {
+    if Parser::is_name_boundary(ch) {
       break
     }
     if ch == '\\' && index + 1 < cursor.chars.length() {
@@ -98,7 +98,8 @@ fn parse_text(cursor : Cursor) -> (String, Cursor) {
 
 ///|
 fn is_text_stop(cursor : Cursor, index : Int) -> Bool {
-  is_text_boundary(cursor.chars[index]) || is_line_comment_start(cursor, index)
+  Parser::is_text_boundary(cursor.chars[index]) ||
+  Parser::is_line_comment_start(cursor, index)
 }
 
 ///|
@@ -111,7 +112,7 @@ fn consume_text_unit(
 ) -> Int {
   if is_crlf_at(chars, index) {
     index + 1
-  } else if is_newline(chars[index]) {
+  } else if Parser::is_newline(chars[index]) {
     consume_text_newline(chars, index, buffer)
   } else if is_escaped_text_char_at(chars, index) {
     buffer.push(chars[index + 1])
@@ -131,7 +132,7 @@ fn consume_text_newline(
   buffer : Array[Char],
 ) -> Int {
   let next = skip_layout_spaces(chars, index + 1)
-  if next < chars.length() && is_newline(chars[next]) {
+  if next < chars.length() && Parser::is_newline(chars[next]) {
     buffer.push('\n')
     buffer.push('\n')
     next + 1
@@ -144,13 +145,13 @@ fn consume_text_newline(
 fn is_crlf_at(chars : Array[Char], index : Int) -> Bool {
   chars[index] == '\r' &&
   index + 1 < chars.length() &&
-  is_newline(chars[index + 1])
+  Parser::is_newline(chars[index + 1])
 }
 
 ///|
 fn skip_layout_spaces(chars : Array[Char], start : Int) -> Int {
   let mut index = start
-  while index < chars.length() && is_layout_space(chars[index]) {
+  while index < chars.length() && Parser::is_layout_space(chars[index]) {
     index += 1
   }
   index
@@ -162,7 +163,7 @@ fn skip_layout_spaces(chars : Array[Char], start : Int) -> Int {
 fn is_escaped_text_char_at(chars : Array[Char], index : Int) -> Bool {
   chars[index] == '\\' &&
   index + 1 < chars.length() &&
-  is_escapable_text_char(chars[index + 1])
+  Parser::is_escapable_text_char(chars[index + 1])
 }
 
 ///|

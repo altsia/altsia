@@ -62,32 +62,34 @@ pub fn paper_style_css(
   span : @core.SourceSpan,
 ) -> Result[String, @core.Diagnostic] {
   compute_paper(options, span).map(paper => {
-    $|
-    $|@media screen {
-    $|  .\{PAPER_CLASS_NAME} {
-    $|    max-width: \{paper.screen.max_width};
-    $|    margin: 0 auto;
-    $|    padding: \{paper.screen.padding.css_box()};
-    $|    box-sizing: border-box;
-    $|    font-size: \{paper.screen.font_size};
-    $|  }
-    $|}
-    $|
-    $|@media print {
-    $|  @page {
-    $|    size: \{paper.print.page_size};
-    $|    margin: \{paper.print.margins.css_box()};
-    $|  }
-    $|
-    $|  .\{PAPER_CLASS_NAME} {
-    $|    max-width: none;
-    $|    margin: 0;
-    $|    padding: 0;
-    $|    box-sizing: border-box;
-    $|    font-size: \{paper.print.font_size};
-    $|  }
-    $|}
-    $|
+    (
+      $|
+      $|@media screen {
+      $|  .\{PAPER_CLASS_NAME} {
+      $|    max-width: \{paper.screen.max_width};
+      $|    margin: 0 auto;
+      $|    padding: \{paper.screen.padding.css_box()};
+      $|    box-sizing: border-box;
+      $|    font-size: \{paper.screen.font_size};
+      $|  }
+      $|}
+      $|
+      $|@media print {
+      $|  @page {
+      $|    size: \{paper.print.page_size};
+      $|    margin: \{paper.print.margins.css_box()};
+      $|  }
+      $|
+      $|  .\{PAPER_CLASS_NAME} {
+      $|    max-width: none;
+      $|    margin: 0;
+      $|    padding: 0;
+      $|    box-sizing: border-box;
+      $|    font-size: \{paper.print.font_size};
+      $|  }
+      $|}
+      $|
+    )
   })
 }
 

@@ -200,7 +200,7 @@ fn DocumentMetadata::apply_html_attr(
   attr : Attr,
   env : CompileEnv,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  match attr.optional_scalar(env) {
+  match compile_optional_attr_scalar(attr, env) {
     Ok(Some(text)) => {
       self.html_attrs.upsert(attr.name, Some(text))
       Ok(self)
@@ -217,8 +217,7 @@ fn DocumentMetadata::with_head_value(
   env : CompileEnv,
   update : (DocumentHeadMetadata, String?) -> DocumentHeadMetadata,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  attr
-  .optional_scalar(env)
+  compile_optional_attr_scalar(attr, env)
   .map(value => {
     let head = update(self.head, value)
     { ..self, head, }
@@ -231,15 +230,17 @@ fn DocumentMetadata::with_paper(
   attr : Attr,
   env : CompileEnv,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  attr
-  .required_scalar(env, "paper requires a value")
-  .map(name => {
-    ..self,
-    paper: Some({
-      options: { slate_name: name, staple: self.staple },
-      span: attr.span,
-    }),
-  })
+  match required_attr_scalar(attr, env, "paper requires a value") {
+    Ok(name) =>
+      Ok({
+        ..self,
+        paper: Some({
+          options: { slate_name: name, staple: self.staple },
+          span: attr.span,
+        }),
+      })
+    Err(error) => Err(error)
+  }
 }
 
 ///|
@@ -247,16 +248,17 @@ fn DocumentMetadata::with_staple(
   self : DocumentMetadata,
   attr : Attr,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  attr
-  .flag_bool("doc option requires a boolean value: " + attr.name)
-  .map(value => {
-    let paper = match self.paper {
-      Some(request) =>
-        Some({ ..request, options: { ..request.options, staple: value } })
-      None => None
+  match flag_attr_bool(attr, "doc option requires a boolean value: " + attr.name) {
+    Ok(value) => {
+      let paper = match self.paper {
+        Some(request) =>
+          Some({ ..request, options: { ..request.options, staple: value } })
+        None => None
+      }
+      Ok({ ..self, paper, staple: value })
     }
-    { ..self, paper, staple: value }
-  })
+    Err(error) => Err(error)
+  }
 }
 
 ///|
@@ -265,7 +267,7 @@ fn DocumentMetadata::apply_body_attr(
   attr : Attr,
   env : CompileEnv,
 ) -> Result[DocumentMetadata, Diagnostic] {
-  match attr.optional_scalar(env) {
+  match compile_optional_attr_scalar(attr, env) {
     Ok(value) => {
       self.body_attrs.upsert(attr.name, value)
       Ok(self)

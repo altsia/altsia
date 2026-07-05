@@ -1,5 +1,7 @@
+pub type CSS
+
 ///|
-pub fn compile_css_rule_nodes(
+pub fn CSS::compile_rule_nodes(
   children : Array[@core.Node],
   scope : String?,
   env : @core.CompileEnv,
@@ -60,7 +62,7 @@ fn compile_css_rule_element(
 }
 
 ///|
-pub fn normalize_css_scope(scope : String) -> String {
+pub fn CSS::normalize_css_scope(scope : String) -> String {
   let trimmed = scope.trim().to_owned()
   if is_explicit_css_scope_selector(trimmed) {
     return trimmed

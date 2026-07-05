@@ -50,7 +50,11 @@ fn placeholder_node(index : Int, span : @core.SourceSpan) -> @core.Node {
 
 ///|
 fn placeholder_attr(index : Int, span : @core.SourceSpan) -> @core.Attr {
-  { name: "data-index", value: Some(Scalar(index.to_string(), span)), span }
+  {
+    name: "data-index",
+    value: Some(Scalar(Text(index.to_string()), span)),
+    span,
+  }
 }
 
 ///|

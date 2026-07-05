@@ -446,7 +446,7 @@ fn tree_slug_attr(
 ) -> Result[String?, @core.Diagnostic] {
   for attr in attrs {
     if attr.name == "slug" {
-      return attr.optional_literal_scalar("tree slug requires a literal scalar")
+      return optional_literal_attr_scalar(attr, "tree slug requires a literal scalar")
     }
   }
   Ok(None)
@@ -458,7 +458,7 @@ fn html_attr(
   value : String,
   span : @core.SourceSpan,
 ) -> @core.Attr {
-  { name, value: Some(Scalar(value, span)), span }
+  { name, value: Some(Scalar(Text(value), span)), span }
 }
 
 ///|
@@ -484,12 +484,25 @@ fn tree_title_attr(
 ) -> Result[String?, @core.Diagnostic] {
   for attr in attrs {
     if attr.name == "title" {
-      return attr.optional_literal_scalar(
+      return optional_literal_attr_scalar(
+        attr,
         "tree title requires a literal scalar",
       )
     }
   }
   Ok(None)
+}
+
+///|
+fn optional_literal_attr_scalar(
+  attr : @core.Attr,
+  message : String,
+) -> Result[String?, @core.Diagnostic] {
+  match attr.value {
+    Some(value) =>
+      value.to_literal_scalar(attr.span, message).map(text => Some(text))
+    None => Ok(None)
+  }
 }
 
 ///|

@@ -1,13 +1,40 @@
 ///|
+pub(all) enum InterpolationPart {
+  Literal(String)
+  Name(String)
+} derive(Eq, Debug)
+
+///|
+pub type Interpolation = Array[InterpolationPart]
+
+///|
+pub(all) enum Node {
+  Text(String, SourceSpan)
+  TextInterp(Interpolation, SourceSpan)
+  Element(String, Array[Attr], Array[Node], SourceSpan)
+  Ref(String, SourceSpan)
+  Let(String, Value, SourceSpan)
+  Def(String, Array[String], Array[Node], SourceSpan)
+  Doc(Array[Attr], SourceSpan)
+  When(String, Array[Node], SourceSpan)
+  Unless(String, Array[Node], SourceSpan)
+}
+
+///|
+pub type Fragment = Array[Node]
+
+///|
+pub(all) struct Attr {
+  name : String
+  value : Value?
+  span : SourceSpan
+}
+
+///|
 pub(all) struct SourceInfo {
   id : String?
   line_offset : Int
   column_offset : Int
-}
-
-///|
-pub fn SourceInfo::default() -> SourceInfo {
-  { id: None, line_offset: 0, column_offset: 0 }
 }
 
 ///|
@@ -44,18 +71,6 @@ pub(all) struct Diagnostic {
 }
 
 ///|
-fn DiagnosticPhase::label(self : DiagnosticPhase) -> String {
-  match self {
-    Syntax => "syntax"
-    Template => "template"
-    Binding => "binding"
-    Type => "type"
-    ContentModel => "content model"
-    Placement => "placement"
-  }
-}
-
-///|
 pub fn SourceSpan::diagnostic(
   self : SourceSpan,
   phase : DiagnosticPhase,
@@ -63,6 +78,21 @@ pub fn SourceSpan::diagnostic(
   hint? : String,
 ) -> Diagnostic {
   { phase, message, span: self, hint }
+}
+
+///|
+pub fn Node::span(self : Node) -> SourceSpan {
+  match self {
+    Text(_, span)
+    | TextInterp(_, span)
+    | Element(_, _, _, span)
+    | Ref(_, span)
+    | Let(_, _, span)
+    | Def(_, _, _, span)
+    | Doc(_, span)
+    | When(_, _, span)
+    | Unless(_, _, span) => span
+  }
 }
 
 ///|
@@ -104,38 +134,18 @@ fn repeat_string(text : String, count : Int) -> String {
 }
 
 ///|
-pub(all) enum InterpolationPart {
-  Literal(String)
-  Name(String)
-} derive(Eq, Debug)
-
-///|
-pub type Interpolation = Array[InterpolationPart]
-
-///|
-pub(all) enum Node {
-  Text(String, SourceSpan)
-  TextInterp(Interpolation, SourceSpan)
-  Element(String, Array[Attr], Array[Node], SourceSpan)
-  Ref(String, SourceSpan)
-  Let(String, Value, SourceSpan)
-  Def(String, Array[String], Array[Node], SourceSpan)
-  Doc(Array[Attr], SourceSpan)
-  When(String, Array[Node], SourceSpan)
-  Unless(String, Array[Node], SourceSpan)
+pub fn SourceInfo::default() -> SourceInfo {
+  { id: None, line_offset: 0, column_offset: 0 }
 }
 
 ///|
-pub fn Node::span(self : Node) -> SourceSpan {
+fn DiagnosticPhase::label(self : DiagnosticPhase) -> String {
   match self {
-    Text(_, span)
-    | TextInterp(_, span)
-    | Element(_, _, _, span)
-    | Ref(_, span)
-    | Let(_, _, span)
-    | Def(_, _, _, span)
-    | Doc(_, span)
-    | When(_, _, span)
-    | Unless(_, _, span) => span
+    Syntax => "syntax"
+    Template => "template"
+    Binding => "binding"
+    Type => "type"
+    ContentModel => "content model"
+    Placement => "placement"
   }
 }

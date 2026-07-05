@@ -235,7 +235,7 @@ fn compile_scoped_style(
   input : ElementCompileInput,
 ) -> Result[ElementOutput, Diagnostic] {
   compile_style_attrs(input.call.attrs, input.context.env).bind(style_attrs => {
-    @css.compile_css_rule_nodes(
+    CSS::compile_rule_nodes(
       input.call.children,
       style_attrs.scope,
       input.context.env,
@@ -264,7 +264,7 @@ fn compile_style_attrs(
       }
       continue
     }
-    match attr.optional_scalar(env) {
+    match compile_optional_attr_scalar(attr, env) {
       Ok(compiled) => html_attrs.upsert(attr.name, compiled)
       Err(error) => return Err(error)
     }
@@ -296,7 +296,7 @@ fn compile_style_scope(
         ),
       )
     } else {
-      Ok(@css.normalize_css_scope(text))
+      Ok(CSS::normalize_css_scope(text))
     }
   })
 }
@@ -308,10 +308,41 @@ fn compile_attrs(
 ) -> Result[@sexp.HtmlAttrs, Diagnostic] {
   let html_attrs = @sexp.HtmlAttrs({})
   for attr in attrs {
-    match attr.optional_scalar(env) {
+    match compile_optional_attr_scalar(attr, env) {
       Ok(compiled) => html_attrs.upsert(attr.name, compiled)
       Err(error) => return Err(error)
     }
   }
   Ok(html_attrs)
+}
+
+///|
+fn compile_optional_attr_scalar(
+  attr : Attr,
+  env : CompileEnv,
+) -> Result[String?, Diagnostic] {
+  match attr.value {
+    Some(value) => value.to_scalar(env).map(text => Some(text))
+    None => Ok(None)
+  }
+}
+
+///|
+fn required_attr_scalar(
+  attr : Attr,
+  env : CompileEnv,
+  missing_message : String,
+) -> Result[String, Diagnostic] {
+  guard attr.value is Some(value) else {
+    return Err(attr.span.diagnostic(DiagnosticPhase::Type, missing_message))
+  }
+  value.to_scalar(env)
+}
+
+///|
+fn flag_attr_bool(attr : Attr, message : String) -> Result[Bool, Diagnostic] {
+  match attr.value {
+    Some(value) => value.to_bool(attr.span, message)
+    None => Ok(true)
+  }
 }

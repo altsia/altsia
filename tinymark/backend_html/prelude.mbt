@@ -110,7 +110,7 @@ fn SectionElement::from_call(
           }
         }
       _ =>
-        match attr.optional_scalar(env) {
+        match compile_optional_attr_scalar(attr, env) {
           Ok(compiled) => html_attrs.upsert(attr.name, compiled)
           Err(error) => return Err(error)
         }

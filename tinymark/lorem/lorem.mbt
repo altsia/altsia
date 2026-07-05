@@ -78,9 +78,13 @@ fn LoremOptions::from_attrs(
 ) -> Result[LoremOptions, @core.Diagnostic] {
   let mut options = LoremOptions::default()
   for attr in attrs {
-    let value = match attr.optional_scalar(env) {
-      Err(error) => return Err(error)
-      Ok(value) => value
+    let value = match attr.value {
+      Some(value) =>
+        match value.to_scalar(env) {
+          Err(error) => return Err(error)
+          Ok(value) => Some(value)
+        }
+      None => None
     }
     match attr.name {
       "corpus" => if value is Some(corpus) { options = { ..options, corpus, } }

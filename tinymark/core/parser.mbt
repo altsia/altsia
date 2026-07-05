@@ -17,6 +17,14 @@ pub fn parse(
 }
 
 ///|
+pub fn parse_abort(source : String) -> Document {
+  match parse(source) {
+    Ok(doc) => doc
+    Err(diagnostic) => abort(diagnostic.render())
+  }
+}
+
+///|
 fn parse_nodes_at(
   source : String,
   source_id : String?,
@@ -100,7 +108,7 @@ fn parse_list(open : Cursor) -> Result[(Node, Cursor), Diagnostic] {
   match head {
     "def" => parse_def(head_start, after_head)
     "let" => parse_let(head_start, after_head)
-    "doc" => parse_doc(head_start, after_head)
+    "doc" => parse_doc_call(head_start, after_head)
     "when" => parse_conditional(head_start, after_head, true)
     "unless" => parse_conditional(head_start, after_head, false)
     _ =>
@@ -213,14 +221,14 @@ fn nodes_to_value_at(nodes : Array[Node], span : SourceSpan) -> Value {
 ///|
 fn scalar_or_bool(text : String, span : SourceSpan) -> Value {
   match text {
-    "true" => Bool(true, span)
-    "false" => Bool(false, span)
-    _ => Scalar(text, span)
+    "true" => Scalar(Bool(true), span)
+    "false" => Scalar(Bool(false), span)
+    _ => Scalar(Text(text), span)
   }
 }
 
 ///|
-fn parse_doc(
+fn parse_doc_call(
   head_start : Cursor,
   after_head : Cursor,
 ) -> Result[(Node, Cursor), Diagnostic] {
@@ -359,7 +367,7 @@ fn parse_value(cursor : Cursor) -> Result[(Value, Cursor), Diagnostic] {
   match cursor.peek() {
     Some('`') =>
       parse_raw_string(cursor).map(result => {
-        (Value::Scalar(result.0, cursor.source_span()), result.1)
+        (Value::Scalar(Text(result.0), cursor.source_span()), result.1)
       })
     Some('"') =>
       parse_quoted_string(cursor).map(result => {

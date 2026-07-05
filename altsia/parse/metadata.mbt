@@ -68,7 +68,7 @@ fn apply_tree_attrs(
   for attr in attrs {
     match attr.name {
       "lang" => {
-        let value = match attr.optional_scalar(env) {
+        let value = match optional_attr_scalar(attr, env) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
@@ -86,7 +86,7 @@ fn apply_tree_attrs(
         }
       }
       "page-title" => {
-        let value = match attr.optional_scalar(env) {
+        let value = match optional_attr_scalar(attr, env) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
@@ -95,7 +95,7 @@ fn apply_tree_attrs(
         }
       }
       "taxon" => {
-        let value = match attr.optional_scalar(env) {
+        let value = match optional_attr_scalar(attr, env) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
@@ -108,7 +108,7 @@ fn apply_tree_attrs(
         }
       }
       "parent" => {
-        let value = match attr.optional_scalar(env) {
+        let value = match optional_attr_scalar(attr, env) {
           Ok(value) => value
           Err(error) => return Err(error)
         }
@@ -137,7 +137,7 @@ fn apply_metadata_attrs(
           match attr.name {
             "slug" =>
               if allow_slug_override {
-                let value = match attr.optional_scalar(env) {
+                let value = match optional_attr_scalar(attr, env) {
                   Ok(value) => value
                   Err(error) => return Err(error)
                 }
@@ -146,7 +146,7 @@ fn apply_metadata_attrs(
                 }
               }
             "lang" => {
-              let value = match attr.optional_scalar(env) {
+              let value = match optional_attr_scalar(attr, env) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -164,7 +164,7 @@ fn apply_metadata_attrs(
               }
             }
             "page-title" => {
-              let value = match attr.optional_scalar(env) {
+              let value = match optional_attr_scalar(attr, env) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -173,7 +173,7 @@ fn apply_metadata_attrs(
               }
             }
             "taxon" => {
-              let value = match attr.optional_scalar(env) {
+              let value = match optional_attr_scalar(attr, env) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -186,7 +186,7 @@ fn apply_metadata_attrs(
               }
             }
             "taxon-display" => {
-              let value = match attr.optional_scalar(env) {
+              let value = match optional_attr_scalar(attr, env) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -200,7 +200,7 @@ fn apply_metadata_attrs(
               }
             }
             "parent" => {
-              let value = match attr.optional_scalar(env) {
+              let value = match optional_attr_scalar(attr, env) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -212,10 +212,10 @@ fn apply_metadata_attrs(
               }
             }
             "references" => {
-              let value = match
-                attr.optional_bool(
-                  "metadata option requires a boolean value: " + attr.name,
-                ) {
+              let value = match optional_attr_bool(
+                attr,
+                "metadata option requires a boolean value: " + attr.name,
+              ) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -224,10 +224,10 @@ fn apply_metadata_attrs(
               }
             }
             "backlinks" => {
-              let value = match
-                attr.optional_bool(
-                  "metadata option requires a boolean value: " + attr.name,
-                ) {
+              let value = match optional_attr_bool(
+                attr,
+                "metadata option requires a boolean value: " + attr.name,
+              ) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -236,10 +236,10 @@ fn apply_metadata_attrs(
               }
             }
             "asref" => {
-              let value = match
-                attr.optional_bool(
-                  "metadata option requires a boolean value: " + attr.name,
-                ) {
+              let value = match optional_attr_bool(
+                attr,
+                "metadata option requires a boolean value: " + attr.name,
+              ) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -248,10 +248,10 @@ fn apply_metadata_attrs(
               }
             }
             "asback" => {
-              let value = match
-                attr.optional_bool(
-                  "metadata option requires a boolean value: " + attr.name,
-                ) {
+              let value = match optional_attr_bool(
+                attr,
+                "metadata option requires a boolean value: " + attr.name,
+              ) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -260,7 +260,7 @@ fn apply_metadata_attrs(
               }
             }
             "footer-mode" => {
-              let value = match attr.optional_scalar(env) {
+              let value = match optional_attr_scalar(attr, env) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -269,7 +269,7 @@ fn apply_metadata_attrs(
               }
             }
             "footer-sort-by" => {
-              let value = match attr.optional_scalar(env) {
+              let value = match optional_attr_scalar(attr, env) {
                 Ok(value) => value
                 Err(error) => return Err(error)
               }
@@ -284,6 +284,28 @@ fn apply_metadata_attrs(
     }
   }
   Ok(metadata)
+}
+
+///|
+fn optional_attr_scalar(
+  attr : @core.Attr,
+  env : @core.CompileEnv,
+) -> Result[String?, @core.Diagnostic] {
+  match attr.value {
+    Some(value) => value.to_scalar(env).map(text => Some(text))
+    None => Ok(None)
+  }
+}
+
+///|
+fn optional_attr_bool(
+  attr : @core.Attr,
+  message : String,
+) -> Result[Bool?, @core.Diagnostic] {
+  match attr.value {
+    Some(value) => value.to_bool(attr.span, message).map(value => Some(value))
+    None => Ok(None)
+  }
 }
 
 ///|
@@ -314,8 +336,7 @@ fn title_nodes_from_value(
   env : @core.CompileEnv,
 ) -> Array[@core.Node] {
   match value {
-    Scalar(text, span) => [Text(text, span)]
-    Bool(value, span) => [Text(value.to_string(), span)]
+    Scalar(s, span) => [Text(s.to_string(), span)]
     Fragment(nodes, _) => nodes
     Interp(template, span) =>
       match referenced_title_value(template, env) {
@@ -345,7 +366,7 @@ fn taxon_from_attrs(
   let mut display : String? = None
   for attr in attrs {
     if attr.name == "taxon-display" {
-      let value = match attr.optional_scalar(env) {
+      let value = match optional_attr_scalar(attr, env) {
         Ok(value) => value
         Err(error) => return Err(error)
       }

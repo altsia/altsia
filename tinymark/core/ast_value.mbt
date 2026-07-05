@@ -1,25 +1,20 @@
 ///|
 pub(all) enum Value {
-  Scalar(String, SourceSpan)
-  Bool(Bool, SourceSpan)
-  Fragment(Array[Node], SourceSpan)
+  Scalar(Scalar, SourceSpan)
+  Fragment(Fragment, SourceSpan)
   Interp(Interpolation, SourceSpan)
+}
+
+///|
+pub(all) enum Scalar {
+  Text(String)
+  Bool(Bool)
 }
 
 ///|
 pub fn Value::span(self : Value) -> SourceSpan {
   match self {
-    Scalar(_, span) | Bool(_, span) | Fragment(_, span) | Interp(_, span) =>
-      span
-  }
-}
-
-///|
-pub fn Value::unsafe_primitive(self : Value) -> String {
-  match self {
-    Scalar(text, _) => text
-    Bool(value, _) => if value { "true" } else { "false" }
-    _ => abort("unreachable")
+    Scalar(_, span) | Fragment(_, span) | Interp(_, span) => span
   }
 }
 
@@ -29,7 +24,7 @@ pub fn Value::to_scalar(
   env : CompileEnv,
 ) -> Result[String, Diagnostic] {
   match self {
-    Scalar(_) | Bool(_) => Ok(self.unsafe_primitive())
+    Scalar(scalar, _) => Ok(scalar.to_string())
     Interp(template, span) => interpolate_scalar(template, env, span)
     Fragment(_, span) =>
       Err(
@@ -48,7 +43,15 @@ pub fn Value::to_literal_scalar(
   message : String,
 ) -> Result[String, Diagnostic] {
   match self {
-    Scalar(_) | Bool(_) => Ok(self.unsafe_primitive())
+    Scalar(scalar, _) => Ok(scalar.to_string())
     _ => Err(context_span.diagnostic(DiagnosticPhase::Type, message))
+  }
+}
+
+///|
+pub fn Scalar::to_string(self : Scalar) -> String {
+  match self {
+    Text(text) => text
+    Bool(value) => if value { "true" } else { "false" }
   }
 }

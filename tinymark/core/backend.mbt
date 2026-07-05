@@ -348,7 +348,7 @@ fn text_arg_value(text : String, span : SourceSpan) -> Value? {
   if trimmed.is_empty() {
     return None
   }
-  Some(Value::Scalar(trimmed, span))
+  Some(Value::Scalar(Text(trimmed), span))
 }
 
 ///|
@@ -367,7 +367,7 @@ pub fn Value::to_bool(
   message : String,
 ) -> Result[Bool, Diagnostic] {
   match self {
-    Bool(value, _) => Ok(value)
+    Scalar(Bool(value), _) => Ok(value)
     _ => Err(context_span.diagnostic(DiagnosticPhase::Type, message))
   }
 }

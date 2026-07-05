@@ -1,4 +1,0 @@
-import {
-  "moonbitlang/core/test",
-  "kokic/tinymark/core",
-}

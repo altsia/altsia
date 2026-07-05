@@ -433,13 +433,8 @@ pub fn[Out, Head] compile_backend_value(
   extensions : Array[BackendElementResolver[Out, Head]],
 ) -> Result[BackendOutput[Out, Head], Diagnostic] {
   match value {
-    Scalar(text, _) => Ok(BackendOutput::body([(backend.text)(text)]))
-    Bool(value, _) =>
-      Ok(
-        BackendOutput::body([
-          (backend.text)(if value { "true" } else { "false" }),
-        ]),
-      )
+    Scalar(scalar, _) =>
+      Ok(BackendOutput::body([(backend.text)(scalar.to_string())]))
     Interp(template, span) =>
       (backend.interpolate_text)(template, env, span).map(text => {
         BackendOutput::body([(backend.text)(text)])

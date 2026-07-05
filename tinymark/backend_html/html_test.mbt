@@ -18,14 +18,6 @@ fn render_html_document_result(
 }
 
 ///|
-fn parse_doc(source : String) -> @core.Document {
-  match @core.parse(source) {
-    Ok(doc) => doc
-    Err(diagnostic) => abort(diagnostic.render())
-  }
-}
-
-///|
 fn collect_env(doc : @core.Document) -> @core.CompileEnv {
   match @core.collect_bindings(doc) {
     Ok(env) => env
@@ -224,9 +216,9 @@ test "template definitions are hoisted within the same scope" {
 
 ///|
 test "compile fragment accepts injected env from collected bindings" {
-  let component = parse_doc("(def badge (body) (span (:class `badge`) (body)))")
+  let component = @core.parse_abort("(def badge (body) (span (:class `badge`) (body)))")
   let env = collect_env(component)
-  let doc = parse_doc("(badge Hello)")
+  let doc = @core.parse_abort("(badge Hello)")
   @test.assert_eq(
     render_fragment_result(doc, env~),
     Ok("<p><span class=\"badge\">Hello</span></p>"),
@@ -235,11 +227,11 @@ test "compile fragment accepts injected env from collected bindings" {
 
 ///|
 test "collected template captures definition env" {
-  let component = parse_doc(
+  let component = @core.parse_abort(
     "(let tone `module`)(def badge () (span (:class \"tone-(tone)\") ok))",
   )
   let env = collect_env(component)
-  let doc = parse_doc("(let tone `local`)(badge)")
+  let doc = @core.parse_abort("(let tone `local`)(badge)")
   @test.assert_eq(
     render_fragment_result(doc, env~),
     Ok("<p><span class=\"tone-module\">ok</span></p>"),
@@ -248,9 +240,9 @@ test "collected template captures definition env" {
 
 ///|
 test "collect bindings exports doc values for conditions" {
-  let module_doc = parse_doc("(doc (:draft true))")
+  let module_doc = @core.parse_abort("(doc (:draft true))")
   let env = collect_env(module_doc)
-  let doc = parse_doc("(when (draft) Visible)")
+  let doc = @core.parse_abort("(when (draft) Visible)")
   @test.assert_eq(render_fragment_result(doc, env~), Ok("<p>Visible</p>"))
 }
 
@@ -634,7 +626,7 @@ test "extension resolver handles element and fallback preserves html" {
     extensions: [resolver],
   }
   @test.assert_eq(
-    render_fragment_result(parse_doc("(icon search)(custom ok)"), options~),
+    render_fragment_result(@core.parse_abort("(icon search)(custom ok)"), options~),
     Ok("<p><span class=\"icon\">search</span><custom>ok</custom></p>"),
   )
 }
@@ -672,7 +664,7 @@ test "extension resolver can emit document head nodes" {
     extensions: [resolver],
   }
   @test.assert_eq(
-    render_fragment_result(parse_doc("(asset)Body"), options=fragment_options),
+    render_fragment_result(@core.parse_abort("(asset)Body"), options=fragment_options),
     Ok("<p>Body</p>"),
   )
 }
@@ -701,7 +693,7 @@ test "extension resolver diagnostic keeps source span" {
     #|1 | (boom now)
     #|  |  ^
   @test.assert_eq(
-    render_fragment_result(parse_doc("(boom now)"), options~),
+    render_fragment_result(@core.parse_abort("(boom now)"), options~),
     Err(expected),
   )
 }

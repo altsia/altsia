@@ -183,9 +183,7 @@ fn lower_value(
   env : @core.CompileEnv,
 ) -> Result[Array[@model.RichContentNode], @core.Diagnostic] {
   match value {
-    Scalar(text, span) => Ok([@model.RichText(text, span)])
-    Bool(value, span) =>
-      Ok([@model.RichText(if value { "true" } else { "false" }, span)])
+    Scalar(s, span) => Ok([@model.RichText(s.to_string(), span)])
     Interp(template, span) =>
       @core.interpolate_scalar(template, env, span).map(text => {
         [@model.RichText(text, span)]
@@ -222,7 +220,7 @@ fn normalize_attrs(
           Ok(text) =>
             normalized.push({
               name: attr.name,
-              value: Some(Scalar(text, attr.span)),
+              value: Some(Scalar(Text(text), attr.span)),
               span: attr.span,
             })
           Err(error) => return Err(error)
@@ -293,5 +291,9 @@ fn embed_option_from_attrs(
 
 ///|
 fn embed_bool_attr(attr : @core.Attr) -> Result[Bool, @core.Diagnostic] {
-  attr.flag_bool("embed option requires a boolean value: " + attr.name)
+  match attr.value {
+    Some(value) =>
+      value.to_bool(attr.span, "embed option requires a boolean value: " + attr.name)
+    None => Ok(true)
+  }
 }

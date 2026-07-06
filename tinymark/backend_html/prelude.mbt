@@ -128,7 +128,7 @@ fn SectionElement::heading_nodes(
 ) -> Array[HtmlNode] {
   match self.title {
     Some(text) => {
-      let level = @core.clamp_heading_level(current_heading_level)
+      let level = clamp_heading_level(current_heading_level)
       [
         HtmlNode::Element("h" + level.to_string(), @sexp.HtmlAttrs({}), [
           HtmlNode::Text(text),
@@ -150,6 +150,11 @@ fn SectionElement::to_output(
     head,
     inline_body: false,
   }
+}
+
+///|
+fn clamp_heading_level(level : Int) -> Int {
+  level.clamp(min=1, max=6)
 }
 
 ///|

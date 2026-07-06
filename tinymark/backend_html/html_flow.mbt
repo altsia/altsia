@@ -1,11 +1,17 @@
 ///|
+priv enum ParagraphPart {
+  Text(String)
+  Break
+}
+
+///|
 fn append_paragraph_content_node(
   inline_run : Array[HtmlNode],
   out : Array[HtmlNode],
   node : HtmlNode,
 ) -> Unit {
   match node {
-    HtmlNode::Text(text) if @core.has_paragraph_break(text) =>
+    HtmlNode::Text(text) if has_paragraph_break(text) =>
       append_text_with_paragraph_splits(inline_run, out, text)
     _ => inline_run.push(node)
   }
@@ -40,10 +46,68 @@ fn append_text_with_paragraph_splits(
   out : Array[HtmlNode],
   text : String,
 ) -> Unit {
-  for part in @core.split_paragraph_text(text) {
+  for part in split_paragraph_text(text) {
     match part {
-      @core.ParagraphPart::Text(text) => inline_run.push(HtmlNode::Text(text))
-      @core.ParagraphPart::Break => flush_paragraph(inline_run, out)
+      Text(text) => inline_run.push(HtmlNode::Text(text))
+      Break => flush_paragraph(inline_run, out)
     }
   }
+}
+
+///|
+fn split_paragraph_text(text : String) -> Array[ParagraphPart] {
+  let parts : Array[ParagraphPart] = []
+  let chars = text.to_array()
+  let mut start = 0
+  let mut index = 0
+  while index < chars.length() {
+    match paragraph_break_end(chars, index) {
+      Some(break_end) => {
+        if index > start {
+          parts.push(Text(String::from_array(chars.view(start~, end=index))))
+        }
+        parts.push(Break)
+        index = break_end
+        start = index
+      }
+      None => index += 1
+    }
+  }
+  if start < chars.length() {
+    parts.push(Text(String::from_array(chars.view(start~))))
+  }
+  parts
+}
+
+///|
+fn has_paragraph_break(text : String) -> Bool {
+  let chars = text.to_array()
+  let mut index = 0
+  while index < chars.length() {
+    if paragraph_break_end(chars, index) is Some(_) {
+      return true
+    }
+    index += 1
+  }
+  false
+}
+
+///|
+fn paragraph_break_end(chars : Array[Char], index : Int) -> Int? {
+  if chars[index] != '\n' {
+    return None
+  }
+  let mut scan = index + 1
+  while scan < chars.length() && is_blank_line_space(chars[scan]) {
+    scan += 1
+  }
+  if scan < chars.length() && chars[scan] == '\n' {
+    return Some(scan + 1)
+  }
+  None
+}
+
+///|
+fn is_blank_line_space(ch : Char) -> Bool {
+  ch == ' ' || ch == '\t' || ch == '\r'
 }

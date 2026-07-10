@@ -19,4 +19,4 @@ keywords = [ ]
 
 description = ""
 
-preferred_target = "js"
+preferred_target = "wasm-gc"

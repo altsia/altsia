@@ -18,4 +18,4 @@ keywords = [ "altsia", "markup", "document", "language" ]
 
 description = "The kernel of altsia markup language"
 
-preferred_target = "native"
+preferred_target = "wasm-gc"

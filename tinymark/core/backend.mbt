@@ -38,7 +38,7 @@ pub fn BindingCollectOptions::default() -> BindingCollectOptions {
 
 ///|
 pub fn CompileEnv::empty() -> CompileEnv {
-  { values: {}, templates: {} }
+  { values: Map([]), templates: Map([]) }
 }
 
 ///|
@@ -241,7 +241,7 @@ fn Template::resolve_call_values(
 
 ///|
 fn TemplateArguments::for_params(params : Array[String]) -> TemplateArguments {
-  let indexes : Map[String, Int] = {}
+  let indexes : Map[String, Int] = Map([])
   for index, name in params {
     indexes[name] = index
   }

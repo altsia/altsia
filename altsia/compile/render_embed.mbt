@@ -34,7 +34,7 @@ fn RenderState::render_embed_catalog(
           "class": Some("embed-catalog"),
           "aria-label": Some("Embedded content"),
         }),
-        [@sexp.SexpNode::Element("ol", @sexp.HtmlAttrs({}), items)],
+        [@sexp.SexpNode::Element("ol", @sexp.HtmlAttrs(Map([])), items)],
       ),
     )
   }
@@ -76,11 +76,11 @@ fn RenderState::push_embed_catalog_items(
           ]
           if !children.is_empty() {
             content.push(
-              @sexp.SexpNode::Element("ol", @sexp.HtmlAttrs({}), children),
+              @sexp.SexpNode::Element("ol", @sexp.HtmlAttrs(Map([])), children),
             )
           }
           items.push(
-            @sexp.SexpNode::Element("li", @sexp.HtmlAttrs({}), content),
+            @sexp.SexpNode::Element("li", @sexp.HtmlAttrs(Map([])), content),
           )
         }
       }

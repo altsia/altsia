@@ -29,7 +29,7 @@ fn RenderState::render_embed_html(
         let children : Array[@sexp.SexpNode] = [
           @sexp.SexpNode::Element(
             "summary",
-            @sexp.HtmlAttrs({}),
+            @sexp.HtmlAttrs(Map([])),
             summary_children,
           ),
           @sexp.SexpNode::RawHtml(body_html),

@@ -254,7 +254,7 @@ fn compile_style_attrs(
   attrs : Array[Attr],
   env : CompileEnv,
 ) -> Result[CssStyleAttrs, Diagnostic] {
-  let html_attrs = @sexp.HtmlAttrs({})
+  let html_attrs = @sexp.HtmlAttrs(Map([]))
   let mut scope : String? = None
   for attr in attrs {
     if attr.name == "scope" {
@@ -306,7 +306,7 @@ fn compile_attrs(
   attrs : Array[Attr],
   env : CompileEnv,
 ) -> Result[@sexp.HtmlAttrs, Diagnostic] {
-  let html_attrs = @sexp.HtmlAttrs({})
+  let html_attrs = @sexp.HtmlAttrs(Map([]))
   for attr in attrs {
     match compile_optional_attr_scalar(attr, env) {
       Ok(compiled) => html_attrs.upsert(attr.name, compiled)

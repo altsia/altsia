@@ -100,7 +100,7 @@ fn SectionElement::from_call(
   call : ElementCall,
   env : CompileEnv,
 ) -> Result[SectionElement, Diagnostic] {
-  let html_attrs = @sexp.HtmlAttrs({})
+  let html_attrs = @sexp.HtmlAttrs(Map([]))
   let mut title : String? = None
   for attr in call.attrs {
     match attr.name {
@@ -130,7 +130,7 @@ fn SectionElement::heading_nodes(
     Some(text) => {
       let level = clamp_heading_level(current_heading_level)
       [
-        HtmlNode::Element("h" + level.to_string(), @sexp.HtmlAttrs({}), [
+        HtmlNode::Element("h" + level.to_string(), @sexp.HtmlAttrs(Map([])), [
           HtmlNode::Text(text),
         ]),
       ]
@@ -181,12 +181,12 @@ fn CallContext::compile_code(
   compile_attrs(call.attrs, context.env).bind(html_attrs => {
     let lang = html_attrs.0.get("lang").bind(value => value)
     (context.compile_text_only)(call.children).map(source => {
-      let code_attrs = @sexp.HtmlAttrs({})
+      let code_attrs = @sexp.HtmlAttrs(Map([]))
       if lang is Some(value) {
         code_attrs.upsert("class", Some("lang-" + value))
       }
       ElementOutput::flow([
-        HtmlNode::Element("pre", @sexp.HtmlAttrs({}), [
+        HtmlNode::Element("pre", @sexp.HtmlAttrs(Map([])), [
           HtmlNode::Element("code", code_attrs, [HtmlNode::Text(source)]),
         ]),
       ])

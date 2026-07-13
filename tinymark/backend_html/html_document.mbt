@@ -147,8 +147,8 @@ fn DocumentMetadata::from_options(
   options : HtmlDocumentOptions,
 ) -> DocumentMetadata {
   {
-    html_attrs: @sexp.HtmlAttrs({}),
-    body_attrs: @sexp.HtmlAttrs({}),
+    html_attrs: @sexp.HtmlAttrs(Map([])),
+    body_attrs: @sexp.HtmlAttrs(Map([])),
     head: {
       charset: options.charset,
       viewport: options.viewport,
@@ -296,7 +296,7 @@ fn html_head_nodes(
 
   if metadata.head.title is Some(text) {
     head.push(
-      HtmlNode::Element("title", @sexp.HtmlAttrs({}), [HtmlNode::Text(text)]),
+      HtmlNode::Element("title", @sexp.HtmlAttrs(Map([])), [HtmlNode::Text(text)]),
     )
   }
 
@@ -322,7 +322,7 @@ fn html_head_nodes(
 
 ///|
 fn paper_style_node(css : String) -> HtmlNode {
-  HtmlNode::Element("style", @sexp.HtmlAttrs({}), [HtmlNode::RawHtml(css)])
+  HtmlNode::Element("style", @sexp.HtmlAttrs(Map([])), [HtmlNode::RawHtml(css)])
 }
 
 ///|

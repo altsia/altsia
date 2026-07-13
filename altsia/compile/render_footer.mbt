@@ -46,7 +46,7 @@ fn RenderState::footer_section(
     let items : Array[@sexp.SexpNode] = []
     for slug in ordered {
       items.push(
-        @sexp.SexpNode::Element("li", @sexp.HtmlAttrs({}), [
+        @sexp.SexpNode::Element("li", @sexp.HtmlAttrs(Map([])), [
           self.footer_item_node(slug, metadata.footer_mode),
         ]),
       )
@@ -56,10 +56,10 @@ fn RenderState::footer_section(
         "section",
         @sexp.HtmlAttrs({ "class": Some(footer_class(title)) }),
         [
-          @sexp.SexpNode::Element("h2", @sexp.HtmlAttrs({}), [
+          @sexp.SexpNode::Element("h2", @sexp.HtmlAttrs(Map([])), [
             @sexp.SexpNode::Text(title),
           ]),
-          @sexp.SexpNode::Element("ol", @sexp.HtmlAttrs({}), items),
+          @sexp.SexpNode::Element("ol", @sexp.HtmlAttrs(Map([])), items),
         ],
       ),
     )

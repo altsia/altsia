@@ -42,8 +42,11 @@ pub fn compile_lorem_text(
     )
   }
 
-  guard children[0] is @core.Node::Text(count, _) &&
-    (Ok(@string.parse_int(count)) catch { e => Err(e) }) is Ok(count) else {
+  let count_text = match resolve_lorem_count(children[0], env, span) {
+    Ok(count) => count
+    Err(error) => return Err(error)
+  }
+  guard (Ok(@string.parse_int(count_text)) catch { e => Err(e) }) is Ok(count) else {
     return Err(
       span.diagnostic(
         @core.DiagnosticPhase::Type,
@@ -57,6 +60,37 @@ pub fn compile_lorem_text(
     Err(error) => return Err(error)
   }
   Ok(@ipsum.lorem(options.delimiter, options.corpus, count, options.seed))
+}
+
+///|
+fn resolve_lorem_count(
+  node : @core.Node,
+  env : @core.CompileEnv,
+  span : @core.SourceSpan,
+) -> Result[String, @core.Diagnostic] {
+  match node {
+    @core.Node::Text(count, _) => Ok(count)
+    @core.Node::TextInterp(template, value_span) =>
+      @core.interpolate_scalar(template, env, value_span)
+    @core.Node::Ref(name, value_span) =>
+      match env.lookup_value(name) {
+        Some(value) => value.to_scalar(env)
+        None =>
+          Err(
+            value_span.diagnostic(
+              @core.DiagnosticPhase::Binding,
+              "unbound lorem count: " + name,
+            ),
+          )
+      }
+    _ =>
+      Err(
+        span.diagnostic(
+          @core.DiagnosticPhase::Type,
+          "lorem <count> requires an integer",
+        ),
+      )
+  }
 }
 
 ///|

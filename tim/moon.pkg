@@ -6,7 +6,8 @@ import {
   "moonbitlang/x/fs",
 }
 
+pkgtype(kind: "executable")
+
 options(
-  "is-main": true,
   targets: { "cli.mbt": [ "native" ] },
 )

@@ -17,7 +17,8 @@ fn collect_env(doc : @core.Document) -> @core.CompileEnv {
 ///|
 fn lorem_text_or_abort(source : String) -> String {
   let doc = parse_doc(source)
-  guard doc.nodes[0] is Element("lorem", attrs, children, span) else {
+  let last = doc.nodes.length() - 1
+  guard doc.nodes[last] is Element("lorem", attrs, children, span) else {
     abort("expected lorem element")
   }
   match compile_lorem_text(attrs, children, collect_env(doc), span) {
@@ -32,6 +33,16 @@ test "generates lorem text from default and named schemes" {
   @test.assert_eq(
     lorem_text_or_abort("(lorem (:scheme `xiaoyaoyou`) 2)").length() > 0,
     true,
+  )
+}
+
+///|
+test "resolves count from bindings and interpolation" {
+  let expected = lorem_text_or_abort("(lorem 3)")
+  @test.assert_eq(lorem_text_or_abort("(let count 3)(lorem (count))"), expected)
+  @test.assert_eq(
+    lorem_text_or_abort("(let count 3)(lorem \"(count)\")"),
+    expected,
   )
 }
 

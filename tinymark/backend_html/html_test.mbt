@@ -183,6 +183,28 @@ test "template supports positional and named arguments" {
 }
 
 ///|
+test "lorem resolves variables and template arguments" {
+  let expected = render_html_result("(lorem 3)")
+  @test.assert_eq(render_html_result("(let count 3)(lorem (count))"), expected)
+  @test.assert_eq(
+    render_html_result(
+      "(def lorem-count (count) (lorem (count)))(lorem-count 3)",
+    ),
+    expected,
+  )
+}
+
+///|
+test "hspace resolves variables and template arguments" {
+  let expected = render_html_result("(h 2em)")
+  @test.assert_eq(render_html_result("(let width `2em`)(h (width))"), expected)
+  @test.assert_eq(
+    render_html_result("(def spacer (width) (h (width)))(spacer `2em`)"),
+    expected,
+  )
+}
+
+///|
 test "template supports fragments and attributes" {
   let input =
     #|(def badge (kind body)

@@ -1,11 +1,10 @@
 name = "kokic/tinymark"
 
-version = "0.3.8"
+version = "0.3.9"
 
 import {
   "kokic/sexp-html@0.4.0",
-  "kokic/i18n-ipsum@0.1.3",
-  "moonbitlang/x@0.4.43",
+  "kokic/i18n-ipsum@0.1.4",
 }
 
 readme = "README.md"
@@ -18,4 +17,4 @@ keywords = [ "altsia", "markup", "document", "language" ]
 
 description = "The kernel of altsia markup language"
 
-preferred_target = "wasm-gc"
+preferred_target = "native"

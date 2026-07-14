@@ -370,7 +370,7 @@ fn[Out, Head] compile_backend_text_only_children(
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
 ) -> String raise Diagnostic {
-  let parts : Array[String] = []
+  let rendered = StringBuilder()
   ignore(
     visit_scoped_nodes(children, env, _ => (), (child, local_env) => {
       let nodes = compile_backend_node(
@@ -383,7 +383,7 @@ fn[Out, Head] compile_backend_text_only_children(
       }
       for node in nodes.body {
         match (backend.output_text)(node) {
-          Some(text) => parts.push(text)
+          Some(text) => rendered.write_string(text)
           None =>
             raise child
               .span()
@@ -392,7 +392,7 @@ fn[Out, Head] compile_backend_text_only_children(
       }
     }),
   )
-  parts.join("")
+  rendered.to_string()
 }
 
 ///|

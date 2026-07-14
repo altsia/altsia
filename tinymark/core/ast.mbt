@@ -137,7 +137,8 @@ pub fn Diagnostic::render(self : Diagnostic) -> String {
   rendered <+ "\{repeat_string(" ", span.marker_column - 1)}^"
 
   hint.map_or_else(() => rendered.to_string(), hint => {
-    (rendered <+ "\nhint: \{hint}").to_string()
+    rendered <+ "\nhint: \{hint}"
+    rendered.to_string()
   })
 }
 

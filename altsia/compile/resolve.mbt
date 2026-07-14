@@ -65,7 +65,7 @@ fn ResolveState::cycle_diagnostic(
   self : ResolveState,
   slug : String,
 ) -> @core.Diagnostic {
-  let chain = self.active_stack.join(" -> ") + " -> " + slug
+  let chain = "\{self.active_stack.join(" -> ")} -> \{slug}"
   @model.source_diagnostic(slug, Binding, "cyclic embed", hint=chain)
 }
 
@@ -290,18 +290,14 @@ fn validate_tree_target(
 ) -> @core.Diagnostic? {
   let trimmed = target.trim()
   if trimmed == "" {
-    Some(
-      @model.diagnostic(span, Binding, "(" + tag + " ...) requires a target"),
-    )
+    Some(@model.diagnostic(span, Binding, "(\{tag} ...) requires a target"))
   } else if trimmed != target {
     Some(
       @model.diagnostic(
         span,
         Binding,
-        "(" +
-        tag +
-        " ...) target must not contain leading or trailing whitespace",
-        hint="target was: " + target,
+        "(\{tag} ...) target must not contain leading or trailing whitespace",
+        hint="target was: \{target}",
       ),
     )
   } else if target.contains("://") ||
@@ -311,8 +307,8 @@ fn validate_tree_target(
       @model.diagnostic(
         span,
         Binding,
-        "(" + tag + " ...) target must be a local tree target",
-        hint="target was: " + target,
+        "(\{tag} ...) target must be a local tree target",
+        hint="target was: \{target}",
       ),
     )
   } else if is_absolute_tree_target(target) || @model.has_suffix(target, ".alt") {
@@ -322,8 +318,8 @@ fn validate_tree_target(
       @model.diagnostic(
         span,
         Binding,
-        "(" + tag + " ...) relative target must end with .alt",
-        hint="target was: " + target,
+        "(\{tag} ...) relative target must end with .alt",
+        hint="target was: \{target}",
       ),
     )
   }

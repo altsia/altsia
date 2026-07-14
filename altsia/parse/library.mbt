@@ -52,12 +52,12 @@ fn collect_prefixed_library_env(
   let env = @core.CompileEnv::empty()
   for name, _ in own.values {
     if collected.lookup_value(name) is Some(value) {
-      env.bind_value(module_name + "." + name, value)
+      env.bind_value("\{module_name}.\{name}", value)
     }
   }
   for name, _ in own.templates {
     if collected.lookup_template(name) is Some(template) {
-      env.bind_template_value(module_name + "." + name, template)
+      env.bind_template_value("\{module_name}.\{name}", template)
     }
   }
   env

@@ -75,7 +75,7 @@ fn run_build(entry : String, output : String?) -> Unit {
           let output_path = output.unwrap_or(default_output_path(entry))
           @fs.write_string_to_file(output_path, html) catch {
             IOError(message) =>
-              println("I/O error while writing " + output_path + ": " + message)
+              println("I/O error while writing \{output_path}: \{message}")
           }
         }
       }

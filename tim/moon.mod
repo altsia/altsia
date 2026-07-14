@@ -6,6 +6,7 @@ import {
   "kokic/tinymark@0.3.9",
   "kokic/sexp-html@0.4.0",
   "moonbitlang/x@0.4.43",
+  "moonbitlang/async@0.20.1",
 }
 
 readme = "README.md"

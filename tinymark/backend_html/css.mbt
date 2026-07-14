@@ -77,7 +77,11 @@ fn compile_css_rule(
   span : @core.SourceSpan,
 ) -> String raise @core.Diagnostic {
   let selector = scope_css_selector(tag, scope, span)
-  selector + "{" + compile_css_declarations(attrs, env) + "}"
+  let rule = StringBuilder()
+  rule <+ "\{selector}{"
+  rule.write_string(compile_css_declarations(attrs, env))
+  rule <+ "}"
+  rule.to_string()
 }
 
 ///|
@@ -85,11 +89,11 @@ fn compile_css_declarations(
   attrs : Array[@core.Attr],
   env : @core.CompileEnv,
 ) -> String raise @core.Diagnostic {
-  let declarations : Array[String] = []
+  let declarations = StringBuilder()
   for attr in attrs {
-    declarations.push(compile_css_declaration(attr, env))
+    declarations.write_string(compile_css_declaration(attr, env))
   }
-  declarations.join("")
+  declarations.to_string()
 }
 
 ///|
@@ -98,7 +102,7 @@ fn compile_css_declaration(
   env : @core.CompileEnv,
 ) -> String raise @core.Diagnostic {
   match attr.value {
-    Some(value) => attr.name + ":" + value.to_scalar(env) + ";"
+    Some(value) => "\{attr.name}:\{value.to_scalar(env)};"
     None =>
       raise attr.span.diagnostic(
         @core.DiagnosticPhase::Type,
@@ -130,7 +134,7 @@ fn scope_css_selector(
     if css_selector_uses_scope_marker(trimmed) {
       return trimmed.replace_all(old="&", new=scope_selector)
     }
-    return scope_selector + " " + trimmed
+    return "\{scope_selector} \{trimmed}"
   }
   if css_selector_uses_scope_marker(trimmed) {
     raise span.diagnostic(

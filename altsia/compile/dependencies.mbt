@@ -4,7 +4,7 @@ fn source_file_dependency_key(
   target : String,
   kind : @model.SourceFileDependencyKind,
 ) -> String {
-  source + "\u{1f}" + target + "\u{1f}" + source_file_dependency_kind_key(kind)
+  "\{source}\u{1f}\{target}\u{1f}\{source_file_dependency_kind_key(kind)}"
 }
 
 ///|

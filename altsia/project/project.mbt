@@ -73,7 +73,7 @@ fn optional_string(
 ) -> Result[String?, String] {
   match table.get(key) {
     Some(TomlString(value)) => Ok(Some(value))
-    Some(value) => Err(label + " must be a string, got " + value.type_name())
+    Some(value) => Err("\{label} must be a string, got \{value.type_name()}")
     None => Ok(None)
   }
 }

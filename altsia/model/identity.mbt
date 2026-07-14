@@ -123,11 +123,6 @@ fn default_taxon_display(key : TaxonKey, lang : String?) -> String {
 ///|
 fn english_taxon_display(key : String) -> String {
   let text = key.replace(old="-", new=" ").replace(old="_", new=" ")
-  if text.length() == 0 {
-    ""
-  } else {
-    text.unsafe_substring(start=0, end=1).to_upper() +
-    text.unsafe_substring(start=1, end=text.length()) +
-    ". "
-  }
+  guard text.length() != 0 else { "" }
+  "\{text.unsafe_substring(start=0, end=1).to_upper()}\{text.unsafe_substring(start=1, end=text.length())}. "
 }

@@ -98,7 +98,7 @@ pub fn child_tree_slug(
 
 ///|
 pub fn anonymous_tree_anchor(top_level_slug : TreeSlug, index : Int) -> String {
-  top_level_slug.canonical() + "-" + index.to_string()
+  "\{top_level_slug.canonical()}-\{index}"
 }
 
 ///|

@@ -356,11 +356,13 @@ pub fn interpolate_text(
   span : SourceSpan,
   value_to_text : (Value, CompileEnv) -> String raise Diagnostic,
 ) -> String raise Diagnostic {
-  let parts : Array[String] = []
+  let rendered = StringBuilder()
   for part in template {
-    parts.push(interpolation_part_text(part, env, span, value_to_text))
+    rendered.write_string(
+      interpolation_part_text(part, env, span, value_to_text),
+    )
   }
-  parts.join("")
+  rendered.to_string()
 }
 
 ///|

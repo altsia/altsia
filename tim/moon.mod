@@ -1,6 +1,6 @@
 name = "kokic/tim"
 
-version = "0.3.0"
+version = "0.3.1"
 
 import {
   "kokic/tinymark@0.3.9",

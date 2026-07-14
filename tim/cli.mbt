@@ -37,30 +37,27 @@ fn render_html(input_path : String, source : String) -> String? {
     ..@backend_html.HtmlDocumentOptions::default(),
     extensions: [html_include_resolver(input_dir(input_path))],
   })
-  let result = @backend_html.to_html_document(source, options)
-  if result is Err(error) {
-    return {
+  try @backend_html.to_html_document(source, options) catch {
+    error => {
       println(error.render())
       None
     }
+  } noraise {
+    html => Some(html)
   }
-  guard result is Ok(html) else { return None }
-  Some(html)
 }
 
 ///|
 fn html_include_resolver(base_dir : String) -> @backend_html.ElementResolver {
   compiler => {
     if compiler.call.tag != "html.include" {
-      return Ok(None)
+      return None
     }
-    include_path(compiler.call, compiler.context).bind(path => {
-      let resolved = resolve_include_path(base_dir, path)
-      read_include(resolved, compiler.call.span).map(content => {
-        let raw = @sexp.SexpNode::RawHtml(content)
-        Some(@backend_html.ElementOutput::body([raw]))
-      })
-    })
+    let path = include_path(compiler.call, compiler.context)
+    let resolved = resolve_include_path(base_dir, path)
+    let content = read_include(resolved, compiler.call.span)
+    let raw = @sexp.SexpNode::RawHtml(content)
+    Some(@backend_html.ElementOutput::body([raw]))
   }
 }
 
@@ -68,27 +65,23 @@ fn html_include_resolver(base_dir : String) -> @backend_html.ElementResolver {
 fn include_path(
   call : @backend_html.ElementCall,
   context : @backend_html.CompileContext,
-) -> Result[String, @core.Diagnostic] {
+) -> String raise @core.Diagnostic {
   for attr in call.attrs {
     if attr.name != "src" {
       continue
     }
     guard attr.value is Some(value) else {
-      return Err(
-        attr.span.diagnostic(
-          @core.DiagnosticPhase::Type,
-          "html.include src requires a value",
-        ),
+      raise attr.span.diagnostic(
+        @core.DiagnosticPhase::Type,
+        "html.include src requires a value",
       )
     }
     return value.to_scalar(context.env)
   }
   guard !call.children.is_empty() else {
-    return Err(
-      call.span.diagnostic(
-        @core.DiagnosticPhase::Type,
-        "html.include requires a path",
-      ),
+    raise call.span.diagnostic(
+      @core.DiagnosticPhase::Type,
+      "html.include requires a path",
     )
   }
   @core.nodes_to_value(call.children).to_scalar(context.env)
@@ -98,14 +91,12 @@ fn include_path(
 fn read_include(
   path : String,
   span : @core.SourceSpan,
-) -> Result[String, @core.Diagnostic] {
-  Ok(@fs.read_file_to_string(path)) catch {
+) -> String raise @core.Diagnostic {
+  @fs.read_file_to_string(path) catch {
     @fs.IOError(msg) =>
-      Err(
-        span.diagnostic(
-          @core.DiagnosticPhase::ContentModel,
-          describe_io_error("including", path, msg),
-        ),
+      raise span.diagnostic(
+        @core.DiagnosticPhase::ContentModel,
+        describe_io_error("including", path, msg),
       )
   }
 }

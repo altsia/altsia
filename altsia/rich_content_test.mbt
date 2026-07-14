@@ -3,10 +3,7 @@ test "rich content captures directives instead of final html" {
   let doc = parse_doc(
     "index.alt", "Before (link `about.alt` About) and (embed `child.alt`).",
   )
-  let content = match @content.compile_rich_content(doc) {
-    Ok(content) => content
-    Err(error) => abort(error.render())
-  }
+  let content = @content.compile_rich_content(doc)
   let directives : Array[@model.RichContentDirective] = []
   for node in content.nodes {
     match node {

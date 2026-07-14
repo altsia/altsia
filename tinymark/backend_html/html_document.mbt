@@ -78,7 +78,7 @@ pub fn compile_html_document(
   doc : Document,
   env? : CompileEnv,
   options? : HtmlDocumentOptions,
-) -> Result[String, Diagnostic] {
+) -> String raise Diagnostic {
   let compile_env = env.unwrap_or(CompileEnv::empty())
   let document_options = options.unwrap_or(HtmlDocumentOptions::default())
   compile_html_document_nodes(doc.nodes, compile_env, document_options)
@@ -89,37 +89,23 @@ fn compile_html_document_nodes(
   nodes : Array[Node],
   env : CompileEnv,
   options : HtmlDocumentOptions,
-) -> Result[String, Diagnostic] {
-  let compiled = match
-    compile_backend_nodes_full(
-      nodes,
-      env,
-      options.initial_heading_level,
-      options.wrap_inline_content,
-      html_render_backend(),
-      options.extensions,
-      doc_attr_mode=DocAttrMode::CollectDocAttrs,
-    ) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let metadata = match
-    document_metadata(compiled.doc_attrs, compiled.env, options) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  let head = match
-    html_head_nodes(metadata, compiled.head, options.extra_head) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  Ok(
-    @sexp.render_html_document(
-      metadata.html_attrs,
-      head,
-      [HtmlNode::Element("div", metadata.body_attrs, compiled.body)],
-      options.doctype,
-    ),
+) -> String raise Diagnostic {
+  let compiled = compile_backend_nodes_full(
+    nodes,
+    env,
+    options.initial_heading_level,
+    options.wrap_inline_content,
+    html_render_backend(),
+    options.extensions,
+    doc_attr_mode=DocAttrMode::CollectDocAttrs,
+  )
+  let metadata = document_metadata(compiled.doc_attrs, compiled.env, options)
+  let head = html_head_nodes(metadata, compiled.head, options.extra_head)
+  @sexp.render_html_document(
+    metadata.html_attrs,
+    head,
+    [HtmlNode::Element("div", metadata.body_attrs, compiled.body)],
+    options.doctype,
   )
 }
 
@@ -128,18 +114,15 @@ fn document_metadata(
   doc_attrs : Array[Attr],
   env : CompileEnv,
   options : HtmlDocumentOptions,
-) -> Result[DocumentMetadata, Diagnostic] {
+) -> DocumentMetadata raise Diagnostic {
   let mut metadata = DocumentMetadata::from_options(options)
   for attr in doc_attrs {
-    match metadata.apply_attr(attr, env) {
-      Ok(next) => metadata = next
-      Err(error) => return Err(error)
-    }
+    metadata = metadata.apply_attr(attr, env)
   }
   if metadata.paper is Some(_) {
     metadata.body_attrs.append_class(@paper.PAPER_CLASS_NAME)
   }
-  Ok(metadata)
+  metadata
 }
 
 ///|
@@ -166,7 +149,7 @@ fn DocumentMetadata::apply_attr(
   self : DocumentMetadata,
   attr : Attr,
   env : CompileEnv,
-) -> Result[DocumentMetadata, Diagnostic] {
+) -> DocumentMetadata raise Diagnostic {
   match attr.name {
     "lang" | "dir" => self.apply_html_attr(attr, env)
     "charset" =>
@@ -199,14 +182,13 @@ fn DocumentMetadata::apply_html_attr(
   self : DocumentMetadata,
   attr : Attr,
   env : CompileEnv,
-) -> Result[DocumentMetadata, Diagnostic] {
+) -> DocumentMetadata raise Diagnostic {
   match compile_optional_attr_scalar(attr, env) {
-    Ok(Some(text)) => {
+    Some(text) => {
       self.html_attrs.upsert(attr.name, Some(text))
-      Ok(self)
+      self
     }
-    Ok(None) => Ok(self)
-    Err(error) => Err(error)
+    None => self
   }
 }
 
@@ -216,11 +198,10 @@ fn DocumentMetadata::with_head_value(
   attr : Attr,
   env : CompileEnv,
   update : (DocumentHeadMetadata, String?) -> DocumentHeadMetadata,
-) -> Result[DocumentMetadata, Diagnostic] {
-  compile_optional_attr_scalar(attr, env).map(value => {
-    let head = update(self.head, value)
-    { ..self, head, }
-  })
+) -> DocumentMetadata raise Diagnostic {
+  let value = compile_optional_attr_scalar(attr, env)
+  let head = update(self.head, value)
+  { ..self, head, }
 }
 
 ///|
@@ -228,17 +209,14 @@ fn DocumentMetadata::with_paper(
   self : DocumentMetadata,
   attr : Attr,
   env : CompileEnv,
-) -> Result[DocumentMetadata, Diagnostic] {
-  match required_attr_scalar(attr, env, "paper requires a value") {
-    Ok(name) =>
-      Ok({
-        ..self,
-        paper: Some({
-          options: { slate_name: name, staple: self.staple },
-          span: attr.span,
-        }),
-      })
-    Err(error) => Err(error)
+) -> DocumentMetadata raise Diagnostic {
+  let name = required_attr_scalar(attr, env, "paper requires a value")
+  {
+    ..self,
+    paper: Some({
+      options: { slate_name: name, staple: self.staple },
+      span: attr.span,
+    }),
   }
 }
 
@@ -246,19 +224,17 @@ fn DocumentMetadata::with_paper(
 fn DocumentMetadata::with_staple(
   self : DocumentMetadata,
   attr : Attr,
-) -> Result[DocumentMetadata, Diagnostic] {
-  match
-    flag_attr_bool(attr, "doc option requires a boolean value: " + attr.name) {
-    Ok(value) => {
-      let paper = match self.paper {
-        Some(request) =>
-          Some({ ..request, options: { ..request.options, staple: value } })
-        None => None
-      }
-      Ok({ ..self, paper, staple: value })
-    }
-    Err(error) => Err(error)
+) -> DocumentMetadata raise Diagnostic {
+  let value = flag_attr_bool(
+    attr,
+    "doc option requires a boolean value: " + attr.name,
+  )
+  let paper = match self.paper {
+    Some(request) =>
+      Some({ ..request, options: { ..request.options, staple: value } })
+    None => None
   }
+  { ..self, paper, staple: value }
 }
 
 ///|
@@ -266,14 +242,9 @@ fn DocumentMetadata::apply_body_attr(
   self : DocumentMetadata,
   attr : Attr,
   env : CompileEnv,
-) -> Result[DocumentMetadata, Diagnostic] {
-  match compile_optional_attr_scalar(attr, env) {
-    Ok(value) => {
-      self.body_attrs.upsert(attr.name, value)
-      Ok(self)
-    }
-    Err(error) => Err(error)
-  }
+) -> DocumentMetadata raise Diagnostic {
+  self.body_attrs.upsert(attr.name, compile_optional_attr_scalar(attr, env))
+  self
 }
 
 ///|
@@ -281,7 +252,7 @@ fn html_head_nodes(
   metadata : DocumentMetadata,
   explicit_head : Array[HtmlNode],
   extra_head : Array[HtmlNode],
-) -> Result[Array[HtmlNode], Diagnostic] {
+) -> Array[HtmlNode] raise Diagnostic {
   let head : Array[HtmlNode] = []
 
   if metadata.head.charset is Some(text) {
@@ -311,15 +282,14 @@ fn html_head_nodes(
   }
 
   if metadata.paper is Some(request) {
-    match @paper.paper_style_css(request.options, request.span) {
-      Ok(css) => head.push(paper_style_node(css))
-      Err(error) => return Err(error)
-    }
+    head.push(
+      paper_style_node(@paper.paper_style_css(request.options, request.span)),
+    )
   }
 
   head.append(extra_head)
   head.append(explicit_head)
-  Ok(head)
+  head
 }
 
 ///|

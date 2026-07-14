@@ -60,52 +60,49 @@ pub const PAPER_CLASS_NAME : String = "paper"
 pub fn paper_style_css(
   options : PaperOptions,
   span : @core.SourceSpan,
-) -> Result[String, @core.Diagnostic] {
-  compute_paper(options, span).map(paper => {
-    (
-      $|
-      $|@media screen {
-      $|  .\{PAPER_CLASS_NAME} {
-      $|    max-width: \{paper.screen.max_width};
-      $|    margin: 0 auto;
-      $|    padding: \{paper.screen.padding.css_box()};
-      $|    box-sizing: border-box;
-      $|    font-size: \{paper.screen.font_size};
-      $|  }
-      $|}
-      $|
-      $|@media print {
-      $|  @page {
-      $|    size: \{paper.print.page_size};
-      $|    margin: \{paper.print.margins.css_box()};
-      $|  }
-      $|
-      $|  .\{PAPER_CLASS_NAME} {
-      $|    max-width: none;
-      $|    margin: 0;
-      $|    padding: 0;
-      $|    box-sizing: border-box;
-      $|    font-size: \{paper.print.font_size};
-      $|  }
-      $|}
-      $|
-    )
-  })
+) -> String raise @core.Diagnostic {
+  let paper = compute_paper(options, span)
+  (
+    $|
+    $|@media screen {
+    $|  .\{PAPER_CLASS_NAME} {
+    $|    max-width: \{paper.screen.max_width};
+    $|    margin: 0 auto;
+    $|    padding: \{paper.screen.padding.css_box()};
+    $|    box-sizing: border-box;
+    $|    font-size: \{paper.screen.font_size};
+    $|  }
+    $|}
+    $|
+    $|@media print {
+    $|  @page {
+    $|    size: \{paper.print.page_size};
+    $|    margin: \{paper.print.margins.css_box()};
+    $|  }
+    $|
+    $|  .\{PAPER_CLASS_NAME} {
+    $|    max-width: none;
+    $|    margin: 0;
+    $|    padding: 0;
+    $|    box-sizing: border-box;
+    $|    font-size: \{paper.print.font_size};
+    $|  }
+    $|}
+    $|
+  )
 }
 
 ///|
 fn compute_paper(
   options : PaperOptions,
   span : @core.SourceSpan,
-) -> Result[ComputedPaper, @core.Diagnostic] {
+) -> ComputedPaper raise @core.Diagnostic {
   match paper_slate_from_name(options.slate_name) {
-    Some(slate) => Ok(slate.compute(options))
+    Some(slate) => slate.compute(options)
     None =>
-      Err(
-        span.diagnostic(
-          @core.DiagnosticPhase::Type,
-          "unknown paper slate: \{options.slate_name}",
-        ),
+      raise span.diagnostic(
+        @core.DiagnosticPhase::Type,
+        "unknown paper slate: \{options.slate_name}",
       )
   }
 }

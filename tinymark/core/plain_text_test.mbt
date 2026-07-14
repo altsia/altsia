@@ -1,41 +1,27 @@
 ///|
-fn parse_doc(source : String) -> Document {
-  match parse(source) {
-    Ok(doc) => doc
-    Err(diagnostic) => abort(diagnostic.render())
-  }
+fn parse_doc(source : String) -> Document raise Diagnostic {
+  parse(source)
 }
 
 ///|
 fn collect_env_or_abort(doc : Document) -> CompileEnv {
-  match collect_bindings(doc) {
-    Ok(env) => env
-    Err(diagnostic) => abort(diagnostic.render())
-  }
+  collect_bindings(doc)
 }
 
 ///|
-fn plain_value_or_abort(value : Value, env? : CompileEnv) -> String {
+fn plain_value_or_abort(
+  value : Value,
+  env? : CompileEnv,
+) -> String raise Diagnostic {
   match env {
-    Some(text_env) =>
-      match value_to_plain_text(value, env=text_env) {
-        Ok(text) => text
-        Err(diagnostic) => abort(diagnostic.render())
-      }
-    None =>
-      match value_to_plain_text(value) {
-        Ok(text) => text
-        Err(diagnostic) => abort(diagnostic.render())
-      }
+    Some(text_env) => value_to_plain_text(value, env=text_env)
+    None => value_to_plain_text(value)
   }
 }
 
 ///|
-fn plain_nodes_or_abort(nodes : Array[Node]) -> String {
-  match nodes_to_plain_text(nodes, None) {
-    Ok(text) => text
-    Err(diagnostic) => abort(diagnostic.render())
-  }
+fn plain_nodes_or_abort(nodes : Array[Node]) -> String raise Diagnostic {
+  nodes_to_plain_text(nodes, None)
 }
 
 ///|
@@ -79,19 +65,21 @@ test "nodes to plain text observes conditionals" {
 
 ///|
 test "plain text reports unbound interpolation" {
-  match nodes_to_plain_text(parse_doc("\"Hello (name)\"").nodes, None) {
-    Ok(_) => abort("expected unbound interpolation")
-    Err(diagnostic) =>
-      @test.assert_eq(diagnostic.message, "unbound interpolation name: name")
+  try nodes_to_plain_text(parse_doc("\"Hello (name)\"").nodes, None) catch {
+    diagnostic =>
+      @test.assert_eq(diagnostic.message(), "unbound interpolation name: name")
+  } noraise {
+    _ => abort("expected unbound interpolation")
   }
 }
 
 ///|
 test "plain text reports unbound refs" {
-  match nodes_to_plain_text(parse_doc("(missing)").nodes, None) {
-    Ok(_) => abort("expected unbound ref")
-    Err(diagnostic) =>
-      @test.assert_eq(diagnostic.message, "unbound plain text name: missing")
+  try nodes_to_plain_text(parse_doc("(missing)").nodes, None) catch {
+    diagnostic =>
+      @test.assert_eq(diagnostic.message(), "unbound plain text name: missing")
+  } noraise {
+    _ => abort("expected unbound ref")
   }
 }
 

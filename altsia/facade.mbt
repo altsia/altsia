@@ -2,7 +2,7 @@
 pub fn compile_project(
   project : @model.Project,
   builtin_env? : @core.CompileEnv,
-) -> Result[@model.CompiledProject, @core.Diagnostic] {
+) -> @model.CompiledProject raise @core.Diagnostic {
   compile_project_with_options(
     project,
     strict=false,
@@ -14,7 +14,7 @@ pub fn compile_project(
 pub fn compile_project_strict(
   project : @model.Project,
   builtin_env? : @core.CompileEnv,
-) -> Result[@model.CompiledProject, @core.Diagnostic] {
+) -> @model.CompiledProject raise @core.Diagnostic {
   compile_project_with_options(
     project,
     strict=true,
@@ -27,38 +27,32 @@ fn compile_project_with_options(
   project : @model.Project,
   strict~ : Bool,
   env : @core.CompileEnv,
-) -> Result[@model.CompiledProject, @core.Diagnostic] {
-  @parse.parse_project_trees(project, builtin_env=env).bind(parsed => {
-    @compile.compile_parsed_project(project.root, parsed).bind(compiled => {
-      if strict && compiled.diagnostics.length() > 0 {
-        Err(compiled.diagnostics[0])
-      } else {
-        Ok(compiled)
-      }
-    })
-  })
+) -> @model.CompiledProject raise @core.Diagnostic {
+  let parsed = @parse.parse_project_trees(project, builtin_env=env)
+  let compiled = @compile.compile_parsed_project(project.root, parsed)
+  if strict && compiled.diagnostics.length() > 0 {
+    raise compiled.diagnostics[0]
+  }
+  compiled
 }
 
 ///|
 pub fn compile_alt_fragment(
   sources : Array[@model.SourceFile],
   entry : String,
-) -> Result[String, @core.Diagnostic] {
+) -> String raise @core.Diagnostic {
   let project = @model.Project::new("", sources)
-  compile_project(project).bind(compiled => {
-    match
-      @model.compiled_tree_by_slug(compiled, @model.tree_slug_from_path(entry)) {
-      Some(tree) => Ok(tree.html)
-      None =>
-        Err(
-          @model.source_diagnostic(
-            entry,
-            Binding,
-            "missing entry tree: " + entry,
-          ),
-        )
-    }
-  })
+  let compiled = compile_project(project)
+  match
+    @model.compiled_tree_by_slug(compiled, @model.tree_slug_from_path(entry)) {
+    Some(tree) => tree.html
+    None =>
+      raise @model.source_diagnostic(
+        entry,
+        Binding,
+        "missing entry tree: " + entry,
+      )
+  }
 }
 
 ///|
@@ -66,16 +60,15 @@ pub fn compile_alt_document(
   sources : Array[@model.SourceFile],
   entry : String,
   options? : @html.HtmlDocumentOptions,
-) -> Result[String, @core.Diagnostic] {
-  compile_alt_fragment(sources, entry).map(body => {
-    let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
-    @sexp.render_html_document(
-      @sexp.HtmlAttrs(Map([])),
-      opts.extra_head,
-      [RawHtml(body)],
-      opts.doctype,
-    )
-  })
+) -> String raise @core.Diagnostic {
+  let body = compile_alt_fragment(sources, entry)
+  let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
+  @sexp.render_html_document(
+    @sexp.HtmlAttrs(Map([])),
+    opts.extra_head,
+    [RawHtml(body)],
+    opts.doctype,
+  )
 }
 
 ///|
@@ -83,44 +76,38 @@ pub fn preview_project(
   project : @model.Project,
   entry : String,
   options? : @html.HtmlDocumentOptions,
-) -> Result[@model.PreviewResult, @core.Diagnostic] {
-  compile_project(project).bind(compiled => {
-    let entry_tree_slug = @model.tree_slug_from_path(entry)
-    match @model.compiled_tree_by_slug(compiled, entry_tree_slug) {
-      Some(tree) => {
-        let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
-        let html = @sexp.render_html_document(
-          @sexp.HtmlAttrs(Map([])),
-          opts.extra_head,
-          [RawHtml(tree.html)],
-          opts.doctype,
-        )
-        Ok({
-          html,
-          diagnostics: compiled.diagnostics,
-          source_file_dependencies: @compile.source_file_dependencies_for_entry(
-            compiled.source_file_dependencies,
-            tree.path,
-          ),
-          dangling_tree_links: @compile.dangling_tree_links_for_entry(
-            compiled.dangling_tree_links,
-            compiled.source_file_dependencies,
-            tree.path,
-          ),
-          entry_tree_slug,
-          title: @model.tree_page_title(tree),
-        })
-      }
-      None =>
-        Err(
-          @model.source_diagnostic(
-            entry,
-            Binding,
-            "missing entry tree: " + entry,
-          ),
-        )
-    }
-  })
+) -> @model.PreviewResult raise @core.Diagnostic {
+  let compiled = compile_project(project)
+  let entry_tree_slug = @model.tree_slug_from_path(entry)
+  guard @model.compiled_tree_by_slug(compiled, entry_tree_slug) is Some(tree) else {
+    raise @model.source_diagnostic(
+      entry,
+      Binding,
+      "missing entry tree: " + entry,
+    )
+  }
+  let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
+  let html = @sexp.render_html_document(
+    @sexp.HtmlAttrs(Map([])),
+    opts.extra_head,
+    [RawHtml(tree.html)],
+    opts.doctype,
+  )
+  {
+    html,
+    diagnostics: compiled.diagnostics,
+    source_file_dependencies: @compile.source_file_dependencies_for_entry(
+      compiled.source_file_dependencies,
+      tree.path,
+    ),
+    dangling_tree_links: @compile.dangling_tree_links_for_entry(
+      compiled.dangling_tree_links,
+      compiled.source_file_dependencies,
+      tree.path,
+    ),
+    entry_tree_slug,
+    title: @model.tree_page_title(tree),
+  }
 }
 
 ///|
@@ -129,25 +116,21 @@ pub fn preview_project_structured(
   entry : String,
   preview_options? : @model.PreviewOptions,
   document_options? : @html.HtmlDocumentOptions,
-) -> Result[@model.StructuredPreview, @core.Diagnostic] {
+) -> @model.StructuredPreview raise @core.Diagnostic {
   let preview_opts = preview_options.unwrap_or(@model.PreviewOptions::default())
-  @parse.parse_project_trees(project).bind(parsed => {
-    @compile.compile_structured_preview(
-      project.root,
-      parsed,
-      entry,
-      preview_opts,
-    ).map(preview => {
-      let opts = document_options.unwrap_or(
-        @html.HtmlDocumentOptions::default(),
-      )
-      let html = @sexp.render_html_document(
-        @sexp.HtmlAttrs(Map([])),
-        opts.extra_head,
-        [RawHtml(preview.html)],
-        opts.doctype,
-      )
-      { ..preview, html, }
-    })
-  })
+  let parsed = @parse.parse_project_trees(project)
+  let preview = @compile.compile_structured_preview(
+    project.root,
+    parsed,
+    entry,
+    preview_opts,
+  )
+  let opts = document_options.unwrap_or(@html.HtmlDocumentOptions::default())
+  let html = @sexp.render_html_document(
+    @sexp.HtmlAttrs(Map([])),
+    opts.extra_head,
+    [RawHtml(preview.html)],
+    opts.doctype,
+  )
+  { ..preview, html, }
 }

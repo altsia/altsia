@@ -41,26 +41,24 @@ fn collect_prefixed_library_env(
   module_name : String,
   doc : @core.Document,
   builtin_env : @core.CompileEnv,
-) -> Result[@core.CompileEnv, @core.Diagnostic] {
+) -> @core.CompileEnv {
   let options : @core.BindingCollectOptions = {
     include_doc: false,
     include_let: true,
     include_def: true,
   }
-  @core.collect_bindings(doc, options~).bind(own => {
-    @core.collect_bindings(doc, base=builtin_env, options~).map(collected => {
-      let env = @core.CompileEnv::empty()
-      for name, _ in own.values {
-        if collected.lookup_value(name) is Some(value) {
-          env.bind_value(module_name + "." + name, value)
-        }
-      }
-      for name, _ in own.templates {
-        if collected.lookup_template(name) is Some(template) {
-          env.bind_template_value(module_name + "." + name, template)
-        }
-      }
-      env
-    })
-  })
+  let own = @core.collect_bindings(doc, options~)
+  let collected = @core.collect_bindings(doc, base=builtin_env, options~)
+  let env = @core.CompileEnv::empty()
+  for name, _ in own.values {
+    if collected.lookup_value(name) is Some(value) {
+      env.bind_value(module_name + "." + name, value)
+    }
+  }
+  for name, _ in own.templates {
+    if collected.lookup_template(name) is Some(template) {
+      env.bind_template_value(module_name + "." + name, template)
+    }
+  }
+  env
 }

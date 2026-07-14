@@ -24,14 +24,11 @@ pub(all) struct BackendOutput[Out, Head] {
 pub(all) struct BackendCompileContext[Out, Head] {
   env : CompileEnv
   current_heading_level : Int
-  compile_inline : (Array[Node]) -> Result[BackendOutput[Out, Head], Diagnostic]
-  compile_block : (Array[Node]) -> Result[BackendOutput[Out, Head], Diagnostic]
-  compile_block_at : (Array[Node], Int) -> Result[
-    BackendOutput[Out, Head],
-    Diagnostic,
-  ]
-  compile_mixed : (Array[Node]) -> Result[BackendOutput[Out, Head], Diagnostic]
-  compile_text_only : (Array[Node]) -> Result[String, Diagnostic]
+  compile_inline : (Array[Node]) -> BackendOutput[Out, Head] raise Diagnostic
+  compile_block : (Array[Node]) -> BackendOutput[Out, Head] raise Diagnostic
+  compile_block_at : (Array[Node], Int) -> BackendOutput[Out, Head] raise Diagnostic
+  compile_mixed : (Array[Node]) -> BackendOutput[Out, Head] raise Diagnostic
+  compile_text_only : (Array[Node]) -> String raise Diagnostic
 }
 
 ///|
@@ -41,18 +38,15 @@ pub(all) struct BackendCallContext[Out, Head] {
 }
 
 ///|
-pub type BackendElementResolver[Out, Head] = (BackendCallContext[Out, Head]) -> Result[
-  BackendOutput[Out, Head]?,
-  Diagnostic,
-]
+pub type BackendElementResolver[Out, Head] = (BackendCallContext[Out, Head]) -> BackendOutput[
+  Out,
+  Head,
+]? raise Diagnostic
 
 ///|
 pub(all) struct RenderBackend[Out, Head] {
   text : (String) -> Out
-  interpolate_text : (Interpolation, CompileEnv, SourceSpan) -> Result[
-    String,
-    Diagnostic,
-  ]
+  interpolate_text : (Interpolation, CompileEnv, SourceSpan) -> String raise Diagnostic
   append_inline_node : (Array[Out], Array[Out], Out) -> Unit
   flush_inline_run : (Array[Out], Array[Out]) -> Unit
   output_text : (Out) -> String?
@@ -108,10 +102,10 @@ pub fn[Out, Head] compile_backend_nodes(
   wrap_inline_content : Bool,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[Array[Out], Diagnostic] {
+) -> Array[Out] raise Diagnostic {
   compile_backend_nodes_output(
     nodes, env, current_heading_level, wrap_inline_content, backend, extensions,
-  ).map(output => output.body)
+  ).body
 }
 
 ///|
@@ -122,8 +116,8 @@ pub fn[Out, Head] compile_backend_nodes_output(
   wrap_inline_content : Bool,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[BackendOutput[Out, Head], Diagnostic] {
-  compile_backend_nodes_full(
+) -> BackendOutput[Out, Head] raise Diagnostic {
+  let compiled = compile_backend_nodes_full(
     nodes,
     env,
     current_heading_level,
@@ -131,11 +125,12 @@ pub fn[Out, Head] compile_backend_nodes_output(
     backend,
     extensions,
     doc_attr_mode=BindDocAttrs,
-  ).map(compiled => {
+  )
+  {
     body: compiled.body,
     head: compiled.head,
     inline_body: compiled.inline_body,
-  })
+  }
 }
 
 ///|
@@ -147,7 +142,7 @@ pub fn[Out, Head] compile_backend_nodes_full(
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
   doc_attr_mode~ : DocAttrMode,
-) -> Result[RenderedNodeSequence[Out, Head], Diagnostic] {
+) -> RenderedNodeSequence[Out, Head] raise Diagnostic {
   let out : Array[Out] = []
   let head : Array[Head] = []
   let doc_attrs : Array[Attr] = []
@@ -158,34 +153,24 @@ pub fn[Out, Head] compile_backend_nodes_full(
       doc_attrs.push(attr)
     }
   }
-  let local_env = match
-    visit_scoped_nodes(nodes, env, on_doc_attr, (node, local_env) => {
-      match
-        compile_backend_node(
-          node, local_env, current_heading_level, backend, extensions,
-        ) {
-        Err(error) => return Err(error)
-        Ok(compiled) => {
-          head.append(compiled.head)
-          if compiled.inline_body {
-            guard wrap_inline_content else { out.append(compiled.body) }
-            for node in compiled.body {
-              (backend.append_inline_node)(inline_run, out, node)
-            }
-          } else {
-            inline_body = false
-            (backend.flush_inline_run)(inline_run, out)
-            out.append(compiled.body)
-          }
-        }
+  let local_env = visit_scoped_nodes(nodes, env, on_doc_attr, (node, local_env) => {
+    let compiled = compile_backend_node(
+      node, local_env, current_heading_level, backend, extensions,
+    )
+    head.append(compiled.head)
+    if compiled.inline_body {
+      guard wrap_inline_content else { out.append(compiled.body) }
+      for node in compiled.body {
+        (backend.append_inline_node)(inline_run, out, node)
       }
-      Ok(())
-    }) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
+    } else {
+      inline_body = false
+      (backend.flush_inline_run)(inline_run, out)
+      out.append(compiled.body)
+    }
+  })
   (backend.flush_inline_run)(inline_run, out)
-  Ok({ body: out, head, doc_attrs, env: local_env, inline_body })
+  { body: out, head, doc_attrs, env: local_env, inline_body }
 }
 
 ///|
@@ -195,7 +180,7 @@ fn[Out, Head] compile_backend_inline_children(
   current_heading_level : Int,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[BackendOutput[Out, Head], Diagnostic] {
+) -> BackendOutput[Out, Head] raise Diagnostic {
   compile_backend_nodes_output(
     children, env, current_heading_level, false, backend, extensions,
   )
@@ -208,7 +193,7 @@ fn[Out, Head] compile_backend_block_children(
   current_heading_level : Int,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[BackendOutput[Out, Head], Diagnostic] {
+) -> BackendOutput[Out, Head] raise Diagnostic {
   compile_backend_nodes_output(
     children, env, current_heading_level, false, backend, extensions,
   )
@@ -221,7 +206,7 @@ fn[Out, Head] compile_backend_mixed_children(
   current_heading_level : Int,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[BackendOutput[Out, Head], Diagnostic] {
+) -> BackendOutput[Out, Head] raise Diagnostic {
   compile_backend_nodes_output(
     children, env, current_heading_level, false, backend, extensions,
   )
@@ -234,13 +219,13 @@ fn[Out, Head] compile_backend_node(
   current_heading_level : Int,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[BackendOutput[Out, Head], Diagnostic] {
+) -> BackendOutput[Out, Head] raise Diagnostic {
   match node {
-    Text(text, _) => Ok(BackendOutput::body([(backend.text)(text)]))
-    TextInterp(template, span) =>
-      (backend.interpolate_text)(template, env, span).map(value => {
-        BackendOutput::body([(backend.text)(value)])
-      })
+    Text(text, _) => BackendOutput::body([(backend.text)(text)])
+    TextInterp(template, span) => {
+      let value = (backend.interpolate_text)(template, env, span)
+      BackendOutput::body([(backend.text)(value)])
+    }
     Ref(name, span) => {
       if env.lookup_value(name) is Some(value) {
         return compile_backend_value(
@@ -282,24 +267,22 @@ fn[Out, Head] compile_backend_node(
       )
     }
     When(name, children, span) =>
-      match bool_binding(env, name, span) {
-        Ok(true) =>
-          compile_backend_inline_children(
-            children, env, current_heading_level, backend, extensions,
-          )
-        Ok(false) => Ok(BackendOutput::empty())
-        Err(error) => Err(error)
+      if bool_binding(env, name, span) {
+        compile_backend_inline_children(
+          children, env, current_heading_level, backend, extensions,
+        )
+      } else {
+        BackendOutput::empty()
       }
     Unless(name, children, span) =>
-      match bool_binding(env, name, span) {
-        Ok(true) => Ok(BackendOutput::empty())
-        Ok(false) =>
-          compile_backend_inline_children(
-            children, env, current_heading_level, backend, extensions,
-          )
-        Err(error) => Err(error)
+      if bool_binding(env, name, span) {
+        BackendOutput::empty()
+      } else {
+        compile_backend_inline_children(
+          children, env, current_heading_level, backend, extensions,
+        )
       }
-    Let(_, _, _) | Def(_, _, _, _) | Doc(_, _) => Ok(BackendOutput::empty())
+    Let(_, _, _) | Def(_, _, _, _) | Doc(_, _) => BackendOutput::empty()
   }
 }
 
@@ -310,7 +293,7 @@ fn[Out, Head] compile_backend_element(
   current_heading_level : Int,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[BackendOutput[Out, Head], Diagnostic] {
+) -> BackendOutput[Out, Head] raise Diagnostic {
   let context : BackendCompileContext[Out, Head] = {
     env,
     current_heading_level,
@@ -342,21 +325,17 @@ fn[Out, Head] compile_backend_element(
   }
   let compiler = BackendCallContext::{ call, context }
   for resolver in extensions {
-    let result = resolver(compiler)
-    if result is Ok(Some(output)) {
-      return Ok(output)
-    }
-    if result is Err(error) {
-      return Err(error)
+    if resolver(compiler) is Some(output) {
+      return output
     }
   }
   match (backend.resolve_element)(compiler) {
-    Ok(Some(output)) => Ok(output)
-    Ok(None) =>
-      Err(
-        call.span.diagnostic(ContentModel, "unsupported element: " + call.tag),
+    Some(output) => output
+    None =>
+      raise call.span.diagnostic(
+        ContentModel,
+        "unsupported element: " + call.tag,
       )
-    Err(error) => Err(error)
   }
 }
 
@@ -370,16 +349,17 @@ fn[Out, Head] expand_backend_template(
   call_span : SourceSpan,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[BackendOutput[Out, Head], Diagnostic] {
-  bind_template_call_env(template, attrs, children, call_env, call_span).bind(template_env => {
-    compile_backend_inline_children(
-      template.body,
-      template_env,
-      current_heading_level,
-      backend,
-      extensions,
-    )
-  })
+) -> BackendOutput[Out, Head] raise Diagnostic {
+  let template_env = bind_template_call_env(
+    template, attrs, children, call_env, call_span,
+  )
+  compile_backend_inline_children(
+    template.body,
+    template_env,
+    current_heading_level,
+    backend,
+    extensions,
+  )
 }
 
 ///|
@@ -389,39 +369,30 @@ fn[Out, Head] compile_backend_text_only_children(
   current_heading_level : Int,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[String, Diagnostic] {
+) -> String raise Diagnostic {
   let parts : Array[String] = []
-  match
+  ignore(
     visit_scoped_nodes(children, env, _ => (), (child, local_env) => {
-      let nodes = match
-        compile_backend_node(
-          child, local_env, current_heading_level, backend, extensions,
-        ) {
-        Ok(value) => value
-        Err(error) => return Err(error)
-      }
+      let nodes = compile_backend_node(
+        child, local_env, current_heading_level, backend, extensions,
+      )
       if !nodes.head.is_empty() {
-        return Err(
-          child.span().diagnostic(ContentModel, "expected plain text content"),
-        )
+        raise child
+          .span()
+          .diagnostic(ContentModel, "expected plain text content")
       }
       for node in nodes.body {
         match (backend.output_text)(node) {
           Some(text) => parts.push(text)
           None =>
-            return Err(
-              child
+            raise child
               .span()
-              .diagnostic(ContentModel, "expected plain text content"),
-            )
+              .diagnostic(ContentModel, "expected plain text content")
         }
       }
-      Ok(())
-    }) {
-    Ok(_) => ()
-    Err(error) => return Err(error)
-  }
-  Ok(parts.join(""))
+    }),
+  )
+  parts.join("")
 }
 
 ///|
@@ -431,14 +402,14 @@ pub fn[Out, Head] compile_backend_value(
   current_heading_level : Int,
   backend : RenderBackend[Out, Head],
   extensions : Array[BackendElementResolver[Out, Head]],
-) -> Result[BackendOutput[Out, Head], Diagnostic] {
+) -> BackendOutput[Out, Head] raise Diagnostic {
   match value {
     Scalar(scalar, _) =>
-      Ok(BackendOutput::body([(backend.text)(scalar.to_string())]))
-    Interp(template, span) =>
-      (backend.interpolate_text)(template, env, span).map(text => {
-        BackendOutput::body([(backend.text)(text)])
-      })
+      BackendOutput::body([(backend.text)(scalar.to_string())])
+    Interp(template, span) => {
+      let text = (backend.interpolate_text)(template, env, span)
+      BackendOutput::body([(backend.text)(text)])
+    }
     Fragment(nodes, _) =>
       compile_backend_inline_children(
         nodes, env, current_heading_level, backend, extensions,

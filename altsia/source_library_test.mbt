@@ -25,31 +25,35 @@ test "records use library dependency" {
 
 ///|
 test "use can only import sia" {
-  match
+  try
     compile_project(
       @model.Project::new("", [
         source("index.alt", "(use `lib.alt`)"),
         source("lib.alt", "content"),
       ]),
-    ) {
-    Ok(_) => abort("expected .alt use to fail")
-    Err(error) =>
-      @test.assert_eq(error.message, "(use ...) can only import .sia files")
+    )
+  catch {
+    error =>
+      @test.assert_eq(error.message(), "(use ...) can only import .sia files")
+  } noraise {
+    _ => abort("expected .alt use to fail")
   }
 }
 
 ///|
 test "duplicate normalized sia module name is hard error" {
-  match
+  try
     compile_project(
       @model.Project::new("", [
         source("index.alt", "content"),
         source("a/auto date.sia", "(let x `a`)"),
         source("b/auto date.sia", "(let x `b`)"),
       ]),
-    ) {
-    Ok(_) => abort("expected duplicate module name")
-    Err(error) =>
-      @test.assert_eq(error.message, "duplicate .sia module name: auto_date")
+    )
+  catch {
+    error =>
+      @test.assert_eq(error.message(), "duplicate .sia module name: auto_date")
+  } noraise {
+    _ => abort("expected duplicate module name")
   }
 }

@@ -22,14 +22,12 @@ priv struct TreeLowering {
 ///|
 fn parse_source_file(
   file : @model.SourceFile,
-) -> Result[ParsedSource, @core.Diagnostic] {
+) -> ParsedSource raise @core.Diagnostic {
   guard @model.source_file_kind(file.path) is Some(kind) else {
-    return Err(
-      @model.source_diagnostic(
-        file.path,
-        Placement,
-        "unsupported source file extension: " + file.path,
-      ),
+    raise @model.source_diagnostic(
+      file.path,
+      Placement,
+      "unsupported source file extension: " + file.path,
     )
   }
   let source_info : @core.SourceInfo = {
@@ -37,7 +35,8 @@ fn parse_source_file(
     line_offset: 0,
     column_offset: 0,
   }
-  @core.parse(file.source, source_info~).map(doc => {
+  let doc = @core.parse(file.source, source_info~)
+  {
     file,
     kind,
     doc,
@@ -45,28 +44,24 @@ fn parse_source_file(
       @model.AltLibrary => Some(@model.module_name_from_path(file.path))
       @model.AltDocument => None
     },
-  })
+  }
 }
 
 ///|
 fn parse_project_sources(
   sources : Array[@model.SourceFile],
-) -> Result[ParsedSourceSet, @core.Diagnostic] {
+) -> ParsedSourceSet raise @core.Diagnostic {
   let parsed : Array[ParsedSource] = []
   let sources_by_path : Map[String, ParsedSource] = Map([])
   for source in sources {
-    match parse_source_file(source) {
-      Ok(item) => {
-        parsed.push(item)
-        sources_by_path[@model.normalize_path(item.file.path)] = item
-      }
-      Err(error) => return Err(error)
-    }
+    let item = parse_source_file(source)
+    parsed.push(item)
+    sources_by_path[@model.normalize_path(item.file.path)] = item
   }
   if check_duplicate_modules(parsed) is Some(error) {
-    Err(error)
+    raise error
   } else {
-    Ok({ sources: parsed, sources_by_path })
+    { sources: parsed, sources_by_path }
   }
 }
 
@@ -101,21 +96,16 @@ fn resolve_use_directives(
   current : ParsedSource,
   parsed : ParsedSourceSet,
   builtin_env : @core.CompileEnv,
-) -> Result[
-  (@core.CompileEnv, Array[@model.SourceFileDependency]),
-  @core.Diagnostic,
-] {
+) -> (@core.CompileEnv, Array[@model.SourceFileDependency]) raise @core.Diagnostic {
   let env = @core.CompileEnv::empty()
   let source_file_dependencies : Array[@model.SourceFileDependency] = []
   for directive in leading_use_directives(current.doc) {
     if !@model.has_suffix(directive.target, ".sia") {
-      return Err(
-        @model.diagnostic(
-          directive.span,
-          Binding,
-          "(use ...) can only import .sia files",
-          hint="target was: " + directive.target,
-        ),
+      raise @model.diagnostic(
+        directive.span,
+        Binding,
+        "(use ...) can only import .sia files",
+        hint="target was: " + directive.target,
       )
     }
     let target_path = @model.resolve_relative(
@@ -132,95 +122,72 @@ fn resolve_use_directives(
               kind: @model.LibraryUse,
             })
             let module_name = library.module_name.unwrap_or("")
-            match
+            env.append(
               collect_prefixed_library_env(
                 module_name,
                 library.doc,
                 builtin_env,
-              ) {
-              Ok(library_env) => env.append(library_env)
-              Err(error) => return Err(error)
-            }
+              ),
+            )
           }
           @model.AltDocument =>
-            return Err(
-              @model.diagnostic(
-                directive.span,
-                Binding,
-                "(use ...) cannot import .alt files",
-                hint="target was: " + directive.target,
-              ),
+            raise @model.diagnostic(
+              directive.span,
+              Binding,
+              "(use ...) cannot import .alt files",
+              hint="target was: " + directive.target,
             )
         }
       None =>
-        return Err(
-          @model.diagnostic(
-            directive.span,
-            Binding,
-            "missing .sia library: " + directive.target,
-            hint="resolved path: " + target_path,
-          ),
+        raise @model.diagnostic(
+          directive.span,
+          Binding,
+          "missing .sia library: " + directive.target,
+          hint="resolved path: " + target_path,
         )
     }
   }
-  Ok((env, source_file_dependencies))
+  (env, source_file_dependencies)
 }
 
 ///|
 fn lower_parsed_sources(
   parsed : ParsedSourceSet,
   builtin_env : @core.CompileEnv,
-) -> Result[Array[@model.ParsedTree], @core.Diagnostic] {
+) -> Array[@model.ParsedTree] raise @core.Diagnostic {
   let trees : Array[@model.ParsedTree] = []
   let tree_sources_by_slug : Map[String, String] = Map([])
   for item in parsed.sources {
     match item.kind {
       @model.AltDocument => {
-        let import_result = match
-          resolve_use_directives(item, parsed, builtin_env) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
-        let (imported, source_file_dependencies) = import_result
+        let (imported, source_file_dependencies) = resolve_use_directives(
+          item, parsed, builtin_env,
+        )
         let env = builtin_env.copy()
         env.append(imported)
         let default_slug = @model.tree_slug_from_path(item.file.path)
         let source_doc = strip_leading_use_directives(item.doc)
-        let metadata_env = match collect_local_bindings(source_doc, env) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
-        let root_metadata = match
-          metadata_from_doc(
-            default_slug,
-            item.file.path,
-            source_doc,
-            metadata_env,
-          ) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
+        let metadata_env = collect_local_bindings(source_doc, env)
+        let root_metadata = metadata_from_doc(
+          default_slug,
+          item.file.path,
+          source_doc,
+          metadata_env,
+        )
         let top_level_slug = root_metadata.slug
-        let extraction = match
-          lower_tree_nodes(
-            source_doc.nodes,
-            top_level_slug,
-            item.file.path,
-            env,
-            source_file_dependencies,
-            next_section_index=0,
-          ) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
+        let extraction = lower_tree_nodes(
+          source_doc.nodes,
+          top_level_slug,
+          item.file.path,
+          env,
+          source_file_dependencies,
+          next_section_index=0,
+        )
         let root_doc : @core.Document = {
           source: source_doc.source,
           nodes: extraction.inline_nodes,
         }
-        let root_content = match @content.compile_rich_content(root_doc, env~) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
+        let root_content = @content.compile_rich_content(root_doc, env~)
         let root_tree : @model.ParsedTree = {
           slug: top_level_slug,
           path: item.file.path,
@@ -230,25 +197,25 @@ fn lower_parsed_sources(
         }
         if add_parsed_tree(trees, tree_sources_by_slug, root_tree)
           is Some(error) {
-          return Err(error)
+          raise error
         }
         for tree in extraction.trees {
           if add_parsed_tree(trees, tree_sources_by_slug, tree) is Some(error) {
-            return Err(error)
+            raise error
           }
         }
       }
       @model.AltLibrary => ()
     }
   }
-  Ok(trees)
+  trees
 }
 
 ///|
 fn collect_local_bindings(
   doc : @core.Document,
   base_env : @core.CompileEnv,
-) -> Result[@core.CompileEnv, @core.Diagnostic] {
+) -> @core.CompileEnv {
   let options : @core.BindingCollectOptions = {
     include_doc: false,
     include_let: true,
@@ -290,32 +257,25 @@ fn lower_tree_nodes(
   env : @core.CompileEnv,
   source_file_dependencies : Array[@model.SourceFileDependency],
   next_section_index~ : Int,
-) -> Result[TreeLowering, @core.Diagnostic] {
+) -> TreeLowering raise @core.Diagnostic {
   let inline_nodes : Array[@core.Node] = []
   let trees : Array[@model.ParsedTree] = []
   let mut next_index = next_section_index
   for node in nodes {
     match node {
       Element("tree", attrs, children, span) => {
-        let slug_attr = match tree_slug_attr(attrs) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
+        let slug_attr = tree_slug_attr(attrs)
         match slug_attr {
           Some(local_slug) => {
             let slug = @model.child_tree_slug(top_level_slug, local_slug)
-            let child = match
-              lower_tree_nodes(
-                children,
-                top_level_slug,
-                source_path,
-                env,
-                source_file_dependencies,
-                next_section_index=next_index,
-              ) {
-              Ok(value) => value
-              Err(error) => return Err(error)
-            }
+            let child = lower_tree_nodes(
+              children,
+              top_level_slug,
+              source_path,
+              env,
+              source_file_dependencies,
+              next_section_index=next_index,
+            )
             next_index = child.next_section_index
             let doc : @core.Document = {
               source: {
@@ -325,32 +285,20 @@ fn lower_tree_nodes(
               },
               nodes: child.inline_nodes,
             }
-            let metadata_env = match collect_local_bindings(doc, env) {
-              Ok(value) => value
-              Err(error) => return Err(error)
-            }
-            let content = match @content.compile_rich_content(doc, env~) {
-              Ok(value) => value
-              Err(error) => return Err(error)
-            }
+            let metadata_env = collect_local_bindings(doc, env)
+            let content = @content.compile_rich_content(doc, env~)
             let extracted_tree : @model.ParsedTree = {
               slug,
               path: source_path,
               content,
-              metadata: match
-                metadata_from_tree(slug, source_path, attrs, doc, metadata_env) {
-                Ok(value) => value
-                Err(error) => return Err(error)
-              },
+              metadata: metadata_from_tree(
+                slug, source_path, attrs, doc, metadata_env,
+              ),
               source_file_dependencies,
             }
             trees.push(extracted_tree)
             trees.append(child.trees)
-            let reference = match
-              embedded_tree_reference_node(slug, attrs, span) {
-              Ok(value) => value
-              Err(error) => return Err(error)
-            }
+            let reference = embedded_tree_reference_node(slug, attrs, span)
             inline_nodes.push(reference)
           }
           None => {
@@ -358,18 +306,14 @@ fn lower_tree_nodes(
             let anchor = @model.anonymous_tree_anchor(
               top_level_slug, next_index,
             )
-            let child = match
-              lower_tree_nodes(
-                children,
-                top_level_slug,
-                source_path,
-                env,
-                source_file_dependencies,
-                next_section_index=next_index,
-              ) {
-              Ok(value) => value
-              Err(error) => return Err(error)
-            }
+            let child = lower_tree_nodes(
+              children,
+              top_level_slug,
+              source_path,
+              env,
+              source_file_dependencies,
+              next_section_index=next_index,
+            )
             next_index = child.next_section_index
             trees.append(child.trees)
             inline_nodes.push(
@@ -384,52 +328,40 @@ fn lower_tree_nodes(
         }
       }
       Element(tag, attrs, children, span) => {
-        let child = match
-          lower_tree_nodes(
-            children,
-            top_level_slug,
-            source_path,
-            env,
-            source_file_dependencies,
-            next_section_index=next_index,
-          ) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
+        let child = lower_tree_nodes(
+          children,
+          top_level_slug,
+          source_path,
+          env,
+          source_file_dependencies,
+          next_section_index=next_index,
+        )
         next_index = child.next_section_index
         trees.append(child.trees)
         inline_nodes.push(Element(tag, attrs, child.inline_nodes, span))
       }
       When(name, children, span) => {
-        let child = match
-          lower_tree_nodes(
-            children,
-            top_level_slug,
-            source_path,
-            env,
-            source_file_dependencies,
-            next_section_index=next_index,
-          ) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
+        let child = lower_tree_nodes(
+          children,
+          top_level_slug,
+          source_path,
+          env,
+          source_file_dependencies,
+          next_section_index=next_index,
+        )
         next_index = child.next_section_index
         trees.append(child.trees)
         inline_nodes.push(When(name, child.inline_nodes, span))
       }
       Unless(name, children, span) => {
-        let child = match
-          lower_tree_nodes(
-            children,
-            top_level_slug,
-            source_path,
-            env,
-            source_file_dependencies,
-            next_section_index=next_index,
-          ) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
+        let child = lower_tree_nodes(
+          children,
+          top_level_slug,
+          source_path,
+          env,
+          source_file_dependencies,
+          next_section_index=next_index,
+        )
         next_index = child.next_section_index
         trees.append(child.trees)
         inline_nodes.push(Unless(name, child.inline_nodes, span))
@@ -437,13 +369,11 @@ fn lower_tree_nodes(
       _ => inline_nodes.push(node)
     }
   }
-  Ok({ inline_nodes, trees, next_section_index: next_index })
+  { inline_nodes, trees, next_section_index: next_index }
 }
 
 ///|
-fn tree_slug_attr(
-  attrs : Array[@core.Attr],
-) -> Result[String?, @core.Diagnostic] {
+fn tree_slug_attr(attrs : Array[@core.Attr]) -> String? raise @core.Diagnostic {
   for attr in attrs {
     if attr.name == "slug" {
       return optional_literal_attr_scalar(
@@ -451,7 +381,7 @@ fn tree_slug_attr(
       )
     }
   }
-  Ok(None)
+  None
 }
 
 ///|
@@ -468,22 +398,17 @@ fn embedded_tree_reference_node(
   slug : @model.TreeSlug,
   attrs : Array[@core.Attr],
   span : @core.SourceSpan,
-) -> Result[@core.Node, @core.Diagnostic] {
+) -> @core.Node raise @core.Diagnostic {
   let children : Array[@core.Node] = [Text("/" + slug.canonical(), span)]
-  let title = match tree_title_attr(attrs) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
+  let title = tree_title_attr(attrs)
   if title is Some(title) {
     children.push(Text(title, span))
   }
-  Ok(Element("embed", [], children, span))
+  Element("embed", [], children, span)
 }
 
 ///|
-fn tree_title_attr(
-  attrs : Array[@core.Attr],
-) -> Result[String?, @core.Diagnostic] {
+fn tree_title_attr(attrs : Array[@core.Attr]) -> String? raise @core.Diagnostic {
   for attr in attrs {
     if attr.name == "title" {
       return optional_literal_attr_scalar(
@@ -491,18 +416,17 @@ fn tree_title_attr(
       )
     }
   }
-  Ok(None)
+  None
 }
 
 ///|
 fn optional_literal_attr_scalar(
   attr : @core.Attr,
   message : String,
-) -> Result[String?, @core.Diagnostic] {
+) -> String? raise @core.Diagnostic {
   match attr.value {
-    Some(value) =>
-      value.to_literal_scalar(attr.span, message).map(text => Some(text))
-    None => Ok(None)
+    Some(value) => Some(value.to_literal_scalar(attr.span, message))
+    None => None
   }
 }
 
@@ -510,9 +434,7 @@ fn optional_literal_attr_scalar(
 pub fn parse_project_trees(
   project : @model.Project,
   builtin_env? : @core.CompileEnv,
-) -> Result[Array[@model.ParsedTree], @core.Diagnostic] {
+) -> Array[@model.ParsedTree] raise @core.Diagnostic {
   let base_env = builtin_env.unwrap_or(@core.CompileEnv::empty())
-  parse_project_sources(project.sources).bind(parsed => {
-    lower_parsed_sources(parsed, base_env)
-  })
+  lower_parsed_sources(parse_project_sources(project.sources), base_env)
 }

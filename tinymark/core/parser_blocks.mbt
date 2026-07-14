@@ -1,7 +1,7 @@
 ///|
-fn parse_list_sugar(cursor : Cursor) -> Result[(Node, Cursor), Diagnostic] {
+fn parse_list_sugar(cursor : Cursor) -> (Node, Cursor) raise Diagnostic {
   guard cursor.peek() is Some(marker) else {
-    return Err(cursor.error("expected list marker"))
+    raise cursor.error("expected list marker")
   }
   let tag = if marker == '-' { "list" } else { "enum" }
   let items : Array[Node] = []
@@ -20,23 +20,19 @@ fn parse_list_sugar(cursor : Cursor) -> Result[(Node, Cursor), Diagnostic] {
     )
     let item_text = scan.slice_to_string(item_start, item_end)
     let (line, column) = scan.at(item_start).line_column()
-    let parsed_line = parse_nodes_at(
+    let children = parse_nodes_at(
       item_text,
       scan.source_span().source_id,
       line - 1,
       column - 1,
     )
-    match parsed_line {
-      Ok(children) =>
-        items.push(Node::Element("item", [], children, scan.source_span()))
-      Err(error) => return Err(error)
-    }
+    items.push(Node::Element("item", [], children, scan.source_span()))
     scan = scan.at(line_end)
     if scan.peek().map(Parser::is_newline).unwrap_or(false) {
       scan = scan.advance(1)
     }
   }
-  Ok((Node::Element(tag, [], items, cursor.source_span()), scan))
+  (Node::Element(tag, [], items, cursor.source_span()), scan)
 }
 
 ///|

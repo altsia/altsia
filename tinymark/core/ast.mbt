@@ -63,11 +63,13 @@ pub(all) enum DiagnosticPhase {
 }
 
 ///|
-pub(all) struct Diagnostic {
-  phase : DiagnosticPhase
-  message : String
-  span : SourceSpan
-  hint : String?
+pub(all) suberror Diagnostic {
+  Diagnostic(
+    phase~ : DiagnosticPhase,
+    message~ : String,
+    span~ : SourceSpan,
+    hint~ : String?
+  )
 }
 
 ///|
@@ -77,7 +79,31 @@ pub fn SourceSpan::diagnostic(
   message : String,
   hint? : String,
 ) -> Diagnostic {
-  { phase, message, span: self, hint }
+  Diagnostic(phase~, message~, span=self, hint~)
+}
+
+///|
+pub fn Diagnostic::phase(self : Diagnostic) -> DiagnosticPhase {
+  let Diagnostic(phase~, ..) = self
+  phase
+}
+
+///|
+pub fn Diagnostic::message(self : Diagnostic) -> String {
+  let Diagnostic(message~, ..) = self
+  message
+}
+
+///|
+pub fn Diagnostic::span(self : Diagnostic) -> SourceSpan {
+  let Diagnostic(span~, ..) = self
+  span
+}
+
+///|
+pub fn Diagnostic::hint(self : Diagnostic) -> String? {
+  let Diagnostic(hint~, ..) = self
+  hint
 }
 
 ///|
@@ -97,18 +123,18 @@ pub fn Node::span(self : Node) -> SourceSpan {
 
 ///|
 pub fn Diagnostic::render(self : Diagnostic) -> String {
-  let span = self.span
+  let Diagnostic(phase~, message~, span~, hint~) = self
   let location = match span.source_id {
     Some(source_id) =>
       source_id + ":" + span.line.to_string() + ":" + span.column.to_string()
     None =>
       "line " + span.line.to_string() + ", column " + span.column.to_string()
   }
-  let rendered = self.phase.label() +
+  let rendered = phase.label() +
     " error at " +
     location +
     ": " +
-    self.message +
+    message +
     "\n" +
     span.line.to_string() +
     " | " +
@@ -118,7 +144,7 @@ pub fn Diagnostic::render(self : Diagnostic) -> String {
     " | " +
     repeat_string(" ", span.marker_column - 1) +
     "^"
-  match self.hint {
+  match hint {
     Some(hint) => rendered + "\nhint: " + hint
     None => rendered
   }

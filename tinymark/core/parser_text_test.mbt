@@ -1,6 +1,10 @@
 ///|
 fn parse_nodes_or_error(source : String) -> Result[Array[Node], Diagnostic] {
-  parse(source).map(doc => doc.nodes)
+  try parse(source) catch {
+    diagnostic => Err(diagnostic)
+  } noraise {
+    doc => Ok(doc.nodes)
+  }
 }
 
 ///|
@@ -17,7 +21,7 @@ test "quoted string interpolation uses name grammar" {
   match parse_nodes_or_error("\"Hello (first name)\"") {
     Ok(_) => abort("expected invalid interpolation")
     Err(diagnostic) =>
-      @test.assert_eq(diagnostic.message, "invalid interpolation name")
+      @test.assert_eq(diagnostic.message(), "invalid interpolation name")
   }
 }
 

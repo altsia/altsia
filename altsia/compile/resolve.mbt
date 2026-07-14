@@ -18,28 +18,32 @@ fn ResolveState::find_resolved(
 fn ResolveState::compile_resolved_tree(
   self : ResolveState,
   slug : String,
-) -> Result[ResolvedTree, @core.Diagnostic] {
+) -> ResolvedTree raise @core.Diagnostic {
   if self.find_resolved(slug) is Some(tree) {
-    return Ok(tree)
+    return tree
   }
   if self.visiting.contains(slug) {
-    return Err(self.cycle_diagnostic(slug))
+    raise self.cycle_diagnostic(slug)
   }
   let tree = match self.find_parsed(slug) {
     Some(value) => value
     None =>
-      return Err(
-        @model.source_diagnostic(slug, Binding, "missing tree: " + slug),
-      )
+      raise @model.source_diagnostic(slug, Binding, "missing tree: " + slug)
   }
   self.visiting.add(slug)
   self.active_stack.push(slug)
-  let result = self.resolve_tree_content(tree)
-  let _ = self.active_stack.pop()
-  self.visiting.remove(slug)
-  let resolved = match result {
-    Ok(value) => value
-    Err(error) => return Err(error)
+  let resolved = try self.resolve_tree_content(tree) catch {
+    error => {
+      ignore(self.active_stack.pop())
+      self.visiting.remove(slug)
+      raise error
+    }
+  } noraise {
+    value => {
+      ignore(self.active_stack.pop())
+      self.visiting.remove(slug)
+      value
+    }
   }
   let (contents, references) = resolved
   let compiled : ResolvedTree = {
@@ -53,7 +57,7 @@ fn ResolveState::compile_resolved_tree(
     self.specify_parent(slug, parent)
   }
   self.resolved_by_slug[slug] = compiled
-  Ok(compiled)
+  compiled
 }
 
 ///|
@@ -69,7 +73,7 @@ fn ResolveState::cycle_diagnostic(
 fn ResolveState::resolve_tree_content(
   self : ResolveState,
   tree : @model.ParsedTree,
-) -> Result[(ResolvedRichContent, Set[String]), @core.Diagnostic] {
+) -> (ResolvedRichContent, Set[String]) raise @core.Diagnostic {
   self.resolve_rich_content(tree.content, tree.slug.canonical(), tree.path)
 }
 
@@ -79,17 +83,15 @@ fn ResolveState::resolve_rich_content(
   content : @model.RichContent,
   source_slug : String,
   source_path : String,
-) -> Result[(ResolvedRichContent, Set[String]), @core.Diagnostic] {
+) -> (ResolvedRichContent, Set[String]) raise @core.Diagnostic {
   let nodes : Array[ResolvedContent] = []
   let references : Set[String] = Set([])
   for node in content.nodes {
-    match
-      self.resolve_rich_content_node(node, source_slug, source_path, references) {
-      Ok(content) => nodes.push(content)
-      Err(error) => return Err(error)
-    }
+    nodes.push(
+      self.resolve_rich_content_node(node, source_slug, source_path, references),
+    )
   }
-  Ok(({ nodes, wrap_inline_content: content.wrap_inline_content }, references))
+  ({ nodes, wrap_inline_content: content.wrap_inline_content }, references)
 }
 
 ///|
@@ -99,21 +101,19 @@ fn ResolveState::resolve_rich_content_node(
   source_slug : String,
   source_path : String,
   references : Set[String],
-) -> Result[ResolvedContent, @core.Diagnostic] {
+) -> ResolvedContent raise @core.Diagnostic {
   match node {
-    @model.RichText(text, span) => Ok(ResolvedText(text, span))
+    @model.RichText(text, span) => ResolvedText(text, span)
     @model.RichElement(tag, attrs, children, span) => {
       let resolved_children : Array[ResolvedContent] = []
       for child in children {
-        match
+        resolved_children.push(
           self.resolve_rich_content_node(
             child, source_slug, source_path, references,
-          ) {
-          Ok(resolved) => resolved_children.push(resolved)
-          Err(error) => return Err(error)
-        }
+          ),
+        )
       }
-      Ok(ResolvedElement(tag, attrs, resolved_children, span))
+      ResolvedElement(tag, attrs, resolved_children, span)
     }
     @model.RichDirective(directive) =>
       self.resolve_rich_content_directive(
@@ -129,7 +129,7 @@ fn ResolveState::resolve_rich_content_directive(
   source_slug : String,
   source_path : String,
   references : Set[String],
-) -> Result[ResolvedContent, @core.Diagnostic] {
+) -> ResolvedContent raise @core.Diagnostic {
   match directive {
     @model.RichLinkDirective(link) =>
       self.resolve_link_directive(link, source_slug, source_path, references)
@@ -145,10 +145,10 @@ fn ResolveState::resolve_link_directive(
   source_slug : String,
   source_path : String,
   references : Set[String],
-) -> Result[ResolvedContent, @core.Diagnostic] {
+) -> ResolvedContent raise @core.Diagnostic {
   let target = link.target
   if validate_tree_target(target, link.span, "link") is Some(error) {
-    return Err(error)
+    raise error
   }
   let resolved_slug = @model.tree_slug_from_target(source_path, target)
   let resolved_key = resolved_slug.canonical()
@@ -166,20 +166,19 @@ fn ResolveState::resolve_link_directive(
       let title = match link.text {
         Some(value) => LinkText(value)
         None =>
-          match self.compile_resolved_tree(resolved_key) {
-            Ok(tree) => self.resolve_link_fallback_label(tree, resolved_key)
-            Err(_) => LinkFallbackText(resolved_key)
+          try self.compile_resolved_tree(resolved_key) catch {
+            _ => LinkFallbackText(resolved_key)
+          } noraise {
+            tree => self.resolve_link_fallback_label(tree, resolved_key)
           }
       }
-      Ok(
-        ResolvedLink({
-          source: source_path,
-          target,
-          slug: Some(resolved_slug),
-          label: title,
-          span: link.span,
-        }),
-      )
+      ResolvedLink({
+        source: source_path,
+        target,
+        slug: Some(resolved_slug),
+        label: title,
+        span: link.span,
+      })
     }
     None => {
       self.add_dangling_tree_link(source_path, target)
@@ -187,15 +186,13 @@ fn ResolveState::resolve_link_directive(
         @model.diagnostic(link.span, Binding, "dangling local link: " + target),
       )
       let label = link.text.unwrap_or(target)
-      Ok(
-        ResolvedLink({
-          source: source_path,
-          target,
-          slug: None,
-          label: LinkText(label),
-          span: link.span,
-        }),
-      )
+      ResolvedLink({
+        source: source_path,
+        target,
+        slug: None,
+        label: LinkText(label),
+        span: link.span,
+      })
     }
   }
 }
@@ -208,10 +205,12 @@ fn ResolveState::resolve_link_fallback_label(
 ) -> ResolvedLinkLabel {
   match tree.metadata.title {
     Some((content, _)) =>
-      match
-        self.resolve_rich_content(content, tree.slug.canonical(), tree.path) {
-        Ok((contents, _)) => LinkResolvedContent(contents)
-        Err(_) => LinkFallbackText(resolved_tree_title(tree))
+      try
+        self.resolve_rich_content(content, tree.slug.canonical(), tree.path)
+      catch {
+        _ => LinkFallbackText(resolved_tree_title(tree))
+      } noraise {
+        result => LinkResolvedContent(result.0)
       }
     None => LinkFallbackText(tree.metadata.page_title.unwrap_or(fallback))
   }
@@ -238,10 +237,10 @@ fn ResolveState::resolve_embed_directive(
   parent_slug : String,
   source_path : String,
   references : Set[String],
-) -> Result[ResolvedContent, @core.Diagnostic] {
+) -> ResolvedContent raise @core.Diagnostic {
   let target = embed.target
   if validate_tree_target(target, embed.span, "embed") is Some(error) {
-    return Err(error)
+    raise error
   }
   let resolved_slug = @model.tree_slug_from_target(source_path, target)
   let resolved_key = resolved_slug.canonical()
@@ -254,24 +253,18 @@ fn ResolveState::resolve_embed_directive(
           @model.TreeEmbed,
         )
       }
-      match self.compile_resolved_tree(resolved_key) {
-        Ok(tree) => {
-          if embed_is_open(embed) {
-            add_all_strings(references, tree.references)
-          }
-          self.insert_parent(resolved_key, @model.TreeSlug::parse(parent_slug))
-          Ok(ResolvedEmbed(embed, source_path, tree))
-        }
-        Err(error) => Err(error)
+      let tree = self.compile_resolved_tree(resolved_key)
+      if embed_is_open(embed) {
+        add_all_strings(references, tree.references)
       }
+      self.insert_parent(resolved_key, @model.TreeSlug::parse(parent_slug))
+      ResolvedEmbed(embed, source_path, tree)
     }
     None =>
-      Err(
-        @model.diagnostic(
-          embed.span,
-          Binding,
-          "missing embed target: " + target,
-        ),
+      raise @model.diagnostic(
+        embed.span,
+        Binding,
+        "missing embed target: " + target,
       )
   }
 }

@@ -43,30 +43,24 @@ test "title is rich content with plain text fallback" {
 
 ///|
 test "preview title derives from rich title unless page title overrides it" {
-  match
-    preview_project(
-      @model.Project::new("", [
-        source(
-          "doc.alt", "(let heading (_ (em Important)))(doc (:title (heading)))Body.",
-        ),
-      ]),
-      "doc.alt",
-    ) {
-    Ok(preview) => @test.assert_eq(preview.title, Some("Important"))
-    Err(error) => abort(error.render())
-  }
-  match
-    preview_project(
-      @model.Project::new("", [
-        source(
-          "doc.alt", "(let heading (_ (em Important)))(doc (:title (heading) :page-title `Plain title`))Body.",
-        ),
-      ]),
-      "doc.alt",
-    ) {
-    Ok(preview) => @test.assert_eq(preview.title, Some("Plain title"))
-    Err(error) => abort(error.render())
-  }
+  let preview = preview_project(
+    @model.Project::new("", [
+      source(
+        "doc.alt", "(let heading (_ (em Important)))(doc (:title (heading)))Body.",
+      ),
+    ]),
+    "doc.alt",
+  )
+  @test.assert_eq(preview.title, Some("Important"))
+  let preview = preview_project(
+    @model.Project::new("", [
+      source(
+        "doc.alt", "(let heading (_ (em Important)))(doc (:title (heading) :page-title `Plain title`))Body.",
+      ),
+    ]),
+    "doc.alt",
+  )
+  @test.assert_eq(preview.title, Some("Plain title"))
 }
 
 ///|

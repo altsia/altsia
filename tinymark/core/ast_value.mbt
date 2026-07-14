@@ -22,16 +22,14 @@ pub fn Value::span(self : Value) -> SourceSpan {
 pub fn Value::to_scalar(
   self : Value,
   env : CompileEnv,
-) -> Result[String, Diagnostic] {
+) -> String raise Diagnostic {
   match self {
-    Scalar(scalar, _) => Ok(scalar.to_string())
+    Scalar(scalar, _) => scalar.to_string()
     Interp(template, span) => interpolate_scalar(template, env, span)
     Fragment(_, span) =>
-      Err(
-        span.diagnostic(
-          DiagnosticPhase::Type,
-          "expected scalar value, but got rich content",
-        ),
+      raise span.diagnostic(
+        DiagnosticPhase::Type,
+        "expected scalar value, but got rich content",
       )
   }
 }
@@ -41,10 +39,10 @@ pub fn Value::to_literal_scalar(
   self : Value,
   context_span : SourceSpan,
   message : String,
-) -> Result[String, Diagnostic] {
+) -> String raise Diagnostic {
   match self {
-    Scalar(scalar, _) => Ok(scalar.to_string())
-    _ => Err(context_span.diagnostic(DiagnosticPhase::Type, message))
+    Scalar(scalar, _) => scalar.to_string()
+    _ => raise context_span.diagnostic(DiagnosticPhase::Type, message)
   }
 }
 

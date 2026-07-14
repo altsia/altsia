@@ -17,7 +17,7 @@ fn parse_name(cursor : Cursor) -> (String, Cursor) {
 }
 
 ///|
-fn parse_raw_string(cursor : Cursor) -> Result[(String, Cursor), Diagnostic] {
+fn parse_raw_string(cursor : Cursor) -> (String, Cursor) raise Diagnostic {
   let buffer : Array[Char] = []
   let mut index = cursor.index + 1
   while index < cursor.chars.length() {
@@ -30,18 +30,18 @@ fn parse_raw_string(cursor : Cursor) -> Result[(String, Cursor), Diagnostic] {
       continue
     }
     if ch == '`' {
-      return Ok((String::from_array(buffer.view()), cursor.at(index + 1)))
+      return (String::from_array(buffer.view()), cursor.at(index + 1))
     }
     buffer.push(ch)
     index += 1
   }
-  Err(cursor.error("unterminated raw string"))
+  raise cursor.error("unterminated raw string")
 }
 
 ///|
 fn parse_quoted_string(
   cursor : Cursor,
-) -> Result[(Interpolation, Cursor), Diagnostic] {
+) -> (Interpolation, Cursor) raise Diagnostic {
   let parts : Interpolation = []
   let buffer : Array[Char] = []
   let mut index = cursor.index + 1
@@ -54,14 +54,14 @@ fn parse_quoted_string(
     }
     if ch == '"' {
       flush_interpolation_literal(parts, buffer)
-      return Ok((parts, cursor.at(index + 1)))
+      return (parts, cursor.at(index + 1))
     }
     if ch == '(' {
       flush_interpolation_literal(parts, buffer)
       let ref_start = cursor.at(index)
       let (name, after_name) = parse_name(ref_start.advance(1))
       guard !name.is_empty() && after_name.peek() == Some(')') else {
-        return Err(ref_start.error("invalid interpolation name"))
+        raise ref_start.error("invalid interpolation name")
       }
       parts.push(Name(name))
       index = after_name.index + 1
@@ -70,7 +70,7 @@ fn parse_quoted_string(
     buffer.push(ch)
     index += 1
   }
-  Err(cursor.error("unterminated interpolated string"))
+  raise cursor.error("unterminated interpolated string")
 }
 
 ///|
@@ -167,52 +167,46 @@ fn is_escaped_text_char_at(chars : Array[Char], index : Int) -> Bool {
 }
 
 ///|
-fn parse_emphasis_or_text(
-  cursor : Cursor,
-) -> Result[(Node, Cursor), Diagnostic] {
+fn parse_emphasis_or_text(cursor : Cursor) -> (Node, Cursor) raise Diagnostic {
   if cursor.starts_with("**") {
-    return capture_until(cursor.advance(2), "**").map(result => {
-      (
-        Node::Element(
-          "strong",
-          [],
-          [Node::Text(smart_dashes(result.0), cursor.advance(2).source_span())],
-          cursor.source_span(),
-        ),
-        result.1,
-      )
-    })
-  }
-  capture_until(cursor.advance(1), "*").map(result => {
-    (
+    let (text, next) = capture_until(cursor.advance(2), "**")
+    return (
       Node::Element(
-        "em",
+        "strong",
         [],
-        [Node::Text(smart_dashes(result.0), cursor.advance(1).source_span())],
+        [Node::Text(smart_dashes(text), cursor.advance(2).source_span())],
         cursor.source_span(),
       ),
-      result.1,
+      next,
     )
-  })
+  }
+  let (text, next) = capture_until(cursor.advance(1), "*")
+  (
+    Node::Element(
+      "em",
+      [],
+      [Node::Text(smart_dashes(text), cursor.advance(1).source_span())],
+      cursor.source_span(),
+    ),
+    next,
+  )
 }
 
 ///|
 fn capture_until(
   cursor : Cursor,
   marker : String,
-) -> Result[(String, Cursor), Diagnostic] {
+) -> (String, Cursor) raise Diagnostic {
   let buffer : Array[Char] = []
   let mut scan = cursor
   while !scan.is_end() {
     if scan.starts_with(marker) {
-      return Ok(
-        (String::from_array(buffer.view()), scan.advance(marker.length())),
-      )
+      return (String::from_array(buffer.view()), scan.advance(marker.length()))
     }
     buffer.push(scan.chars[scan.index])
     scan = scan.advance(1)
   }
-  Err(cursor.error("unterminated inline marker"))
+  raise cursor.error("unterminated inline marker")
 }
 
 ///|

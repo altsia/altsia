@@ -55,7 +55,7 @@ pub fn compile_fragment(
   doc : Document,
   env? : CompileEnv,
   options? : CompileOptions,
-) -> Result[Array[HtmlNode], Diagnostic] {
+) -> Array[HtmlNode] raise Diagnostic {
   let compile_env = env.unwrap_or(CompileEnv::empty())
   let compile_options = options.unwrap_or(CompileOptions::fragment())
   compile_backend_nodes(
@@ -69,22 +69,22 @@ pub fn compile_fragment(
 }
 
 ///|
-pub fn to_sexp_nodes(source : String) -> Result[Array[HtmlNode], Diagnostic] {
-  parse(source).bind(doc => compile_fragment(doc))
+pub fn to_sexp_nodes(source : String) -> Array[HtmlNode] raise Diagnostic {
+  compile_fragment(parse(source))
 }
 
 ///|
-pub fn to_html(source : String) -> Result[String, Diagnostic] {
-  to_sexp_nodes(source).map(nodes => @sexp.render_html_fragment(nodes))
+pub fn to_html(source : String) -> String raise Diagnostic {
+  @sexp.render_html_fragment(to_sexp_nodes(source))
 }
 
 ///|
 pub fn to_html_document(
   source : String,
   options : HtmlDocumentOptions?,
-) -> Result[String, Diagnostic] {
+) -> String raise Diagnostic {
   let document_options = options.unwrap_or(HtmlDocumentOptions::default())
-  parse(source).bind(doc => compile_html_document(doc, options=document_options))
+  compile_html_document(parse(source), options=document_options)
 }
 
 ///|
@@ -107,62 +107,56 @@ fn html_render_backend() -> RenderBackend[HtmlNode, HtmlNode] {
 ///|
 fn html_backend_resolver(
   compiler : CallContext,
-) -> Result[ElementOutput?, Diagnostic] {
+) -> ElementOutput? raise Diagnostic {
   let call = compiler.call
-  match html_head_resolver(compiler) {
-    Ok(Some(output)) => return Ok(Some(output))
-    Err(error) => return Err(error)
-    _ => ()
+  if html_head_resolver(compiler) is Some(output) {
+    return Some(output)
   }
-  match compiler.compile_prelude_element() {
-    Ok(Some(output)) => return Ok(Some(output))
-    Err(error) => return Err(error)
-    _ => ()
+  if compiler.compile_prelude_element() is Some(output) {
+    return Some(output)
   }
   let input = { call, context: compiler.context }
-  let output = match call.tag {
-    "style" => compile_scoped_style(input)
-    _ => compile_mapped_element(call.tag, input)
-  }
-  output.map(value => Some(value))
+  Some(
+    match call.tag {
+      "style" => compile_scoped_style(input)
+      _ => compile_mapped_element(call.tag, input)
+    },
+  )
 }
 
 ///|
 fn html_head_resolver(
   compiler : CallContext,
-) -> Result[ElementOutput?, Diagnostic] {
+) -> ElementOutput? raise Diagnostic {
   if compiler.call.tag != "html.head" {
-    return Ok(None)
+    return None
   }
-  (compiler.context.compile_inline)(compiler.call.children).map(output => {
-    let head = output.body
-    head.append(output.head)
-    Some({ body: [], head, inline_body: true })
-  })
+  let output = (compiler.context.compile_inline)(compiler.call.children)
+  let head = output.body
+  head.append(output.head)
+  Some({ body: [], head, inline_body: true })
 }
 
 ///|
 fn compile_mapped_element(
   tag : String,
   input : ElementCompileInput,
-) -> Result[ElementOutput, Diagnostic] {
-  compile_attrs(input.call.attrs, input.context.env).bind(html_attrs => {
-    compile_children_for_tag_output(tag, input).map(output => {
-      let node = HtmlNode::Element(tag, html_attrs, output.body)
-      match content_model(tag) {
-        InlineOnly => { body: [node], head: output.head, inline_body: true }
-        BlockFlow | MixedFlow =>
-          { body: [node], head: output.head, inline_body: false }
-      }
-    })
-  })
+) -> ElementOutput raise Diagnostic {
+  let html_attrs = compile_attrs(input.call.attrs, input.context.env)
+  let output = compile_children_for_tag_output(tag, input)
+  let node = HtmlNode::Element(tag, html_attrs, output.body)
+  match content_model(tag) {
+    InlineOnly => { body: [node], head: output.head, inline_body: true }
+    BlockFlow | MixedFlow =>
+      { body: [node], head: output.head, inline_body: false }
+  }
 }
 
 ///|
 fn compile_children_for_tag_output(
   tag : String,
   input : ElementCompileInput,
-) -> Result[ElementOutput, Diagnostic] {
+) -> ElementOutput raise Diagnostic {
   match content_model(tag) {
     InlineOnly => (input.context.compile_inline)(input.call.children)
     BlockFlow => (input.context.compile_block)(input.call.children)
@@ -233,97 +227,78 @@ fn is_custom_block_tag(tag : String) -> Bool {
 ///|
 fn compile_scoped_style(
   input : ElementCompileInput,
-) -> Result[ElementOutput, Diagnostic] {
-  compile_style_attrs(input.call.attrs, input.context.env).bind(style_attrs => {
-    CSS::compile_rule_nodes(
-      input.call.children,
-      style_attrs.scope,
-      input.context.env,
-    ).map(rules => {
-      ElementOutput::body([
-        HtmlNode::Element("style", style_attrs.html_attrs, [
-          HtmlNode::RawHtml(rules.join("")),
-        ]),
-      ])
-    })
-  })
+) -> ElementOutput raise Diagnostic {
+  let style_attrs = compile_style_attrs(input.call.attrs, input.context.env)
+  let rules = CSS::compile_rule_nodes(
+    input.call.children,
+    style_attrs.scope,
+    input.context.env,
+  )
+  ElementOutput::body([
+    HtmlNode::Element("style", style_attrs.html_attrs, [
+      HtmlNode::RawHtml(rules.join("")),
+    ]),
+  ])
 }
 
 ///|
 fn compile_style_attrs(
   attrs : Array[Attr],
   env : CompileEnv,
-) -> Result[CssStyleAttrs, Diagnostic] {
+) -> CssStyleAttrs raise Diagnostic {
   let html_attrs = @sexp.HtmlAttrs(Map([]))
   let mut scope : String? = None
   for attr in attrs {
     if attr.name == "scope" {
-      match compile_style_scope(attr, env) {
-        Ok(value) => scope = Some(value)
-        Err(error) => return Err(error)
-      }
+      scope = Some(compile_style_scope(attr, env))
       continue
     }
-    match compile_optional_attr_scalar(attr, env) {
-      Ok(compiled) => html_attrs.upsert(attr.name, compiled)
-      Err(error) => return Err(error)
-    }
+    html_attrs.upsert(attr.name, compile_optional_attr_scalar(attr, env))
   }
-  Ok({ html_attrs, scope })
+  { html_attrs, scope }
 }
 
 ///|
 fn compile_style_scope(
   attr : Attr,
   env : CompileEnv,
-) -> Result[String, Diagnostic] {
+) -> String raise Diagnostic {
   guard attr.value is Some(value) else {
-    return Err(
-      attr.span.diagnostic(
-        DiagnosticPhase::Type,
-        "style scope requires a value",
-      ),
+    raise attr.span.diagnostic(
+      DiagnosticPhase::Type,
+      "style scope requires a value",
     )
   }
-  value
-  .to_scalar(env)
-  .bind(text => {
-    if text.trim().is_empty() {
-      Err(
-        attr.span.diagnostic(
-          DiagnosticPhase::Type,
-          "style scope cannot be empty",
-        ),
-      )
-    } else {
-      Ok(CSS::normalize_css_scope(text))
-    }
-  })
+  let text = value.to_scalar(env)
+  guard !text.trim().is_empty() else {
+    raise attr.span.diagnostic(
+      DiagnosticPhase::Type,
+      "style scope cannot be empty",
+    )
+  }
+  CSS::normalize_css_scope(text)
 }
 
 ///|
 fn compile_attrs(
   attrs : Array[Attr],
   env : CompileEnv,
-) -> Result[@sexp.HtmlAttrs, Diagnostic] {
+) -> @sexp.HtmlAttrs raise Diagnostic {
   let html_attrs = @sexp.HtmlAttrs(Map([]))
   for attr in attrs {
-    match compile_optional_attr_scalar(attr, env) {
-      Ok(compiled) => html_attrs.upsert(attr.name, compiled)
-      Err(error) => return Err(error)
-    }
+    html_attrs.upsert(attr.name, compile_optional_attr_scalar(attr, env))
   }
-  Ok(html_attrs)
+  html_attrs
 }
 
 ///|
 fn compile_optional_attr_scalar(
   attr : Attr,
   env : CompileEnv,
-) -> Result[String?, Diagnostic] {
+) -> String? raise Diagnostic {
   match attr.value {
-    Some(value) => value.to_scalar(env).map(text => Some(text))
-    None => Ok(None)
+    Some(value) => Some(value.to_scalar(env))
+    None => None
   }
 }
 
@@ -332,17 +307,17 @@ fn required_attr_scalar(
   attr : Attr,
   env : CompileEnv,
   missing_message : String,
-) -> Result[String, Diagnostic] {
+) -> String raise Diagnostic {
   guard attr.value is Some(value) else {
-    return Err(attr.span.diagnostic(DiagnosticPhase::Type, missing_message))
+    raise attr.span.diagnostic(DiagnosticPhase::Type, missing_message)
   }
   value.to_scalar(env)
 }
 
 ///|
-fn flag_attr_bool(attr : Attr, message : String) -> Result[Bool, Diagnostic] {
+fn flag_attr_bool(attr : Attr, message : String) -> Bool raise Diagnostic {
   match attr.value {
     Some(value) => value.to_bool(attr.span, message)
-    None => Ok(true)
+    None => true
   }
 }

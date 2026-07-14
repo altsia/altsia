@@ -135,18 +135,15 @@ pub fn visit_scoped_nodes(
   nodes : Array[Node],
   env : CompileEnv,
   on_doc_attr : (Attr) -> Unit,
-  visit : (Node, CompileEnv) -> Result[Unit, Diagnostic],
-) -> Result[CompileEnv, Diagnostic] {
+  visit : (Node, CompileEnv) -> Unit raise Diagnostic,
+) -> CompileEnv raise Diagnostic {
   let local_env = collect_scope_env(nodes, env)
   for node in nodes {
     if !local_env.bind_scope_node(node, on_doc_attr) {
-      match visit(node, local_env) {
-        Ok(_) => ()
-        Err(error) => return Err(error)
-      }
+      visit(node, local_env)
     }
   }
-  Ok(local_env)
+  local_env
 }
 
 ///|
@@ -154,7 +151,7 @@ pub fn collect_bindings(
   doc : Document,
   base? : CompileEnv,
   options? : BindingCollectOptions,
-) -> Result[CompileEnv, Diagnostic] {
+) -> CompileEnv {
   let env = base.map(b => b.copy()).unwrap_or(CompileEnv::empty())
   let opts = options.unwrap_or(BindingCollectOptions::default())
   if opts.include_def {
@@ -172,7 +169,7 @@ pub fn collect_bindings(
       _ => ()
     }
   }
-  Ok(env)
+  env
 }
 
 ///|
@@ -199,7 +196,7 @@ pub fn bind_template_call_env(
   children : Array[Node],
   call_env : CompileEnv,
   call_span : SourceSpan,
-) -> Result[CompileEnv, Diagnostic] {
+) -> CompileEnv raise Diagnostic {
   template.bind_call({ attrs, children, span: call_span }, call_env)
 }
 
@@ -208,34 +205,26 @@ fn Template::bind_call(
   self : Template,
   call : TemplateCall,
   call_env : CompileEnv,
-) -> Result[CompileEnv, Diagnostic] {
-  self
-  .resolve_call_values(call)
-  .map(values => {
-    let template_env = call_env.copy()
-    template_env.append(self.env)
-    for index in 0..<self.params.length() {
-      template_env.bind_value(self.params[index], values[index])
-    }
-    template_env
-  })
+) -> CompileEnv raise Diagnostic {
+  let values = self.resolve_call_values(call)
+  let template_env = call_env.copy()
+  template_env.append(self.env)
+  for index in 0..<self.params.length() {
+    template_env.bind_value(self.params[index], values[index])
+  }
+  template_env
 }
 
 ///|
 fn Template::resolve_call_values(
   self : Template,
   call : TemplateCall,
-) -> Result[Array[Value], Diagnostic] {
+) -> Array[Value] raise Diagnostic {
   let args = TemplateArguments::for_params(self.params)
   for attr in call.attrs {
-    if args.bind_named(attr) is Err(error) {
-      return Err(error)
-    }
+    args.bind_named(attr)
   }
-  match args.bind_positional(self.params, positional_values(call.children)) {
-    Err(error) => return Err(error)
-    Ok(_) => ()
-  }
+  args.bind_positional(self.params, positional_values(call.children))
   args.finish(self.params, call.span)
 }
 
@@ -252,33 +241,26 @@ fn TemplateArguments::for_params(params : Array[String]) -> TemplateArguments {
 fn TemplateArguments::bind_named(
   self : TemplateArguments,
   attr : Attr,
-) -> Result[Unit, Diagnostic] {
+) -> Unit raise Diagnostic {
   guard attr.value is Some(value) else {
-    return Err(
-      attr.span.diagnostic(
-        DiagnosticPhase::Template,
-        "template argument requires a value: " + attr.name,
-      ),
+    raise attr.span.diagnostic(
+      DiagnosticPhase::Template,
+      "template argument requires a value: " + attr.name,
     )
   }
   guard self.indexes.get(attr.name) is Some(index) else {
-    return Err(
-      attr.span.diagnostic(
-        DiagnosticPhase::Template,
-        "unknown template argument: " + attr.name,
-      ),
+    raise attr.span.diagnostic(
+      DiagnosticPhase::Template,
+      "unknown template argument: " + attr.name,
     )
   }
   if self.values[index] is Some(_) {
-    return Err(
-      attr.span.diagnostic(
-        DiagnosticPhase::Template,
-        "duplicate template argument: " + attr.name,
-      ),
+    raise attr.span.diagnostic(
+      DiagnosticPhase::Template,
+      "duplicate template argument: " + attr.name,
     )
   }
   self.values[index] = Some(value)
-  Ok(())
 }
 
 ///|
@@ -286,7 +268,7 @@ fn TemplateArguments::bind_positional(
   self : TemplateArguments,
   params : Array[String],
   positional : Array[Value],
-) -> Result[Unit, Diagnostic] {
+) -> Unit raise Diagnostic {
   let mut next_param = 0
   for arg in positional {
     let mut found_slot = false
@@ -297,16 +279,13 @@ fn TemplateArguments::bind_positional(
       }
     }
     if next_param >= params.length() {
-      return Err(
-        arg
+      raise arg
         .span()
-        .diagnostic(DiagnosticPhase::Template, "too many template arguments"),
-      )
+        .diagnostic(DiagnosticPhase::Template, "too many template arguments")
     }
     self.values[next_param] = Some(arg)
     next_param += 1
   }
-  Ok(())
 }
 
 ///|
@@ -314,20 +293,18 @@ fn TemplateArguments::finish(
   self : TemplateArguments,
   params : Array[String],
   call_span : SourceSpan,
-) -> Result[Array[Value], Diagnostic] {
+) -> Array[Value] raise Diagnostic {
   let bound : Array[Value] = []
   for index in 0..<params.length() {
     guard self.values[index] is Some(value) else {
-      return Err(
-        call_span.diagnostic(
-          DiagnosticPhase::Template,
-          "missing template argument: " + params[index],
-        ),
+      raise call_span.diagnostic(
+        DiagnosticPhase::Template,
+        "missing template argument: " + params[index],
       )
     }
     bound.push(value)
   }
-  Ok(bound)
+  bound
 }
 
 ///|
@@ -356,7 +333,7 @@ pub fn interpolate_scalar(
   template : Interpolation,
   env : CompileEnv,
   span : SourceSpan,
-) -> Result[String, Diagnostic] {
+) -> String raise Diagnostic {
   interpolate_text(template, env, span, (value, env) => value.to_scalar(env))
 }
 
@@ -365,10 +342,10 @@ pub fn Value::to_bool(
   self : Value,
   context_span : SourceSpan,
   message : String,
-) -> Result[Bool, Diagnostic] {
+) -> Bool raise Diagnostic {
   match self {
-    Scalar(Bool(value), _) => Ok(value)
-    _ => Err(context_span.diagnostic(DiagnosticPhase::Type, message))
+    Scalar(Bool(value), _) => value
+    _ => raise context_span.diagnostic(DiagnosticPhase::Type, message)
   }
 }
 
@@ -377,18 +354,13 @@ pub fn interpolate_text(
   template : Interpolation,
   env : CompileEnv,
   span : SourceSpan,
-  value_to_text : (Value, CompileEnv) -> Result[String, Diagnostic],
-) -> Result[String, Diagnostic] {
+  value_to_text : (Value, CompileEnv) -> String raise Diagnostic,
+) -> String raise Diagnostic {
   let parts : Array[String] = []
   for part in template {
-    let result = interpolation_part_text(part, env, span, value_to_text)
-    if result is Ok(text) {
-      parts.push(text)
-    } else if result is Err(error) {
-      return Err(error)
-    }
+    parts.push(interpolation_part_text(part, env, span, value_to_text))
   }
-  Ok(parts.join(""))
+  parts.join("")
 }
 
 ///|
@@ -396,17 +368,15 @@ fn interpolation_part_text(
   part : InterpolationPart,
   env : CompileEnv,
   span : SourceSpan,
-  value_to_text : (Value, CompileEnv) -> Result[String, Diagnostic],
-) -> Result[String, Diagnostic] {
+  value_to_text : (Value, CompileEnv) -> String raise Diagnostic,
+) -> String raise Diagnostic {
   match part {
-    Literal(text) => Ok(text)
+    Literal(text) => text
     Name(name) => {
       guard env.lookup_value(name) is Some(value) else {
-        return Err(
-          span.diagnostic(
-            DiagnosticPhase::Binding,
-            "unbound interpolation name: " + name,
-          ),
+        raise span.diagnostic(
+          DiagnosticPhase::Binding,
+          "unbound interpolation name: " + name,
         )
       }
       value_to_text(value, env)
@@ -419,16 +389,14 @@ pub fn bool_binding(
   env : CompileEnv,
   name : String,
   span : SourceSpan,
-) -> Result[Bool, Diagnostic] {
+) -> Bool raise Diagnostic {
   match env.lookup_value(name) {
     Some(value) =>
       value.to_bool(span, "condition is not a boolean binding: " + name)
     None =>
-      Err(
-        span.diagnostic(
-          DiagnosticPhase::Binding,
-          "unbound condition name: " + name,
-        ),
+      raise span.diagnostic(
+        DiagnosticPhase::Binding,
+        "unbound condition name: " + name,
       )
   }
 }

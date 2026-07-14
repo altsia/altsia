@@ -3,6 +3,8 @@ import {
   "kokic/tinymark/core",
   "kokic/tinymark/backend_html",
   "moonbitlang/core/argparse",
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @async_fs,
   "moonbitlang/x/fs",
 }
 

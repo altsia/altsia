@@ -1,12 +1,24 @@
 ///|
-fn main {
-  let cmd = @argparse.Command("tim", about="Compile an .alt file to HTML.", positionals=[
-    @argparse.PositionArg(
-      "input",
-      about="Path to the .alt file.",
-      num_args=@argparse.ValueRange::single(),
-    ),
-  ])
+async fn main {
+  let cmd = @argparse.Command(
+    "tim",
+    about="Compile an .alt file to HTML.",
+    flags=[
+      @argparse.FlagArg(
+        "watch",
+        short='w',
+        long="watch",
+        about="Watch the input file and recompile on changes.",
+      ),
+    ],
+    positionals=[
+      @argparse.PositionArg(
+        "input",
+        about="Path to the .alt file.",
+        num_args=@argparse.ValueRange::single(),
+      ),
+    ],
+  )
   let matches = cmd.parse() catch { err => return println(err) }
   guard matches.values.get("input") is Some([input_path]) else {
     return println(cmd.render_help())
@@ -17,12 +29,40 @@ fn main {
   }
 
   let output_path = output_path_for(input_path)
+  if matches.flags.get("watch") is Some(true) {
+    watch_and_compile(input_path, output_path)
+  } else {
+    compile_file(input_path, output_path)
+  }
+}
+
+///|
+fn compile_file(input_path : String, output_path : String) -> Unit {
   guard read_input(input_path) is Some(source) &&
     render_html(input_path, source) is Some(html) &&
     write_output(output_path, html) else {
     return
   }
-  return println("output: \{output_path}")
+  println("output: \{output_path}")
+}
+
+///|
+async fn watch_and_compile(input_path : String, output_path : String) -> Unit {
+  let input_name = input_filename(input_path)
+  let watcher = @async_fs.Watcher(watch_directory(input_path), ignored_paths=path => {
+    path != input_name
+  }) catch {
+    error => return println("error: unable to watch \{input_path}: \{error}")
+  }
+  defer watcher.close()
+  compile_file(input_path, output_path)
+  println("watching: \{input_path}")
+  for ;; {
+    watcher.wait_any() catch {
+      error => return println("error: stopped watching \{input_path}: \{error}")
+    }
+    compile_file(input_path, output_path)
+  }
 }
 
 ///|
@@ -50,9 +90,7 @@ fn render_html(input_path : String, source : String) -> String? {
 ///|
 fn html_include_resolver(base_dir : String) -> @backend_html.ElementResolver {
   compiler => {
-    if compiler.call.tag != "html.include" {
-      return None
-    }
+    guard compiler.call.tag == "html.include" else { return None }
     let path = include_path(compiler.call, compiler.context)
     let resolved = resolve_include_path(base_dir, path)
     let content = read_include(resolved, compiler.call.span)
@@ -115,11 +153,29 @@ fn input_dir(path : String) -> String {
   let mut index = chars.length()
   while index > 0 {
     index -= 1
-    if chars[index] == '/' {
+    if is_path_separator(chars[index]) {
       return path.unsafe_substring(start=0, end=index + 1)
     }
   }
   ""
+}
+
+///|
+fn input_filename(path : String) -> String {
+  let dir = input_dir(path)
+  path.unsafe_substring(start=dir.length(), end=path.length())
+}
+
+///|
+fn watch_directory(path : String) -> String {
+  let dir = input_dir(path)
+  guard !dir.is_empty() else { dir }
+  "."
+}
+
+///|
+fn is_path_separator(ch : Char) -> Bool {
+  ch == '/' || ch == '\\'
 }
 
 ///|
@@ -143,36 +199,4 @@ fn write_output(path : String, content : String) -> Bool {
       false
     }
   }
-}
-
-///|
-fn describe_io_error(action : String, path : String, msg : String) -> String {
-  match () {
-    _ if is_file_not_found_error(msg) =>
-      "I/O error while \{action}: file not found: \{path}"
-    _ if is_permission_error(msg) =>
-      "I/O error while \{action}: permission denied: \{path}"
-    _ if is_directory_error(msg) =>
-      "I/O error while \{action}: expected a file path: \{path}"
-    _ => "I/O error while \{action} \{path}: \{msg}"
-  }
-}
-
-///|
-fn is_file_not_found_error(msg : String) -> Bool {
-  msg.contains("No such file") ||
-  msg.contains("cannot find") ||
-  msg.contains("not found")
-}
-
-///|
-fn is_permission_error(msg : String) -> Bool {
-  msg.contains("Permission denied") ||
-  msg.contains("Access is denied") ||
-  msg.contains("access is denied")
-}
-
-///|
-fn is_directory_error(msg : String) -> Bool {
-  msg.contains("Is a directory") || msg.contains("is a directory")
 }

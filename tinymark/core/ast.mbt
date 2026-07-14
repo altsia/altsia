@@ -124,30 +124,21 @@ pub fn Node::span(self : Node) -> SourceSpan {
 ///|
 pub fn Diagnostic::render(self : Diagnostic) -> String {
   let Diagnostic(phase~, message~, span~, hint~) = self
-  let location = match span.source_id {
-    Some(source_id) =>
-      source_id + ":" + span.line.to_string() + ":" + span.column.to_string()
-    None =>
-      "line " + span.line.to_string() + ", column " + span.column.to_string()
-  }
-  let rendered = phase.label() +
-    " error at " +
-    location +
-    ": " +
-    message +
-    "\n" +
-    span.line.to_string() +
-    " | " +
-    span.line_text +
-    "\n" +
-    repeat_string(" ", span.line.to_string().length()) +
-    " | " +
-    repeat_string(" ", span.marker_column - 1) +
-    "^"
-  match hint {
-    Some(hint) => rendered + "\nhint: " + hint
-    None => rendered
-  }
+
+  let location = span.source_id.map_or_else(
+    () => "line \{span.line}, column \{span.column}",
+    source_id => "\{source_id}:\{span.line}:\{span.column}",
+  )
+
+  let rendered = StringBuilder()
+  rendered <+ "\{phase.label()} error at \{location}: \{message}\n"
+  rendered <+ "\{span.line.to_string()} | \{span.line_text}\n"
+  rendered <+ "\{repeat_string(" ", span.line.to_string().length())} | "
+  rendered <+ "\{repeat_string(" ", span.marker_column - 1)}^"
+
+  hint.map_or_else(() => rendered.to_string(), hint => {
+    (rendered <+ "\nhint: \{hint}").to_string()
+  })
 }
 
 ///|

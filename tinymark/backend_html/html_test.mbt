@@ -1,8 +1,9 @@
 ///|
 fn render_html_result(source : String) -> Result[String, String] {
-  match to_html(source) {
-    Ok(html) => Ok(html)
-    Err(diagnostic) => Err(diagnostic.render())
+  try to_html(source) catch {
+    diagnostic => Err(diagnostic.render())
+  } noraise {
+    html => Ok(html)
   }
 }
 
@@ -11,18 +12,16 @@ fn render_html_document_result(
   source : String,
   options? : HtmlDocumentOptions,
 ) -> Result[String, String] {
-  match to_html_document(source, options) {
-    Ok(html) => Ok(html)
-    Err(diagnostic) => Err(diagnostic.render())
+  try to_html_document(source, options) catch {
+    diagnostic => Err(diagnostic.render())
+  } noraise {
+    html => Ok(html)
   }
 }
 
 ///|
 fn collect_env(doc : @core.Document) -> @core.CompileEnv {
-  match @core.collect_bindings(doc) {
-    Ok(env) => env
-    Err(diagnostic) => abort(diagnostic.render())
-  }
+  @core.collect_bindings(doc)
 }
 
 ///|
@@ -31,15 +30,18 @@ fn render_fragment_result(
   env? : @core.CompileEnv,
   options? : CompileOptions,
 ) -> Result[String, String] {
-  let result = match (env, options) {
-    (Some(env), Some(options)) => compile_fragment(doc, env~, options~)
-    (Some(env), None) => compile_fragment(doc, env~)
-    (None, Some(options)) => compile_fragment(doc, options~)
-    (None, None) => compile_fragment(doc)
-  }
-  match result {
-    Ok(nodes) => Ok(@sexp.render_html_fragment(nodes))
-    Err(diagnostic) => Err(diagnostic.render())
+  try {
+    let nodes = match (env, options) {
+      (Some(env), Some(options)) => compile_fragment(doc, env~, options~)
+      (Some(env), None) => compile_fragment(doc, env~)
+      (None, Some(options)) => compile_fragment(doc, options~)
+      (None, None) => compile_fragment(doc)
+    }
+    @sexp.render_html_fragment(nodes)
+  } catch {
+    diagnostic => Err(diagnostic.render())
+  } noraise {
+    html => Ok(html)
   }
 }
 
@@ -345,9 +347,10 @@ test "syntax errors include source id when provided" {
     line_offset: 0,
     column_offset: 0,
   }
-  match @core.parse("first\n)", source_info=info) {
-    Ok(_) => abort("expected parse error")
-    Err(diagnostic) => @test.assert_eq(diagnostic.render(), expected)
+  try @core.parse("first\n)", source_info=info) catch {
+    diagnostic => @test.assert_eq(diagnostic.render(), expected)
+  } noraise {
+    _ => abort("expected parse error")
   }
 }
 
@@ -629,19 +632,17 @@ test "html document appends extra head after defaults" {
 test "extension resolver handles element and fallback preserves html" {
   let resolver : ElementResolver = compiler => {
     if compiler.call.tag == "icon" {
-      Ok(
-        Some(
-          ElementOutput::body([
-            @sexp.SexpNode::Element(
-              "span",
-              @sexp.HtmlAttrs({ "class": Some("icon") }),
-              [@sexp.SexpNode::Text("search")],
-            ),
-          ]),
-        ),
+      Some(
+        ElementOutput::body([
+          @sexp.SexpNode::Element(
+            "span",
+            @sexp.HtmlAttrs({ "class": Some("icon") }),
+            [@sexp.SexpNode::Text("search")],
+          ),
+        ]),
       )
     } else {
-      Ok(None)
+      None
     }
   }
   let options : CompileOptions = {
@@ -662,15 +663,13 @@ test "extension resolver handles element and fallback preserves html" {
 test "extension resolver can emit document head nodes" {
   let resolver : ElementResolver = compiler => {
     if compiler.call.tag == "asset" {
-      return Ok(
-        Some(
-          ElementOutput::head([
-            @sexp.SexpNode::RawHtml("<script src=\"/asset.js\"></script>"),
-          ]),
-        ),
+      return Some(
+        ElementOutput::head([
+          @sexp.SexpNode::RawHtml("<script src=\"/asset.js\"></script>"),
+        ]),
       )
     }
-    Ok(None)
+    None
   }
   let doc_options = { ..HtmlDocumentOptions::empty(), extensions: [resolver] }
   let expected =
@@ -703,14 +702,12 @@ test "extension resolver can emit document head nodes" {
 test "extension resolver diagnostic keeps source span" {
   let resolver : ElementResolver = compiler => {
     if compiler.call.tag == "boom" {
-      Err(
-        compiler.call.span.diagnostic(
-          @core.DiagnosticPhase::ContentModel,
-          "boom",
-        ),
+      raise compiler.call.span.diagnostic(
+        @core.DiagnosticPhase::ContentModel,
+        "boom",
       )
     } else {
-      Ok(None)
+      None
     }
   }
   let options : CompileOptions = {

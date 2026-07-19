@@ -1,20 +1,4 @@
 ///|
-fn usage() -> Unit {
-  let text =
-    $|alt 0.1.0
-    $|
-    $|USAGE:
-    $|  alt preview
-    $|  alt preview <entry.alt>
-    $|  alt build <entry.alt> [output.html]
-    $|  alt --help
-    $|
-    $|The project root is the nearest ancestor directory containing altsia.toml.
-    $|
-  println(text)
-}
-
-///|
 priv struct ProjectRoot {
   root : String
   config_path : String
@@ -34,14 +18,56 @@ priv suberror CliError {
 
 ///|
 fn main {
-  match @env.args() {
-    [_] | [_, "-h"] | [_, "--help"] | [_, "help"] => usage()
-    [_, "preview"] => run_preview(None)
-    [_, "preview", entry] => run_preview(Some(entry))
-    [_, "build", entry] => run_build(entry, None)
-    [_, "build", entry, output] => run_build(entry, Some(output))
-    [_, command, ..] => println("unknown command: " + command)
-    [] => usage()
+  let cmd = @argparse.Command(
+    "alt",
+    about="The CLI tool for altsia.",
+    subcommands=[
+      @argparse.Command(
+        "preview",
+        about="Compile an .alt project and print to stdout.",
+        positionals=[@argparse.PositionArg(
+          "entry",
+          about="Path to the .alt entry file.",
+        )],
+      ),
+      @argparse.Command(
+        "build",
+        about="Compile an .alt project to an HTML file.",
+        positionals=[
+          @argparse.PositionArg(
+            "entry",
+            about="Path to the .alt entry file.",
+            num_args=@argparse.ValueRange::single(),
+          ),
+          @argparse.PositionArg(
+            "output",
+            about="Path to the output HTML file.",
+          ),
+        ],
+      ),
+    ],
+  )
+  let matches = cmd.parse() catch { err => return println(err) }
+  guard matches.subcommand is Some((name, sub)) else {
+    return println(cmd.render_help())
+  }
+  match name {
+    "preview" => run_preview(first_value(sub.values, "entry"))
+    "build" => {
+      guard first_value(sub.values, "entry") is Some(entry) else {
+        return println(cmd.render_help())
+      }
+      run_build(entry, first_value(sub.values, "output"))
+    }
+    _ => println(cmd.render_help())
+  }
+}
+
+///|
+fn first_value(values : Map[String, Array[String]], name : String) -> String? {
+  match values.get(name) {
+    Some([value, ..]) => Some(value)
+    _ => None
   }
 }
 

@@ -29,10 +29,9 @@ async fn main {
   }
 
   let output_path = output_path_for(input_path)
-  if matches.flags.get("watch") is Some(true) {
-    watch_and_compile(input_path, output_path)
-  } else {
-    compile_file(input_path, output_path)
+  match matches.flags.get("watch") {
+    Some(true) => watch_and_compile(input_path, output_path)
+    _ => compile_file(input_path, output_path)
   }
 }
 

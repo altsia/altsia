@@ -27,7 +27,7 @@ priv struct ComputedPaper {
 }
 
 ///|
-priv struct PrintPaperSlate {
+pub(all) struct PrintPaperSlate {
   page_size : String
   margins : PaperMargins
   font_size : String
@@ -35,14 +35,14 @@ priv struct PrintPaperSlate {
 }
 
 ///|
-priv struct ScreenPaperSlate {
+pub(all) struct ScreenPaperSlate {
   max_width : String
   padding : PaperMargins
   font_size : String
 }
 
 ///|
-priv struct PaperSlate {
+pub(all) struct PaperSlate {
   print : PrintPaperSlate
   screen : ScreenPaperSlate
 }
@@ -97,12 +97,12 @@ fn compute_paper(
   options : PaperOptions,
   span : @core.SourceSpan,
 ) -> ComputedPaper raise @core.Diagnostic {
-  match paper_slate_from_name(options.slate_name) {
+  match paper_slates.get(options.slate_name) {
     Some(slate) => slate.compute(options)
     None =>
       raise span.diagnostic(
         @core.DiagnosticPhase::Type,
-        "unknown paper slate: \{options.slate_name}",
+        "unknown paper slate: \"\{options.slate_name}\". available: \{paper_slates_names}.",
       )
   }
 }
@@ -130,10 +130,10 @@ fn PaperSlate::compute(
 }
 
 ///|
-fn paper_slate_from_name(name : String) -> PaperSlate? {
-  match name {
-    "a4" =>
-      Some({
+pub let paper_slates : @hashmap.HashMap[String, PaperSlate] = @hashmap.HashMap::HashMap([
+    (
+      "a4",
+      {
         print: {
           page_size: "A4",
           margins: PaperMargins::same("24mm"),
@@ -145,9 +145,11 @@ fn paper_slate_from_name(name : String) -> PaperSlate? {
           padding: PaperMargins::same("32px"),
           font_size: "20px",
         },
-      })
-    "iso-b5" =>
-      Some({
+      },
+    ),
+    (
+      "iso-b5",
+      {
         print: {
           page_size: "176mm 250mm",
           margins: PaperMargins::same("18mm"),
@@ -159,9 +161,11 @@ fn paper_slate_from_name(name : String) -> PaperSlate? {
           padding: PaperMargins::same("28px"),
           font_size: "20px",
         },
-      })
-    "ebook" =>
-      Some({
+      },
+    ),
+    (
+      "ebook",
+      {
         print: {
           page_size: "152.4mm 228.6mm",
           margins: small_margins,
@@ -173,10 +177,16 @@ fn paper_slate_from_name(name : String) -> PaperSlate? {
           padding: PaperMargins::same("16px"),
           font_size: "20px",
         },
-      })
-    _ => None
-  }
-}
+      },
+    ),
+  ],
+)
+
+///|
+pub let paper_slates_names : String = paper_slates
+  .keys()
+  .map(s => "\"\{s}\"")
+  .join(", ")
 
 ///|
 fn PaperMargins::same(value : String) -> PaperMargins {

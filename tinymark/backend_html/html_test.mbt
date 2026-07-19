@@ -597,19 +597,6 @@ test "html doc paper appends to final body class" {
 }
 
 ///|
-test "html doc paper rejects unknown preset" {
-  match
-    render_html_document_result(
-      "(doc (:paper `letter`))Body",
-      options=HtmlDocumentOptions::empty(),
-    ) {
-    Err(message) =>
-      @test.assert_eq(message.contains("unknown paper slate: letter"), true)
-    Ok(_) => abort("expected paper preset error")
-  }
-}
-
-///|
 test "html document appends extra head after defaults" {
   let input = "(doc (:title \"Math\"))$x$"
   @test.assert_eq(

@@ -116,6 +116,7 @@
     }
   },
   "scripts": {
-    "pkg": "npx @vscode/vsce package"
+    "pkg": "npx @vscode/vsce package",
+    "package": "npx @vscode/vsce package"
   }
 }

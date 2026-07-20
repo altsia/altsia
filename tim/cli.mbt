@@ -168,7 +168,7 @@ fn input_filename(path : String) -> String {
 ///|
 fn watch_directory(path : String) -> String {
   let dir = input_dir(path)
-  guard !dir.is_empty() else { dir }
+  guard dir.is_empty() else { dir }
   "."
 }
 

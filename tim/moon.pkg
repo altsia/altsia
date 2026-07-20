@@ -8,6 +8,10 @@ import {
   "moonbitlang/x/fs",
 }
 
+import {
+  "moonbitlang/core/test",
+} for "wbtest"
+
 pkgtype(kind: "executable")
 
 options(

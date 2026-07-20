@@ -130,57 +130,47 @@ fn PaperSlate::compute(
 }
 
 ///|
-pub let paper_slates : @hashmap.HashMap[String, PaperSlate] = @hashmap.HashMap::HashMap([
-    (
-      "a4",
-      {
-        print: {
-          page_size: "A4",
-          margins: PaperMargins::same("24mm"),
-          font_size: "11pt",
-          staple_extra: "8mm",
-        },
-        screen: {
-          max_width: "820px",
-          padding: PaperMargins::same("32px"),
-          font_size: "20px",
-        },
-      },
-    ),
-    (
-      "iso-b5",
-      {
-        print: {
-          page_size: "176mm 250mm",
-          margins: PaperMargins::same("18mm"),
-          font_size: "10.5pt",
-          staple_extra: "8mm",
-        },
-        screen: {
-          max_width: "760px",
-          padding: PaperMargins::same("28px"),
-          font_size: "20px",
-        },
-      },
-    ),
-    (
-      "ebook",
-      {
-        print: {
-          page_size: "152.4mm 228.6mm",
-          margins: small_margins,
-          staple_extra: "0mm",
-          font_size: "11.5pt",
-        },
-        screen: {
-          max_width: "820px",
-          padding: PaperMargins::same("16px"),
-          font_size: "20px",
-        },
-      },
-    ),
-  ],
-)
+pub let paper_slates : Map[String, PaperSlate] = {
+  "a4": {
+    print: {
+      page_size: "A4",
+      margins: PaperMargins::same("24mm"),
+      font_size: "11pt",
+      staple_extra: "8mm",
+    },
+    screen: {
+      max_width: "820px",
+      padding: PaperMargins::same("32px"),
+      font_size: "20px",
+    },
+  },
+  "iso-b5": {
+    print: {
+      page_size: "176mm 250mm",
+      margins: PaperMargins::same("18mm"),
+      font_size: "10.5pt",
+      staple_extra: "8mm",
+    },
+    screen: {
+      max_width: "760px",
+      padding: PaperMargins::same("28px"),
+      font_size: "20px",
+    },
+  },
+  "ebook": {
+    print: {
+      page_size: "152.4mm 228.6mm",
+      margins: small_margins,
+      staple_extra: "0mm",
+      font_size: "11.5pt",
+    },
+    screen: {
+      max_width: "820px",
+      padding: PaperMargins::same("16px"),
+      font_size: "20px",
+    },
+  },
+}
 
 ///|
 pub let paper_slates_names : String = paper_slates

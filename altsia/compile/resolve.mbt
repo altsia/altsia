@@ -22,13 +22,9 @@ fn ResolveState::compile_resolved_tree(
   if self.find_resolved(slug) is Some(tree) {
     return tree
   }
-  if self.visiting.contains(slug) {
-    raise self.cycle_diagnostic(slug)
-  }
-  let tree = match self.find_parsed(slug) {
-    Some(value) => value
-    None =>
-      raise @model.source_diagnostic(slug, Binding, "missing tree: " + slug)
+  guard !self.visiting.contains(slug) else { raise self.cycle_diagnostic(slug) }
+  guard self.find_parsed(slug) is Some(tree) else {
+    raise @model.source_diagnostic(slug, Binding, "missing tree: " + slug)
   }
   self.visiting.add(slug)
   self.active_stack.push(slug)
@@ -227,7 +223,7 @@ fn resolved_tree_title(tree : ResolvedTree) -> String {
     backlinks: [],
     parent: None,
   }
-  @model.tree_title(compiled)
+  compiled.title()
 }
 
 ///|
@@ -277,9 +273,8 @@ fn ResolveState::add_dependency(
   kind : @model.SourceFileDependencyKind,
 ) -> Unit {
   let dependency : @model.SourceFileDependency = { source, target, kind }
-  if !self.effects.source_file_dependencies.contains(dependency) {
-    self.effects.source_file_dependencies.push(dependency)
-  }
+  guard !self.effects.source_file_dependencies.contains(dependency) else { () }
+  self.effects.source_file_dependencies.push(dependency)
 }
 
 ///|
@@ -311,7 +306,7 @@ fn validate_tree_target(
         hint="target was: \{target}",
       ),
     )
-  } else if is_absolute_tree_target(target) || @model.has_suffix(target, ".alt") {
+  } else if is_absolute_tree_target(target) || target.has_suffix(".alt") {
     None
   } else {
     Some(
@@ -327,7 +322,7 @@ fn validate_tree_target(
 
 ///|
 fn is_absolute_tree_target(target : String) -> Bool {
-  target.length() > 0 && target.unsafe_substring(start=0, end=1) == "/"
+  target.has_prefix("/")
 }
 
 ///|
@@ -337,9 +332,8 @@ fn ResolveState::add_dangling_tree_link(
   target : String,
 ) -> Unit {
   let link : @model.DanglingTreeLink = { source, target }
-  if !self.effects.dangling_tree_links.contains(link) {
-    self.effects.dangling_tree_links.push(link)
-  }
+  guard !self.effects.dangling_tree_links.contains(link) else { () }
+  self.effects.dangling_tree_links.push(link)
 }
 
 ///|

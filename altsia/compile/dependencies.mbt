@@ -29,24 +29,21 @@ pub fn expand_dirty_sources(
   let queue : Array[String] = []
   for source in dirty_sources {
     let normalized = @model.normalize_path(source)
-    if !visited.contains(normalized) {
-      visited.add(normalized)
-      queue.push(normalized)
-      result.push(normalized)
-    }
+    guard !visited.contains(normalized) else { continue }
+    visited.add(normalized)
+    queue.push(normalized)
+    result.push(normalized)
   }
   let mut cursor = 0
   while cursor < queue.length() {
     let source = queue[cursor]
     cursor += 1
-    if graph.get(source) is Some(next_sources) {
-      for next in next_sources {
-        if !visited.contains(next) {
-          visited.add(next)
-          queue.push(next)
-          result.push(next)
-        }
-      }
+    guard graph.get(source) is Some(next_sources) else { continue }
+    for next in next_sources {
+      guard !visited.contains(next) else { continue }
+      visited.add(next)
+      queue.push(next)
+      result.push(next)
     }
   }
   result
@@ -96,22 +93,20 @@ pub fn source_file_dependencies_for_entry(
   while cursor < queue.length() {
     let source = queue[cursor]
     cursor += 1
-    if by_source.get(source) is Some(edges) {
-      for dependency in edges {
-        let key = source_file_dependency_key(
-          dependency.source,
-          dependency.target,
-          dependency.kind,
-        )
-        if !emitted.contains(key) {
-          emitted.add(key)
-          result.push(dependency)
-        }
-        if !visited.contains(dependency.target) {
-          visited.add(dependency.target)
-          queue.push(dependency.target)
-        }
+    guard by_source.get(source) is Some(edges) else { continue }
+    for dependency in edges {
+      let key = source_file_dependency_key(
+        dependency.source,
+        dependency.target,
+        dependency.kind,
+      )
+      if !emitted.contains(key) {
+        emitted.add(key)
+        result.push(dependency)
       }
+      guard !visited.contains(dependency.target) else { continue }
+      visited.add(dependency.target)
+      queue.push(dependency.target)
     }
   }
   result

@@ -136,7 +136,7 @@ fn RenderState::footer_item_node(
     _ =>
       @sexp.SexpNode::Element(
         "a",
-        @sexp.HtmlAttrs({ "href": Some(@model.url_for_tree(slug)) }),
+        @sexp.HtmlAttrs({ "href": Some(slug.url()) }),
         [@sexp.SexpNode::Text(label)],
       )
   }

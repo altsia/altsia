@@ -82,17 +82,17 @@ fn optional_string(
 fn validate_project_config(
   config : ProjectConfig,
 ) -> Result[ProjectConfig, String] {
-  if config.sources.trim() == "" {
+  guard config.sources.trim() != "" else {
     return Err("[altsia].sources must not be empty")
   }
   let sources_path : @path.Path = config.sources
-  if sources_path.is_absolute() || @model.is_absolute_path(config.sources) {
+  guard !sources_path.is_absolute() && !@model.is_absolute_path(config.sources) else {
     return Err("[altsia].sources must be relative to the project root")
   }
-  if config.preview_entry is Some(entry) {
-    if entry.trim() == "" {
+  match config.preview_entry {
+    Some(entry) if entry.trim() == "" =>
       return Err("[preview].entry must not be empty")
-    }
+    _ => ()
   }
   Ok(config)
 }

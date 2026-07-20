@@ -209,29 +209,29 @@ pub fn Project::new(root : String, sources : Array[SourceFile]) -> Project {
 }
 
 ///|
-pub fn tree_title(tree : CompiledTree) -> String {
-  match tree.metadata.page_title {
+pub fn CompiledTree::title(self : CompiledTree) -> String {
+  match self.metadata.page_title {
     Some(value) => value
     None =>
-      tree.metadata.title.map(title => title.1).unwrap_or(tree.slug.canonical())
+      self.metadata.title.map(title => title.1).unwrap_or(self.slug.canonical())
   }
 }
 
 ///|
-pub fn tree_page_title(tree : CompiledTree) -> String? {
-  match tree.metadata.page_title {
+pub fn CompiledTree::page_title(self : CompiledTree) -> String? {
+  match self.metadata.page_title {
     Some(value) => Some(value)
-    None => tree.metadata.title.map(title => title.1)
+    None => self.metadata.title.map(title => title.1)
   }
 }
 
 ///|
-pub fn compiled_tree_by_slug(
-  project : CompiledProject,
+pub fn CompiledProject::find_tree(
+  self : CompiledProject,
   slug : TreeSlug,
 ) -> CompiledTree? {
   let key = slug.canonical()
-  for tree in project.trees {
+  for tree in self.trees {
     if tree.slug.canonical() == key {
       return Some(tree)
     }

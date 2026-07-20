@@ -70,7 +70,7 @@ fn RenderState::push_embed_catalog_items(
           let content : Array[@sexp.SexpNode] = [
             @sexp.SexpNode::Element(
               "a",
-              @sexp.HtmlAttrs({ "href": Some(@model.url_for_tree(child.slug)) }),
+              @sexp.HtmlAttrs({ "href": Some(child.slug.url()) }),
               [@sexp.SexpNode::Text(self.tree_footer_label(child_key))],
             ),
           ]

@@ -100,7 +100,7 @@ fn resolve_use_directives(
   let env = @core.CompileEnv::empty()
   let source_file_dependencies : Array[@model.SourceFileDependency] = []
   for directive in leading_use_directives(current.doc) {
-    if !@model.has_suffix(directive.target, ".sia") {
+    if !directive.target.has_suffix(".sia") {
       raise @model.diagnostic(
         directive.span,
         Binding,
@@ -165,7 +165,7 @@ fn lower_parsed_sources(
         )
         let env = builtin_env.copy()
         env.append(imported)
-        let default_slug = @model.tree_slug_from_path(item.file.path)
+        let default_slug = @model.TreeSlug::from_file_path(item.file.path)
         let source_doc = strip_leading_use_directives(item.doc)
         let metadata_env = collect_local_bindings(source_doc, env)
         let root_metadata = metadata_from_doc(
@@ -267,7 +267,7 @@ fn lower_tree_nodes(
         let slug_attr = tree_slug_attr(attrs)
         match slug_attr {
           Some(local_slug) => {
-            let slug = @model.child_tree_slug(top_level_slug, local_slug)
+            let slug = top_level_slug.child(local_slug)
             let child = lower_tree_nodes(
               children,
               top_level_slug,
@@ -303,9 +303,7 @@ fn lower_tree_nodes(
           }
           None => {
             next_index += 1
-            let anchor = @model.anonymous_tree_anchor(
-              top_level_slug, next_index,
-            )
+            let anchor = top_level_slug.anonymous_anchor(next_index)
             let child = lower_tree_nodes(
               children,
               top_level_slug,

@@ -24,7 +24,7 @@ async fn main {
     return println(cmd.render_help())
   }
 
-  if !input_path.has_suffix(".alt") {
+  guard input_path.has_suffix(".alt") else {
     return println("error: input path must end with .alt")
   }
 

@@ -43,8 +43,7 @@ pub fn compile_alt_fragment(
 ) -> String raise @core.Diagnostic {
   let project = @model.Project::new("", sources)
   let compiled = compile_project(project)
-  match
-    @model.compiled_tree_by_slug(compiled, @model.tree_slug_from_path(entry)) {
+  match compiled.find_tree(@model.TreeSlug::from_file_path(entry)) {
     Some(tree) => tree.html
     None =>
       raise @model.source_diagnostic(
@@ -78,8 +77,8 @@ pub fn preview_project(
   options? : @html.HtmlDocumentOptions,
 ) -> @model.PreviewResult raise @core.Diagnostic {
   let compiled = compile_project(project)
-  let entry_tree_slug = @model.tree_slug_from_path(entry)
-  guard @model.compiled_tree_by_slug(compiled, entry_tree_slug) is Some(tree) else {
+  let entry_tree_slug = @model.TreeSlug::from_file_path(entry)
+  guard compiled.find_tree(entry_tree_slug) is Some(tree) else {
     raise @model.source_diagnostic(
       entry,
       Binding,
@@ -106,7 +105,7 @@ pub fn preview_project(
       tree.path,
     ),
     entry_tree_slug,
-    title: @model.tree_page_title(tree),
+    title: tree.page_title(),
   }
 }
 

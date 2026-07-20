@@ -63,9 +63,8 @@ fn collect_initial_source_file_dependencies(
   let source_file_dependencies : Array[@model.SourceFileDependency] = []
   for tree in parsed {
     for dependency in tree.source_file_dependencies {
-      if !source_file_dependencies.contains(dependency) {
-        source_file_dependencies.push(dependency)
-      }
+      guard !source_file_dependencies.contains(dependency) else { continue }
+      source_file_dependencies.push(dependency)
     }
   }
   source_file_dependencies

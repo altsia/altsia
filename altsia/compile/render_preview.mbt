@@ -4,7 +4,7 @@ fn RenderState::render_structured_preview(
   entry_path : String,
   options : @model.PreviewOptions,
 ) -> @model.StructuredPreview raise @core.Diagnostic {
-  let entry_tree_slug = @model.tree_slug_from_path(entry_path)
+  let entry_tree_slug = @model.TreeSlug::from_file_path(entry_path)
   let entry_key = entry_tree_slug.canonical()
   guard self.resolved_by_slug.get(entry_key) is Some(resolved) else {
     raise @model.source_diagnostic(
@@ -28,7 +28,7 @@ fn RenderState::render_structured_preview(
     html,
     entry: entry_path,
     entry_tree_slug,
-    title: @model.tree_page_title(compiled),
+    title: compiled.page_title(),
     diagnostics: self.effects.diagnostics,
     source_file_dependencies: source_file_dependencies_for_entry(
       self.effects.source_file_dependencies,
@@ -120,7 +120,7 @@ fn RenderState::render_preview_link_node(
   let id = context.next_link_id()
   match link.slug {
     Some(slug) => {
-      let href = @model.url_for_tree(slug)
+      let href = slug.url()
       let target_source = self.source_path_for_slug(slug)
       context.tree_links.push({
         id,

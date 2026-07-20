@@ -18,53 +18,45 @@ priv suberror CliError {
 
 ///|
 fn main {
-  let cmd = @argparse.Command(
+  let subcommands : Array[@argparse.Command] = [
+    Command("preview", about="Compile an .alt project and print to stdout.", positionals=[
+      PositionArg("entry", about="Path to the .alt entry file."),
+    ]),
+    Command("build", about="Compile an .alt project to an HTML file.", positionals=[
+      PositionArg(
+        "entry",
+        about="Path to the .alt entry file.",
+        num_args=@argparse.ValueRange::single(),
+      ),
+      PositionArg("output", about="Path to the output HTML file."),
+    ]),
+  ]
+  let command = @argparse.Command(
     "alt",
     about="The CLI tool for altsia.",
-    subcommands=[
-      @argparse.Command(
-        "preview",
-        about="Compile an .alt project and print to stdout.",
-        positionals=[@argparse.PositionArg(
-          "entry",
-          about="Path to the .alt entry file.",
-        )],
-      ),
-      @argparse.Command(
-        "build",
-        about="Compile an .alt project to an HTML file.",
-        positionals=[
-          @argparse.PositionArg(
-            "entry",
-            about="Path to the .alt entry file.",
-            num_args=@argparse.ValueRange::single(),
-          ),
-          @argparse.PositionArg(
-            "output",
-            about="Path to the output HTML file.",
-          ),
-        ],
-      ),
-    ],
+    subcommands~,
   )
-  let matches = cmd.parse() catch { err => return println(err) }
+  let matches = command.parse() catch { err => return println(err) }
   guard matches.subcommand is Some((name, sub)) else {
-    return println(cmd.render_help())
+    return println(command.render_help())
   }
   match name {
-    "preview" => run_preview(first_value(sub.values, "entry"))
+    "preview" => run_preview(first_argument_value(sub.values, "entry"))
     "build" => {
-      guard first_value(sub.values, "entry") is Some(entry) else {
-        return println(cmd.render_help())
+      guard first_argument_value(sub.values, "entry") is Some(entry) else {
+        return println(command.render_help())
       }
-      run_build(entry, first_value(sub.values, "output"))
+      run_build(entry, first_argument_value(sub.values, "output"))
     }
-    _ => println(cmd.render_help())
+    _ => println(command.render_help())
   }
 }
 
 ///|
-fn first_value(values : Map[String, Array[String]], name : String) -> String? {
+fn first_argument_value(
+  values : Map[String, Array[String]],
+  name : String,
+) -> String? {
   match values.get(name) {
     Some([value, ..]) => Some(value)
     _ => None
@@ -73,39 +65,36 @@ fn first_value(values : Map[String, Array[String]], name : String) -> String? {
 
 ///|
 fn run_preview(entry : String?) -> Unit {
-  try load_project_for_entry(entry) catch {
+  try {
+    let (project, entry_path) = load_project_for_entry(entry)
+    println(compile_project_entry(project, entry_path))
+  } catch {
     CliError(message) => println(message)
-  } noraise {
-    result => {
-      let (project, entry_path) = result
-      try @altsia.compile_alt_document(project.sources, entry_path) catch {
-        error => println(error.render())
-      } noraise {
-        html => println(html)
-      }
-    }
   }
 }
 
 ///|
 fn run_build(entry : String, output : String?) -> Unit {
-  try load_project_for_entry(Some(entry)) catch {
-    CliError(message) => println(message)
-  } noraise {
-    result => {
-      let (project, entry_path) = result
-      try @altsia.compile_alt_document(project.sources, entry_path) catch {
-        error => println(error.render())
-      } noraise {
-        html => {
-          let output_path = output.unwrap_or(default_output_path(entry))
-          @fs.write_string_to_file(output_path, html) catch {
-            IOError(message) =>
-              println("I/O error while writing \{output_path}: \{message}")
-          }
-        }
-      }
+  try {
+    let (project, entry_path) = load_project_for_entry(Some(entry))
+    let html = compile_project_entry(project, entry_path)
+    let output_path = output.unwrap_or(default_output_path(entry))
+    @fs.write_string_to_file(output_path, html) catch {
+      IOError(message) =>
+        println("I/O error while writing \{output_path}: \{message}")
     }
+  } catch {
+    CliError(message) => println(message)
+  }
+}
+
+///|
+fn compile_project_entry(
+  project : @model.Project,
+  entry_path : String,
+) -> String raise CliError {
+  @altsia.compile_alt_document(project.sources, entry_path) catch {
+    error => raise CliError(error.render())
   }
 }
 
@@ -178,7 +167,7 @@ fn discover_project(start : String) -> DiscoveredProject raise CliError {
   }
   let source_root = @project.source_root(config.root, project_config)
   let sources : Array[@model.SourceFile] = []
-  collect_source_files(source_root, source_root, sources)
+  collect_source_files_into(source_root, source_root, sources)
   {
     project: { root: source_root, sources },
     source_root,
@@ -187,7 +176,7 @@ fn discover_project(start : String) -> DiscoveredProject raise CliError {
 }
 
 ///|
-fn collect_source_files(
+fn collect_source_files_into(
   root : String,
   dir : String,
   sources : Array[@model.SourceFile],
@@ -199,28 +188,26 @@ fn collect_source_files(
     let full_path = @path.Path::join(dir, entry).normalize().to_string()
     let is_dir = @fs.is_dir(full_path) catch { IOError(_) => false }
     if is_dir {
-      if !@project.should_skip_source_dir(entry) {
-        collect_source_files(root, full_path, sources)
-      }
-    } else if @project.is_source_file(full_path) {
-      let source = @fs.read_file_to_string(full_path) catch {
-        IOError(message) => raise CliError(message)
-      }
-      sources.push({
-        path: @model.normalize_path(
-          @path.Path::relative(full_path, base=root).to_string(),
-        ),
-        source,
-      })
+      guard !@project.should_skip_source_dir(entry) else { continue }
+      collect_source_files_into(root, full_path, sources)
+      continue
     }
+    guard @project.is_source_file(full_path) else { continue }
+    let source = @fs.read_file_to_string(full_path) catch {
+      IOError(message) => raise CliError(message)
+    }
+    sources.push({
+      path: @model.normalize_path(
+        @path.Path::relative(full_path, base=root).to_string(),
+      ),
+      source,
+    })
   }
 }
 
 ///|
 fn default_output_path(entry : String) -> String {
-  if entry.length() >= 4 &&
-    entry.unsafe_substring(start=entry.length() - 4, end=entry.length()) ==
-    ".alt" {
+  if entry.has_suffix(".alt") {
     entry.unsafe_substring(start=0, end=entry.length() - 4) + ".html"
   } else {
     entry + ".html"

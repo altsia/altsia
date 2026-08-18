@@ -43,10 +43,8 @@ pub fn Workspace::relative(self : Workspace, path : String) -> String? {
   guard !self.is_empty() else { return Some(value) }
   guard value != root else { return Some("") }
   let prefix = root + "/"
-  {
-    guard value.has_prefix(prefix) else { None }
-    Some(value.unsafe_substring(start=prefix.length(), end=value.length()))
-  }
+  guard value.has_prefix(prefix) else { None }
+  Some(value.unsafe_substring(start=prefix.length(), end=value.length()))
 }
 
 ///|

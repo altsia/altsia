@@ -6,6 +6,7 @@ import {
   "moonbitlang/async",
   "moonbitlang/async/fs" @async_fs,
   "moonbitlang/x/fs",
+  "moonbitlang/x/path",
 }
 
 import {

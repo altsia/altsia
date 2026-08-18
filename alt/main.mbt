@@ -102,10 +102,17 @@ fn compile_project_entry(
 fn load_project_for_entry(
   entry : String?,
 ) -> (@model.Project, String) raise CliError {
-  let start = match entry {
+  let resolved_entry = match entry {
     Some(entry) => {
       let entry_path : @path.Path = entry
-      @path.Path::dirname(entry_path.resolve()).to_string()
+      Some(entry_path.resolve().to_string())
+    }
+    None => None
+  }
+  let start = match resolved_entry {
+    Some(value) => {
+      let value_path : @path.Path = value
+      value_path.dirname().to_string()
     }
     None => {
       let current : @path.Path = "."
@@ -113,11 +120,8 @@ fn load_project_for_entry(
     }
   }
   let discovered = discover_project(start)
-  let entry_value = match entry {
-    Some(entry) => {
-      let entry_path : @path.Path = entry
-      entry_path.resolve().to_string()
-    }
+  let entry_value = match resolved_entry {
+    Some(value) => value
     None =>
       match discovered.config.preview_entry {
         Some(entry) => entry

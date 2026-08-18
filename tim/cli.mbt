@@ -47,7 +47,7 @@ fn compile_file(input_path : String, output_path : String) -> Unit {
 
 ///|
 async fn watch_and_compile(input_path : String, output_path : String) -> Unit {
-  let input_name = input_filename(input_path)
+  let input_name = @path.Path(input_path).basename().to_owned()
   let watcher = @async_fs.Watcher(watch_directory(input_path), ignored_paths=path => {
     path != input_name
   }) catch {
@@ -72,9 +72,10 @@ fn output_path_for(input_path : String) -> String {
 
 ///|
 fn render_html(input_path : String, source : String) -> String? {
+  let base_dir = @path.Path(input_path).dirname().to_string()
   let options = Some({
     ..@backend_html.HtmlDocumentOptions::default(),
-    extensions: [html_include_resolver(input_dir(input_path))],
+    extensions: [html_include_resolver(base_dir)],
   })
   try @backend_html.to_html_document(source, options) catch {
     error => {
@@ -143,38 +144,14 @@ fn resolve_include_path(base_dir : String, path : String) -> String {
   if path.has_prefix("/") || base_dir.is_empty() {
     return path
   }
-  base_dir + path
-}
-
-///|
-fn input_dir(path : String) -> String {
-  let chars = path.to_array()
-  let mut index = chars.length()
-  while index > 0 {
-    index -= 1
-    if is_path_separator(chars[index]) {
-      return path.unsafe_substring(start=0, end=index + 1)
-    }
-  }
-  ""
-}
-
-///|
-fn input_filename(path : String) -> String {
-  let dir = input_dir(path)
-  path.unsafe_substring(start=dir.length(), end=path.length())
+  @path.Path::join(base_dir, path).normalize().to_string()
 }
 
 ///|
 fn watch_directory(path : String) -> String {
-  let dir = input_dir(path)
+  let dir = @path.Path(path).dirname().to_string()
   guard dir.is_empty() else { dir }
   "."
-}
-
-///|
-fn is_path_separator(ch : Char) -> Bool {
-  ch == '/' || ch == '\\'
 }
 
 ///|

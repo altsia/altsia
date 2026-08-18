@@ -118,9 +118,7 @@ fn RenderState::render_link_node(
   let label = self.render_link_label(link.label)
   match link.slug {
     Some(slug) =>
-      Element("a", @sexp.Attrs({ "href": Some(slug.url()) }), [
-        Raw(label),
-      ])
+      Element("a", @sexp.Attrs({ "href": Some(slug.url()) }), [Raw(label)])
     None =>
       Element(
         "a",

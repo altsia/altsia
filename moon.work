@@ -3,4 +3,5 @@ members = [
   "tim",
   "altsia",
   "alt",
+  "vfs",
 ]

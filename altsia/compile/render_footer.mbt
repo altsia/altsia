@@ -134,11 +134,9 @@ fn RenderState::footer_item_node(
   match mode {
     "text" => @sexp.SexpNode::Text(label)
     _ =>
-      @sexp.SexpNode::Element(
-        "a",
-        @sexp.Attrs({ "href": Some(slug.url()) }),
-        [@sexp.SexpNode::Text(label)],
-      )
+      @sexp.SexpNode::Element("a", @sexp.Attrs({ "href": Some(slug.url()) }), [
+        @sexp.SexpNode::Text(label),
+      ])
   }
 }
 

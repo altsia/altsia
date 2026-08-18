@@ -1,5 +1,6 @@
 import {
   "kokic/altsia/model",
+  "kokic/vfs",
   "kokic/tinymark/core",
   "kokic/tinymark/backend_html" @html,
   "kokic/sexp-html" @sexp,

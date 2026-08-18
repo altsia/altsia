@@ -1,6 +1,6 @@
 import {
   "kokic/altsia/model",
+  "kokic/vfs",
   "bobzhang/toml",
   "moonbitlang/core/test",
-  "moonbitlang/x/path",
 }

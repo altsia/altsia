@@ -56,7 +56,7 @@ fn parse_project_sources(
   for source in sources {
     let item = parse_source_file(source)
     parsed.push(item)
-    sources_by_path[@model.normalize(item.file.path)] = item
+    sources_by_path[@vfs.Path::new(item.file.path).normalize().to_string()] = item
   }
   if check_duplicate_modules(parsed) is Some(error) {
     raise error
@@ -88,7 +88,7 @@ fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
 
 ///|
 fn find_parsed_source(parsed : ParsedSourceSet, path : String) -> ParsedSource? {
-  parsed.sources_by_path.get(@model.normalize(path))
+  parsed.sources_by_path.get(@vfs.Path::new(path).normalize().to_string())
 }
 
 ///|
@@ -108,10 +108,9 @@ fn resolve_use_directives(
         hint="target was: " + directive.target,
       )
     }
-    let target_path = @model.resolve_relative(
-      current.file.path,
-      directive.target,
-    )
+    let target_path = @vfs.Path::new(current.file.path)
+      .resolve(directive.target)
+      .to_string()
     match find_parsed_source(parsed, target_path) {
       Some(library) =>
         match library.kind {

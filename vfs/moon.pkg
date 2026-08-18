@@ -1,0 +1,5 @@
+import {
+  "moonbitlang/x/path/posix",
+  "moonbitlang/x/path/win32",
+  "moonbitlang/core/test",
+}

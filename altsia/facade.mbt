@@ -29,7 +29,10 @@ fn compile_project_with_options(
   env : @core.CompileEnv,
 ) -> @model.CompiledProject raise @core.Diagnostic {
   let parsed = @parse.parse_project_trees(project, builtin_env=env)
-  let compiled = @compile.compile_parsed_project(project.root, parsed)
+  let compiled = @compile.compile_parsed_project(
+    project.workspace.root().to_string(),
+    parsed,
+  )
   if strict && compiled.diagnostics.length() > 0 {
     raise compiled.diagnostics[0]
   }
@@ -119,7 +122,7 @@ pub fn preview_project_structured(
   let preview_opts = preview_options.unwrap_or(@model.PreviewOptions::default())
   let parsed = @parse.parse_project_trees(project)
   let preview = @compile.compile_structured_preview(
-    project.root,
+    project.workspace.root().to_string(),
     parsed,
     entry,
     preview_opts,

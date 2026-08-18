@@ -5,10 +5,74 @@ pub(all) struct ProjectConfig {
 } derive(Eq, Debug)
 
 ///|
-pub(all) struct ProjectLayout {
-  root : String
+/// The layout of an altsia workspace: the workspace root plus the
+/// absolute source directory that holds all `.alt`/`.altsia`/`.sia`
+/// files.
+pub struct ProjectLayout {
+  workspace : @vfs.Workspace
   source_root : String
 } derive(Eq, Debug)
+
+///|
+pub fn ProjectLayout::new(
+  workspace : @vfs.Workspace,
+  sources_dir : String,
+) -> ProjectLayout {
+  { workspace, source_root: workspace.abs(sources_dir).to_string() }
+}
+
+///|
+pub fn ProjectLayout::source_relative_path(
+  self : ProjectLayout,
+  path : String,
+) -> String? {
+  let root = @vfs.Path::new(self.source_root).normalize().to_string()
+  let value = @vfs.Path::new(path).normalize().to_string()
+  let prefix = root + "/"
+  if value == root {
+    Some("")
+  } else if value.has_prefix(prefix) {
+    Some(value.unsafe_substring(start=prefix.length(), end=value.length()))
+  } else {
+    None
+  }
+}
+
+///|
+pub fn ProjectLayout::resolve_entry_source_path(
+  self : ProjectLayout,
+  entry : String,
+) -> Result[String, String] {
+  let relative = if @vfs.Path::new(entry).is_absolute() {
+    let full_path = @vfs.Path::new(entry).normalize().to_string()
+    match self.source_relative_path(full_path) {
+      Some(value) => value
+      None => return Err("entry is outside source root: " + entry)
+    }
+  } else {
+    let value = @vfs.Path::new(entry).normalize().to_string()
+    if value == ".." || value.has_prefix("../") {
+      return Err("entry is outside source root: " + entry)
+    }
+    value
+  }
+  match @model.source_file_kind(relative) {
+    Some(AltDocument) => Ok(relative)
+    Some(AltLibrary) =>
+      Err("preview entry must be an .alt or .altsia file: " + relative)
+    None => Err("preview entry must be an .alt or .altsia file: " + relative)
+  }
+}
+
+///|
+pub fn should_skip_source_dir(name : String) -> Bool {
+  name.has_prefix(".") || name.has_prefix("_")
+}
+
+///|
+pub fn is_source_file(path : String) -> Bool {
+  @model.source_file_kind(path) is Some(_)
+}
 
 ///|
 pub fn config_file_name() -> String {
@@ -85,8 +149,7 @@ fn validate_project_config(
   guard config.sources.trim() != "" else {
     return Err("[altsia].sources must not be empty")
   }
-  let sources_path : @path.Path = config.sources
-  guard !sources_path.is_absolute() && !@model.is_absolute_path(config.sources) else {
+  guard !@vfs.Path::new(config.sources).is_absolute() else {
     return Err("[altsia].sources must be relative to the project root")
   }
   match config.preview_entry {
@@ -95,81 +158,6 @@ fn validate_project_config(
     _ => ()
   }
   Ok(config)
-}
-
-///|
-pub fn ProjectLayout::new(
-  root : String,
-  config : ProjectConfig,
-) -> ProjectLayout {
-  { root: @model.normalize(root), source_root: source_root(root, config) }
-}
-
-///|
-pub fn source_root(root : String, config : ProjectConfig) -> String {
-  fs_join(root, config.sources)
-}
-
-///|
-fn fs_join(base : String, child : String) -> String {
-  @path.Path::join(base, child).normalize().to_string()
-}
-
-///|
-fn fs_is_absolute(path : String) -> Bool {
-  let value : @path.Path = path
-  value.is_absolute()
-}
-
-///|
-pub fn should_skip_source_dir(name : String) -> Bool {
-  name.has_prefix(".") || name.has_prefix("_")
-}
-
-///|
-pub fn is_source_file(path : String) -> Bool {
-  match @model.source_file_kind(path) {
-    Some(_) => true
-    None => false
-  }
-}
-
-///|
-pub fn source_relative_path(source_root : String, path : String) -> String? {
-  let root = @model.normalize(source_root)
-  let value = @model.normalize(path)
-  let prefix = root + "/"
-  if value.has_prefix(prefix) {
-    Some(value.unsafe_substring(start=prefix.length(), end=value.length()))
-  } else {
-    None
-  }
-}
-
-///|
-pub fn resolve_entry_source_path(
-  source_root : String,
-  entry : String,
-) -> Result[String, String] {
-  let relative = if fs_is_absolute(entry) || @model.is_absolute_path(entry) {
-    let full_path = @model.normalize(entry)
-    match source_relative_path(source_root, full_path) {
-      Some(value) => value
-      None => return Err("entry is outside source root: " + entry)
-    }
-  } else {
-    let value = @model.normalize(entry)
-    if value == ".." || value.has_prefix("../") {
-      return Err("entry is outside source root: " + entry)
-    }
-    value
-  }
-  match @model.source_file_kind(relative) {
-    Some(AltDocument) => Ok(relative)
-    Some(AltLibrary) =>
-      Err("preview entry must be an .alt or .altsia file: " + relative)
-    None => Err("preview entry must be an .alt or .altsia file: " + relative)
-  }
 }
 
 ///|
@@ -207,7 +195,16 @@ test "parses source root and preview entry" {
 }
 
 ///|
-test "source discovery helpers are pure project rules" {
+test "rejects absolute source root" {
+  match parse_project_config("[altsia]\nsources = \"/abs/trees\"") {
+    Err(message) =>
+      @test.assert_eq(message.has_prefix("[altsia].sources"), true)
+    Ok(_) => abort("expected error")
+  }
+}
+
+///|
+test "source discovery helpers are pure workspace rules" {
   @test.assert_eq(should_skip_source_dir(".drafts"), true)
   @test.assert_eq(should_skip_source_dir("_build"), true)
   @test.assert_eq(should_skip_source_dir("chapters"), false)
@@ -219,16 +216,29 @@ test "source discovery helpers are pure project rules" {
 
 ///|
 test "entry is normalized relative to source root" {
-  let config = ProjectConfig::default()
-  let layout = ProjectLayout::new("/repo/site", config)
-  @test.assert_eq(@model.normalize(layout.source_root), "/repo/site/trees")
-  match
-    resolve_entry_source_path(layout.source_root, "/repo/site/trees/a/b.alt") {
+  let workspace = @vfs.Workspace::new("/repo/site")
+  let layout = ProjectLayout::new(workspace, "trees")
+  @test.assert_eq(layout.source_root, "/repo/site/trees")
+  @test.assert_eq(
+    layout.source_relative_path("/repo/site/trees/a/b.alt"),
+    Some("a/b.alt"),
+  )
+  @test.assert_eq(layout.source_relative_path("/other/a.alt"), None)
+  match layout.resolve_entry_source_path("/repo/site/trees/a/b.alt") {
     Ok(path) => @test.assert_eq(path, "a/b.alt")
     Err(error) => abort(error)
   }
-  match resolve_entry_source_path(layout.source_root, "index.alt") {
+  match layout.resolve_entry_source_path("index.alt") {
     Ok(path) => @test.assert_eq(path, "index.alt")
     Err(error) => abort(error)
+  }
+  match layout.resolve_entry_source_path("lib.sia") {
+    Err(message) => @test.assert_eq(message.has_prefix("preview entry"), true)
+    Ok(_) => abort("expected error")
+  }
+  match layout.resolve_entry_source_path("../outside.alt") {
+    Err(message) =>
+      @test.assert_eq(message.has_prefix("entry is outside"), true)
+    Ok(_) => abort("expected error")
   }
 }

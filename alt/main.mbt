@@ -7,7 +7,7 @@ priv struct ProjectRoot {
 ///|
 priv struct DiscoveredProject {
   project : @model.Project
-  source_root : String
+  layout : @project.ProjectLayout
   config : @project.ProjectConfig
 }
 
@@ -125,7 +125,7 @@ fn load_project_for_entry(
       }
   }
   let entry_source_path = match
-    @project.resolve_entry_source_path(discovered.source_root, entry_value) {
+    discovered.layout.resolve_entry_source_path(entry_value) {
     Ok(value) => value
     Err(message) => raise CliError(message)
   }
@@ -165,12 +165,13 @@ fn discover_project(start : String) -> DiscoveredProject raise CliError {
     Ok(value) => value
     Err(message) => raise CliError(message)
   }
-  let source_root = @project.source_root(config.root, project_config)
+  let workspace = @vfs.Workspace::new(config.root)
+  let layout = @project.ProjectLayout::new(workspace, project_config.sources)
   let sources : Array[@model.SourceFile] = []
-  collect_source_files_into(source_root, source_root, sources)
+  collect_source_files_into(layout.source_root, layout.source_root, sources)
   {
-    project: { root: source_root, sources },
-    source_root,
+    project: @model.Project::new(config.root, sources),
+    layout,
     config: project_config,
   }
 }
@@ -197,9 +198,9 @@ fn collect_source_files_into(
       IOError(message) => raise CliError(message)
     }
     sources.push({
-      path: @model.normalize(
-        @path.Path::relative(full_path, base=root).to_string(),
-      ),
+      path: @vfs.Path::new(full_path)
+      .relative(base=@vfs.Path::new(root))
+      .to_string(),
       source,
     })
   }

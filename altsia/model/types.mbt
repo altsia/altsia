@@ -1,10 +1,4 @@
 ///|
-pub enum SourceFileKind {
-  AltDocument
-  AltLibrary
-} derive(Eq, Debug)
-
-///|
 pub(all) struct SourceFile {
   path : String
   source : String
@@ -12,7 +6,7 @@ pub(all) struct SourceFile {
 
 ///|
 pub(all) struct Project {
-  root : String
+  workspace : @vfs.Workspace
   sources : Array[SourceFile]
 } derive(Eq, Debug)
 
@@ -205,7 +199,7 @@ pub(all) struct StructuredPreview {
 
 ///|
 pub fn Project::new(root : String, sources : Array[SourceFile]) -> Project {
-  { root, sources }
+  { workspace: @vfs.Workspace::new(root), sources }
 }
 
 ///|

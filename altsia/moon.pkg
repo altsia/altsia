@@ -1,5 +1,6 @@
 import {
   "kokic/altsia/model",
+  "kokic/vfs",
   "kokic/altsia/parse",
   "kokic/altsia/compile",
   "kokic/tinymark/core",

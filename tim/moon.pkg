@@ -9,10 +9,6 @@ import {
   "moonbitlang/x/path",
 }
 
-import {
-  "moonbitlang/core/test",
-} for "wbtest"
-
 pkgtype(kind: "executable")
 
 options(

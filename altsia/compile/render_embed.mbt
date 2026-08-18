@@ -8,7 +8,7 @@ fn embed_summary_children(
       [
         @sexp.SexpNode::Element(
           "span",
-          @sexp.HtmlAttrs({ "class": Some("embed-number") }),
+          @sexp.Attrs({ "class": Some("embed-number") }),
           [@sexp.SexpNode::Text(number.to_string() + ".")],
         ),
         @sexp.SexpNode::Text(" " + title),
@@ -30,11 +30,11 @@ fn RenderState::render_embed_catalog(
     Some(
       @sexp.SexpNode::Element(
         "nav",
-        @sexp.HtmlAttrs({
+        @sexp.Attrs({
           "class": Some("embed-catalog"),
           "aria-label": Some("Embedded content"),
         }),
-        [@sexp.SexpNode::Element("ol", @sexp.HtmlAttrs(Map([])), items)],
+        [@sexp.SexpNode::Element("ol", @sexp.Attrs(Map([])), items)],
       ),
     )
   }
@@ -70,17 +70,17 @@ fn RenderState::push_embed_catalog_items(
           let content : Array[@sexp.SexpNode] = [
             @sexp.SexpNode::Element(
               "a",
-              @sexp.HtmlAttrs({ "href": Some(child.slug.url()) }),
+              @sexp.Attrs({ "href": Some(child.slug.url()) }),
               [@sexp.SexpNode::Text(self.tree_footer_label(child_key))],
             ),
           ]
           if !children.is_empty() {
             content.push(
-              @sexp.SexpNode::Element("ol", @sexp.HtmlAttrs(Map([])), children),
+              @sexp.SexpNode::Element("ol", @sexp.Attrs(Map([])), children),
             )
           }
           items.push(
-            @sexp.SexpNode::Element("li", @sexp.HtmlAttrs(Map([])), content),
+            @sexp.SexpNode::Element("li", @sexp.Attrs(Map([])), content),
           )
         }
       }
@@ -101,8 +101,8 @@ fn embed_is_open(embed : @model.EmbedDirective) -> Bool {
 fn embed_attrs(
   embed : @model.EmbedDirective,
   resolved_key : String,
-) -> @sexp.HtmlAttrs {
-  let attrs = @sexp.HtmlAttrs({
+) -> @sexp.Attrs {
+  let attrs = @sexp.Attrs({
     "class": Some("embed"),
     "data-tree": Some(resolved_key),
   })

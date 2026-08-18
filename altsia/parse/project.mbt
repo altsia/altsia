@@ -56,7 +56,7 @@ fn parse_project_sources(
   for source in sources {
     let item = parse_source_file(source)
     parsed.push(item)
-    sources_by_path[@model.normalize_path(item.file.path)] = item
+    sources_by_path[@model.normalize(item.file.path)] = item
   }
   if check_duplicate_modules(parsed) is Some(error) {
     raise error
@@ -88,7 +88,7 @@ fn check_duplicate_modules(parsed : Array[ParsedSource]) -> @core.Diagnostic? {
 
 ///|
 fn find_parsed_source(parsed : ParsedSourceSet, path : String) -> ParsedSource? {
-  parsed.sources_by_path.get(@model.normalize_path(path))
+  parsed.sources_by_path.get(@model.normalize(path))
 }
 
 ///|

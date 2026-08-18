@@ -23,10 +23,10 @@ fn RenderState::render_embed_html(
       let children : Array[@sexp.SexpNode] = [
         @sexp.SexpNode::Element(
           "summary",
-          @sexp.HtmlAttrs(Map([])),
+          @sexp.Attrs(Map([])),
           summary_children,
         ),
-        @sexp.SexpNode::RawHtml(body_html),
+        @sexp.SexpNode::Raw(body_html),
       ]
       if catalog is Some(node) {
         children.push(node)
@@ -39,12 +39,12 @@ fn RenderState::render_embed_html(
         children.push(
           @sexp.SexpNode::Element(
             "div",
-            @sexp.HtmlAttrs({ "class": Some("embed-number") }),
+            @sexp.Attrs({ "class": Some("embed-number") }),
             [@sexp.SexpNode::Text(number.to_string() + ".")],
           ),
         )
       }
-      children.push(@sexp.SexpNode::RawHtml(body_html))
+      children.push(@sexp.SexpNode::Raw(body_html))
       if catalog is Some(node) {
         children.push(node)
       }
@@ -94,7 +94,7 @@ fn RenderState::render_resolved_content_nodes(
         Some(@html.ElementOutput::body([self.render_link_node(link)]))
       RenderEmbed(embed, _, tree) => {
         let html = self.render_embed_html(embed, tree, counter)
-        Some(@html.ElementOutput::flow([@sexp.SexpNode::RawHtml(html)]))
+        Some(@html.ElementOutput::flow([@sexp.SexpNode::Raw(html)]))
       }
     }
   }
@@ -118,17 +118,17 @@ fn RenderState::render_link_node(
   let label = self.render_link_label(link.label)
   match link.slug {
     Some(slug) =>
-      Element("a", @sexp.HtmlAttrs({ "href": Some(slug.url()) }), [
-        RawHtml(label),
+      Element("a", @sexp.Attrs({ "href": Some(slug.url()) }), [
+        Raw(label),
       ])
     None =>
       Element(
         "a",
-        @sexp.HtmlAttrs({
+        @sexp.Attrs({
           "href": Some("#"),
           "data-missing-target": Some(link.target),
         }),
-        [RawHtml(label)],
+        [Raw(label)],
       )
   }
 }

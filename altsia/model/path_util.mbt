@@ -15,13 +15,11 @@ pub fn basename(path : String) -> String {
 
 ///|
 pub fn join_path(base : String, child : String) -> String {
-  @posix.Path::join(normalize_path(base), slash_path(child))
-  .normalize()
-  .to_string()
+  @posix.Path::join(normalize(base), slash_path(child)).normalize().to_string()
 }
 
 ///|
-pub fn normalize_path(path : String) -> String {
+pub fn normalize(path : String) -> String {
   @posix.Path::normalize(slash_path(path)).to_string()
 }
 
@@ -88,7 +86,7 @@ pub fn module_name_from_path(path : String) -> String {
 
 ///|
 pub fn resolve_relative(current_path : String, target : String) -> String {
-  normalize_path(join_path(dirname(current_path), target))
+  normalize(join_path(dirname(current_path), target))
 }
 
 ///|
@@ -103,7 +101,7 @@ pub fn TreeSlug::url(self : TreeSlug) -> String {
 
 ///|
 test "logical paths are slash-normalized" {
-  @test.assert_eq(normalize_path("math\\a.alt"), "math/a.alt")
+  @test.assert_eq(normalize("math\\a.alt"), "math/a.alt")
   @test.assert_eq(join_path("/repo/site", "trees"), "/repo/site/trees")
   @test.assert_eq(dirname("math/c.alt"), "math")
   @test.assert_eq(basename("a/auto date.sia"), "auto date.sia")

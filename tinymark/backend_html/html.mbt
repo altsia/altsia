@@ -10,7 +10,7 @@ priv enum ContentModel {
 
 ///|
 priv struct CssStyleAttrs {
-  html_attrs : @sexp.HtmlAttrs
+  html_attrs : @sexp.Attrs
   scope : String?
 }
 
@@ -236,7 +236,7 @@ fn compile_scoped_style(
   )
   ElementOutput::body([
     HtmlNode::Element("style", style_attrs.html_attrs, [
-      HtmlNode::RawHtml(rules.join("")),
+      HtmlNode::Raw(rules.join("")),
     ]),
   ])
 }
@@ -246,7 +246,7 @@ fn compile_style_attrs(
   attrs : Array[Attr],
   env : CompileEnv,
 ) -> CssStyleAttrs raise Diagnostic {
-  let html_attrs = @sexp.HtmlAttrs(Map([]))
+  let html_attrs = @sexp.Attrs(Map([]))
   let mut scope : String? = None
   for attr in attrs {
     if attr.name == "scope" {
@@ -283,8 +283,8 @@ fn compile_style_scope(
 fn compile_attrs(
   attrs : Array[Attr],
   env : CompileEnv,
-) -> @sexp.HtmlAttrs raise Diagnostic {
-  let html_attrs = @sexp.HtmlAttrs(Map([]))
+) -> @sexp.Attrs raise Diagnostic {
+  let html_attrs = @sexp.Attrs(Map([]))
   for attr in attrs {
     html_attrs.upsert(attr.name, compile_optional_attr_scalar(attr, env))
   }

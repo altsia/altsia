@@ -25,7 +25,7 @@ fn RenderState::render_tree_footer(
     @sexp.render_html_fragment([
       @sexp.SexpNode::Element(
         "footer",
-        @sexp.HtmlAttrs({ "class": Some("tree-footer") }),
+        @sexp.Attrs({ "class": Some("tree-footer") }),
         sections,
       ),
     ])
@@ -46,7 +46,7 @@ fn RenderState::footer_section(
     let items : Array[@sexp.SexpNode] = []
     for slug in ordered {
       items.push(
-        @sexp.SexpNode::Element("li", @sexp.HtmlAttrs(Map([])), [
+        @sexp.SexpNode::Element("li", @sexp.Attrs(Map([])), [
           self.footer_item_node(slug, metadata.footer_mode),
         ]),
       )
@@ -54,12 +54,12 @@ fn RenderState::footer_section(
     Some(
       @sexp.SexpNode::Element(
         "section",
-        @sexp.HtmlAttrs({ "class": Some(footer_class(title)) }),
+        @sexp.Attrs({ "class": Some(footer_class(title)) }),
         [
-          @sexp.SexpNode::Element("h2", @sexp.HtmlAttrs(Map([])), [
+          @sexp.SexpNode::Element("h2", @sexp.Attrs(Map([])), [
             @sexp.SexpNode::Text(title),
           ]),
-          @sexp.SexpNode::Element("ol", @sexp.HtmlAttrs(Map([])), items),
+          @sexp.SexpNode::Element("ol", @sexp.Attrs(Map([])), items),
         ],
       ),
     )
@@ -136,7 +136,7 @@ fn RenderState::footer_item_node(
     _ =>
       @sexp.SexpNode::Element(
         "a",
-        @sexp.HtmlAttrs({ "href": Some(slug.url()) }),
+        @sexp.Attrs({ "href": Some(slug.url()) }),
         [@sexp.SexpNode::Text(label)],
       )
   }

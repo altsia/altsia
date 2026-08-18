@@ -5,7 +5,7 @@ pub struct TreeSlug {
 
 ///|
 pub fn TreeSlug::parse(value : String) -> TreeSlug {
-  let normalized = normalize_path(value)
+  let normalized = normalize(value)
   let path = if normalized.has_prefix("/") {
     normalized.unsafe_substring(start=1, end=normalized.length())
   } else {
@@ -22,7 +22,7 @@ pub fn TreeSlug::parse(value : String) -> TreeSlug {
 
 ///|
 pub fn TreeSlug::from_file_path(path : String) -> TreeSlug {
-  let normalized = normalize_path(path)
+  let normalized = normalize(path)
   if normalized.has_suffix(".altsia") {
     TreeSlug::parse(strip_extension(normalized, ".altsia"))
   } else {

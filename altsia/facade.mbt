@@ -63,9 +63,9 @@ pub fn compile_alt_document(
   let body = compile_alt_fragment(sources, entry)
   let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
   @sexp.render_html_document(
-    @sexp.HtmlAttrs(Map([])),
+    @sexp.Attrs(Map([])),
     opts.extra_head,
-    [RawHtml(body)],
+    [Raw(body)],
     opts.doctype,
   )
 }
@@ -87,9 +87,9 @@ pub fn preview_project(
   }
   let opts = options.unwrap_or(@html.HtmlDocumentOptions::default())
   let html = @sexp.render_html_document(
-    @sexp.HtmlAttrs(Map([])),
+    @sexp.Attrs(Map([])),
     opts.extra_head,
-    [RawHtml(tree.html)],
+    [Raw(tree.html)],
     opts.doctype,
   )
   {
@@ -126,9 +126,9 @@ pub fn preview_project_structured(
   )
   let opts = document_options.unwrap_or(@html.HtmlDocumentOptions::default())
   let html = @sexp.render_html_document(
-    @sexp.HtmlAttrs(Map([])),
+    @sexp.Attrs(Map([])),
     opts.extra_head,
-    [RawHtml(preview.html)],
+    [Raw(preview.html)],
     opts.doctype,
   )
   { ..preview, html, }

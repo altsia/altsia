@@ -4,9 +4,9 @@ version = "0.1.1"
 
 import {
   "kokic/tinymark@0.3.9",
-  "kokic/sexp-html@0.4.0",
-  "bobzhang/toml@0.2.3",
-  "moonbitlang/x@0.4.43",
+  "kokic/sexp-html@0.5.0",
+  "bobzhang/toml@0.4.3",
+  "moonbitlang/x@0.4.50",
 }
 
 readme = "README.md"

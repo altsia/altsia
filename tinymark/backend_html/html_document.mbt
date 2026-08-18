@@ -40,8 +40,8 @@ priv struct PaperRequest {
 
 ///|
 priv struct DocumentMetadata {
-  html_attrs : @sexp.HtmlAttrs
-  body_attrs : @sexp.HtmlAttrs
+  html_attrs : @sexp.Attrs
+  body_attrs : @sexp.Attrs
   head : DocumentHeadMetadata
   staple : Bool
   paper : PaperRequest?
@@ -130,8 +130,8 @@ fn DocumentMetadata::from_options(
   options : HtmlDocumentOptions,
 ) -> DocumentMetadata {
   {
-    html_attrs: @sexp.HtmlAttrs(Map([])),
-    body_attrs: @sexp.HtmlAttrs(Map([])),
+    html_attrs: @sexp.Attrs(Map([])),
+    body_attrs: @sexp.Attrs(Map([])),
     head: {
       charset: options.charset,
       viewport: options.viewport,
@@ -257,7 +257,7 @@ fn html_head_nodes(
 
   if metadata.head.charset is Some(text) {
     head.push(
-      HtmlNode::Element("meta", @sexp.HtmlAttrs({ "charset": Some(text) }), []),
+      HtmlNode::Element("meta", @sexp.Attrs({ "charset": Some(text) }), []),
     )
   }
 
@@ -267,7 +267,7 @@ fn html_head_nodes(
 
   if metadata.head.title is Some(text) {
     head.push(
-      HtmlNode::Element("title", @sexp.HtmlAttrs(Map([])), [
+      HtmlNode::Element("title", @sexp.Attrs(Map([])), [
         HtmlNode::Text(text),
       ]),
     )
@@ -294,14 +294,14 @@ fn html_head_nodes(
 
 ///|
 fn paper_style_node(css : String) -> HtmlNode {
-  HtmlNode::Element("style", @sexp.HtmlAttrs(Map([])), [HtmlNode::RawHtml(css)])
+  HtmlNode::Element("style", @sexp.Attrs(Map([])), [HtmlNode::Raw(css)])
 }
 
 ///|
 fn html_named_meta(name : String, content : String) -> HtmlNode {
   HtmlNode::Element(
     "meta",
-    @sexp.HtmlAttrs({ "name": Some(name), "content": Some(content) }),
+    @sexp.Attrs({ "name": Some(name), "content": Some(content) }),
     [],
   )
 }

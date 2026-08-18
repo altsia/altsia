@@ -6,7 +6,7 @@ pub enum PreludeChildFlow {
 
 ///|
 priv struct SectionElement {
-  html_attrs : @sexp.HtmlAttrs
+  html_attrs : @sexp.Attrs
   title : String?
   children : Array[Node]
 }
@@ -92,7 +92,7 @@ fn SectionElement::from_call(
   call : ElementCall,
   env : CompileEnv,
 ) -> SectionElement raise Diagnostic {
-  let html_attrs = @sexp.HtmlAttrs(Map([]))
+  let html_attrs = @sexp.Attrs(Map([]))
   let mut title : String? = None
   for attr in call.attrs {
     match attr.name {
@@ -115,7 +115,7 @@ fn SectionElement::heading_nodes(
     Some(text) => {
       let level = clamp_heading_level(current_heading_level)
       [
-        HtmlNode::Element("h" + level.to_string(), @sexp.HtmlAttrs(Map([])), [
+        HtmlNode::Element("h" + level.to_string(), @sexp.Attrs(Map([])), [
           HtmlNode::Text(text),
         ]),
       ]
@@ -166,12 +166,12 @@ fn CallContext::compile_code(
   let html_attrs = compile_attrs(call.attrs, context.env)
   let lang = html_attrs.0.get("lang").bind(value => value)
   let source = (context.compile_text_only)(call.children)
-  let code_attrs = @sexp.HtmlAttrs(Map([]))
+  let code_attrs = @sexp.Attrs(Map([]))
   if lang is Some(value) {
     code_attrs.upsert("class", Some("lang-" + value))
   }
   ElementOutput::flow([
-    HtmlNode::Element("pre", @sexp.HtmlAttrs(Map([])), [
+    HtmlNode::Element("pre", @sexp.Attrs(Map([])), [
       HtmlNode::Element("code", code_attrs, [HtmlNode::Text(source)]),
     ]),
   ])
@@ -210,7 +210,7 @@ fn CallContext::compile_hspace(
   let length = (context.compile_text_only)(call.children).trim()
   let html = HtmlNode::Element(
     "span",
-    @sexp.HtmlAttrs({
+    @sexp.Attrs({
       "aria-hidden": Some("true"),
       "style": Some(
         "display: inline-block; width: \{length}; height: 0; vertical-align: baseline",

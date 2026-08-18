@@ -197,7 +197,7 @@ fn collect_source_files_into(
       IOError(message) => raise CliError(message)
     }
     sources.push({
-      path: @model.normalize_path(
+      path: @model.normalize(
         @path.Path::relative(full_path, base=root).to_string(),
       ),
       source,

@@ -28,7 +28,7 @@ pub fn expand_dirty_sources(
   let visited : Set[String] = Set([])
   let queue : Array[String] = []
   for source in dirty_sources {
-    let normalized = @model.normalize_path(source)
+    let normalized = @model.normalize(source)
     guard !visited.contains(normalized) else { continue }
     visited.add(normalized)
     queue.push(normalized)

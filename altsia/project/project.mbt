@@ -102,18 +102,12 @@ pub fn ProjectLayout::new(
   root : String,
   config : ProjectConfig,
 ) -> ProjectLayout {
-  { root: fs_normalize(root), source_root: source_root(root, config) }
+  { root: @model.normalize(root), source_root: source_root(root, config) }
 }
 
 ///|
 pub fn source_root(root : String, config : ProjectConfig) -> String {
   fs_join(root, config.sources)
-}
-
-///|
-fn fs_normalize(path : String) -> String {
-  let value : @path.Path = path
-  value.normalize().to_string()
 }
 
 ///|
@@ -142,8 +136,8 @@ pub fn is_source_file(path : String) -> Bool {
 
 ///|
 pub fn source_relative_path(source_root : String, path : String) -> String? {
-  let root = @model.normalize_path(fs_normalize(source_root))
-  let value = @model.normalize_path(fs_normalize(path))
+  let root = @model.normalize(source_root)
+  let value = @model.normalize(path)
   let prefix = root + "/"
   if value.has_prefix(prefix) {
     Some(value.unsafe_substring(start=prefix.length(), end=value.length()))
@@ -158,13 +152,13 @@ pub fn resolve_entry_source_path(
   entry : String,
 ) -> Result[String, String] {
   let relative = if fs_is_absolute(entry) || @model.is_absolute_path(entry) {
-    let full_path = fs_normalize(entry)
+    let full_path = @model.normalize(entry)
     match source_relative_path(source_root, full_path) {
       Some(value) => value
       None => return Err("entry is outside source root: " + entry)
     }
   } else {
-    let value = @model.normalize_path(entry)
+    let value = @model.normalize(entry)
     if value == ".." || value.has_prefix("../") {
       return Err("entry is outside source root: " + entry)
     }
@@ -227,7 +221,7 @@ test "source discovery helpers are pure project rules" {
 test "entry is normalized relative to source root" {
   let config = ProjectConfig::default()
   let layout = ProjectLayout::new("/repo/site", config)
-  @test.assert_eq(@model.normalize_path(layout.source_root), "/repo/site/trees")
+  @test.assert_eq(@model.normalize(layout.source_root), "/repo/site/trees")
   match
     resolve_entry_source_path(layout.source_root, "/repo/site/trees/a/b.alt") {
     Ok(path) => @test.assert_eq(path, "a/b.alt")

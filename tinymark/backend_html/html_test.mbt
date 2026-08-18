@@ -608,7 +608,7 @@ test "html document appends extra head after defaults" {
       charset: Some("utf-8"),
       viewport: Some("width=device-width, initial-scale=1"),
       extra_head: [
-        @sexp.SexpNode::RawHtml("<script src=\"/math.js\"></script>"),
+        @sexp.SexpNode::Raw("<script src=\"/math.js\"></script>"),
       ],
     }).map(html => html.contains("<script src=\"/math.js\"></script>")),
     Ok(true),
@@ -623,7 +623,7 @@ test "extension resolver handles element and fallback preserves html" {
         ElementOutput::body([
           @sexp.SexpNode::Element(
             "span",
-            @sexp.HtmlAttrs({ "class": Some("icon") }),
+            @sexp.Attrs({ "class": Some("icon") }),
             [@sexp.SexpNode::Text("search")],
           ),
         ]),
@@ -652,7 +652,7 @@ test "extension resolver can emit document head nodes" {
     if compiler.call.tag == "asset" {
       return Some(
         ElementOutput::head([
-          @sexp.SexpNode::RawHtml("<script src=\"/asset.js\"></script>"),
+          @sexp.SexpNode::Raw("<script src=\"/asset.js\"></script>"),
         ]),
       )
     }

@@ -94,7 +94,7 @@ fn RenderState::render_preview_content_nodes(
         let html = self.render_preview_embed_html(
           embed, source, tree, counter, context,
         )
-        Some(@html.ElementOutput::flow([@sexp.SexpNode::RawHtml(html)]))
+        Some(@html.ElementOutput::flow([@sexp.SexpNode::Raw(html)]))
       }
     }
   }
@@ -131,7 +131,7 @@ fn RenderState::render_preview_link_node(
         href,
         missing: false,
       })
-      let attrs = @sexp.HtmlAttrs({ "href": Some(href) })
+      let attrs = @sexp.Attrs({ "href": Some(href) })
       if context.options.annotate_html {
         attrs.upsert("data-altsia-link-id", Some(id))
         attrs.upsert("data-altsia-tree", Some(slug.canonical()))
@@ -139,7 +139,7 @@ fn RenderState::render_preview_link_node(
           attrs.upsert("data-altsia-target-source", Some(path))
         }
       }
-      @sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)])
+      @sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::Raw(label)])
     }
     None => {
       let href = "#"
@@ -152,14 +152,14 @@ fn RenderState::render_preview_link_node(
         href,
         missing: true,
       })
-      let attrs = @sexp.HtmlAttrs({
+      let attrs = @sexp.Attrs({
         "href": Some(href),
         "data-missing-target": Some(link.target),
       })
       if context.options.annotate_html {
         attrs.upsert("data-altsia-link-id", Some(id))
       }
-      @sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::RawHtml(label)])
+      @sexp.SexpNode::Element("a", attrs, [@sexp.SexpNode::Raw(label)])
     }
   }
 }
@@ -204,10 +204,10 @@ fn RenderState::render_preview_embed_html(
       let children : Array[@sexp.SexpNode] = [
         @sexp.SexpNode::Element(
           "summary",
-          @sexp.HtmlAttrs(Map([])),
+          @sexp.Attrs(Map([])),
           summary_children,
         ),
-        @sexp.SexpNode::RawHtml(body_html),
+        @sexp.SexpNode::Raw(body_html),
       ]
       if catalog is Some(node) {
         children.push(node)
@@ -220,12 +220,12 @@ fn RenderState::render_preview_embed_html(
         children.push(
           @sexp.SexpNode::Element(
             "div",
-            @sexp.HtmlAttrs({ "class": Some("embed-number") }),
+            @sexp.Attrs({ "class": Some("embed-number") }),
             [@sexp.SexpNode::Text(number.to_string() + ".")],
           ),
         )
       }
-      children.push(@sexp.SexpNode::RawHtml(body_html))
+      children.push(@sexp.SexpNode::Raw(body_html))
       if catalog is Some(node) {
         children.push(node)
       }

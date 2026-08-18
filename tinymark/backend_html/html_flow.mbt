@@ -24,7 +24,7 @@ fn flush_paragraph(inline_run : Array[HtmlNode], out : Array[HtmlNode]) -> Unit 
       out.append(inline_run.copy())
     } else {
       out.push(
-        HtmlNode::Element("p", @sexp.HtmlAttrs(Map([])), inline_run.copy()),
+        HtmlNode::Element("p", @sexp.Attrs(Map([])), inline_run.copy()),
       )
     }
     inline_run.clear()

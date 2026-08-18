@@ -93,7 +93,7 @@ fn html_include_resolver(base_dir : String) -> @backend_html.ElementResolver {
     let path = include_path(compiler.call, compiler.context)
     let resolved = resolve_include_path(base_dir, path)
     let content = read_include(resolved, compiler.call.span)
-    let raw = @sexp.SexpNode::RawHtml(content)
+    let raw = @sexp.SexpNode::Raw(content)
     Some(@backend_html.ElementOutput::body([raw]))
   }
 }

@@ -9,8 +9,6 @@ fn CallContext::compile_lorem(
     context.env,
     call.span,
   )
-  let html = HtmlNode::Element("span", @sexp.Attrs(Map([])), [
-    @sexp.Text(lorem),
-  ])
+  let html = HtmlNode::Element("span", @sexp.Attrs(Map([])), [@sexp.Text(lorem)])
   ElementOutput::body([html])
 }

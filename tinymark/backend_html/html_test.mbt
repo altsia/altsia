@@ -607,9 +607,7 @@ test "html document appends extra head after defaults" {
       doctype: Some("html"),
       charset: Some("utf-8"),
       viewport: Some("width=device-width, initial-scale=1"),
-      extra_head: [
-        @sexp.SexpNode::Raw("<script src=\"/math.js\"></script>"),
-      ],
+      extra_head: [@sexp.SexpNode::Raw("<script src=\"/math.js\"></script>")],
     }).map(html => html.contains("<script src=\"/math.js\"></script>")),
     Ok(true),
   )

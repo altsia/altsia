@@ -23,9 +23,7 @@ fn flush_paragraph(inline_run : Array[HtmlNode], out : Array[HtmlNode]) -> Unit 
     if inline_run_only_blank_text(inline_run) {
       out.append(inline_run.copy())
     } else {
-      out.push(
-        HtmlNode::Element("p", @sexp.Attrs(Map([])), inline_run.copy()),
-      )
+      out.push(HtmlNode::Element("p", @sexp.Attrs(Map([])), inline_run.copy()))
     }
     inline_run.clear()
   }

@@ -267,9 +267,7 @@ fn html_head_nodes(
 
   if metadata.head.title is Some(text) {
     head.push(
-      HtmlNode::Element("title", @sexp.Attrs(Map([])), [
-        HtmlNode::Text(text),
-      ]),
+      HtmlNode::Element("title", @sexp.Attrs(Map([])), [HtmlNode::Text(text)]),
     )
   }
 

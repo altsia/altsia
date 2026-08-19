@@ -230,10 +230,7 @@ fn optional_attr_scalar(
   attr : @core.Attr,
   env : @core.CompileEnv,
 ) -> String? raise @core.Diagnostic {
-  match attr.value {
-    Some(value) => Some(value.to_scalar(env))
-    None => None
-  }
+  attr.value.map(value => value.to_scalar(env))
 }
 
 ///|
@@ -241,10 +238,7 @@ fn optional_attr_bool(
   attr : @core.Attr,
   message : String,
 ) -> Bool? raise @core.Diagnostic {
-  match attr.value {
-    Some(value) => Some(value.to_bool(attr.span, message))
-    None => None
-  }
+  attr.value.map(value => value.to_bool(attr.span, message))
 }
 
 ///|
@@ -252,19 +246,16 @@ fn rich_text_from_attr(
   attr : @core.Attr,
   env : @core.CompileEnv,
 ) -> (@model.RichContent, String)? raise @core.Diagnostic {
-  match attr.value {
-    Some(value) => {
-      let nodes = title_nodes_from_value(value, env)
-      let doc : @core.Document = {
-        source: { id: attr.span.source_id, line_offset: 0, column_offset: 0 },
-        nodes,
-      }
-      let content = @content.compile_inline_rich_content(doc, env)
-      let fallback_text = @core.value_to_plain_text(value, env~)
-      Some((content, fallback_text))
+  attr.value.map(value => {
+    let nodes = title_nodes_from_value(value, env)
+    let doc : @core.Document = {
+      source: { id: attr.span.source_id, line_offset: 0, column_offset: 0 },
+      nodes,
     }
-    None => None
-  }
+    let content = @content.compile_inline_rich_content(doc, env)
+    let fallback_text = @core.value_to_plain_text(value, env~)
+    (content, fallback_text)
+  })
 }
 
 ///|
@@ -276,10 +267,10 @@ fn title_nodes_from_value(
     Scalar(s, span) => [Text(s.to_string(), span)]
     Fragment(nodes, _) => nodes
     Interp(template, span) =>
-      match referenced_title_value(template, env) {
-        Some(value) => title_nodes_from_value(value, env)
-        None => [TextInterp(template, span)]
-      }
+      referenced_title_value(template, env).map_or(
+        [TextInterp(template, span)],
+        value => title_nodes_from_value(value, env),
+      )
   }
 }
 

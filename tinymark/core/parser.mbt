@@ -19,10 +19,8 @@ pub fn parse(
 
 ///|
 pub fn parse_abort(source : String) -> Document {
-  try parse(source) catch {
+  parse(source) catch {
     diagnostic => abort(diagnostic.render())
-  } noraise {
-    doc => doc
   }
 }
 

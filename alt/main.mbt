@@ -17,7 +17,7 @@ priv suberror CliError {
 } derive(Debug)
 
 ///|
-fn main {
+async fn main {
   let subcommands : Array[@argparse.Command] = [
     Command("preview", about="Compile an .alt project and print to stdout.", positionals=[
       PositionArg("entry", about="Path to the .alt entry file."),
@@ -57,34 +57,30 @@ fn first_argument_value(
   values : Map[String, Array[String]],
   name : String,
 ) -> String? {
-  match values.get(name) {
-    Some([value, ..]) => Some(value)
-    _ => None
-  }
+  values.get(name).bind(arr => arr.get(0))
 }
 
 ///|
-fn run_preview(entry : String?) -> Unit {
+async fn run_preview(entry : String?) -> Unit {
   try {
     let (project, entry_path) = load_project_for_entry(entry)
     println(compile_project_entry(project, entry_path))
   } catch {
     CliError(message) => println(message)
+    err => println("error: \{err}")
   }
 }
 
 ///|
-fn run_build(entry : String, output : String?) -> Unit {
+async fn run_build(entry : String, output : String?) -> Unit {
   try {
     let (project, entry_path) = load_project_for_entry(Some(entry))
     let html = compile_project_entry(project, entry_path)
     let output_path = output.unwrap_or(default_output_path(entry))
-    @fs.write_string_to_file(output_path, html) catch {
-      IOError(message) =>
-        println("I/O error while writing \{output_path}: \{message}")
-    }
+    @async_fs.write_file(output_path, html)
   } catch {
     CliError(message) => println(message)
+    err => println("error: \{err}")
   }
 }
 
@@ -99,35 +95,27 @@ fn compile_project_entry(
 }
 
 ///|
-fn load_project_for_entry(
-  entry : String?,
-) -> (@model.Project, String) raise CliError {
-  let resolved_entry = match entry {
-    Some(entry) => {
-      let entry_path : @path.Path = entry
-      Some(entry_path.resolve().to_string())
-    }
-    None => None
-  }
-  let start = match resolved_entry {
-    Some(value) => {
-      let value_path : @path.Path = value
-      value_path.dirname().to_string()
-    }
-    None => {
+async fn load_project_for_entry(entry : String?) -> (@model.Project, String) {
+  let resolved_entry = entry.map(entry => {
+    let entry_path : @path.Path = entry
+    entry_path.resolve().to_string()
+  })
+  let start = resolved_entry.map_or_else(
+    () => {
       let current : @path.Path = "."
       current.resolve().to_string()
-    }
-  }
+    },
+    value => {
+      let value_path : @path.Path = value
+      value_path.dirname().to_string()
+    },
+  )
   let discovered = discover_project(start)
-  let entry_value = match resolved_entry {
-    Some(value) => value
-    None =>
-      match discovered.config.preview_entry {
-        Some(entry) => entry
-        None => raise CliError("missing [preview].entry in altsia.toml")
-      }
-  }
+  let entry_value = resolved_entry.unwrap_or_else(() => {
+    discovered.config.preview_entry.unwrap_or_else(() => {
+      raise CliError("missing [preview].entry in altsia.toml")
+    })
+  })
   let entry_source_path = match
     discovered.layout.resolve_entry_source_path(entry_value) {
     Ok(value) => value
@@ -137,14 +125,14 @@ fn load_project_for_entry(
 }
 
 ///|
-fn find_project_root(start : String) -> ProjectRoot? {
+async fn find_project_root(start : String) -> ProjectRoot? {
   let start_path : @path.Path = start
   let mut current = start_path.normalize().to_string()
   while true {
     let config_path = @path.Path::join(current, @project.config_file_name())
       .normalize()
       .to_string()
-    if @fs.path_exists(config_path) {
+    if @async_fs.exists(config_path) {
       return Some({ root: current, config_path })
     }
     let current_path : @path.Path = current
@@ -158,13 +146,18 @@ fn find_project_root(start : String) -> ProjectRoot? {
 }
 
 ///|
-fn discover_project(start : String) -> DiscoveredProject raise CliError {
+async fn read_source_file(path : String) -> String raise CliError {
+  @async_fs.read_file(path).text() catch {
+    err => raise CliError("I/O error while reading \{path}: \{err}")
+  }
+}
+
+///|
+async fn discover_project(start : String) -> DiscoveredProject {
   guard find_project_root(start) is Some(config) else {
     raise CliError("missing altsia.toml from " + start)
   }
-  let config_source = @fs.read_file_to_string(config.config_path) catch {
-    IOError(message) => raise CliError(message)
-  }
+  let config_source = read_source_file(config.config_path)
   let project_config = match @project.parse_project_config(config_source) {
     Ok(value) => value
     Err(message) => raise CliError(message)
@@ -181,26 +174,24 @@ fn discover_project(start : String) -> DiscoveredProject raise CliError {
 }
 
 ///|
-fn collect_source_files_into(
+async fn collect_source_files_into(
   root : String,
   dir : String,
   sources : Array[@model.SourceFile],
-) -> Unit raise CliError {
-  let entries = @fs.read_dir(dir) catch {
-    IOError(message) => raise CliError(message)
-  }
+) -> Unit {
+  let entries = @async_fs.readdir(dir)
   for entry in entries {
     let full_path = @path.Path::join(dir, entry).normalize().to_string()
-    let is_dir = @fs.is_dir(full_path) catch { IOError(_) => false }
+    let is_dir = try (@async_fs.kind(full_path) is @async_fs.Directory) catch {
+      _ => false
+    }
     if is_dir {
       guard !@project.should_skip_source_dir(entry) else { continue }
       collect_source_files_into(root, full_path, sources)
       continue
     }
     guard @project.is_source_file(full_path) else { continue }
-    let source = @fs.read_file_to_string(full_path) catch {
-      IOError(message) => raise CliError(message)
-    }
+    let source = read_source_file(full_path)
     sources.push({
       path: @vfs.Path::new(full_path)
       .relative(base=@vfs.Path::new(root))

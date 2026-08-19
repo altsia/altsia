@@ -3,10 +3,8 @@ pub fn text_from_node(node : @core.Node, env? : @core.CompileEnv) -> String? {
   match node {
     Text(text, _) => Some(text)
     TextInterp(_, _) =>
-      try @core.nodes_to_plain_text([node], env) catch {
+      Some(@core.nodes_to_plain_text([node], env)) catch {
         _ => None
-      } noraise {
-        text => Some(text)
       }
     _ => None
   }

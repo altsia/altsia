@@ -28,19 +28,11 @@ fn ResolveState::compile_resolved_tree(
   }
   self.visiting.add(slug)
   self.active_stack.push(slug)
-  let resolved = try self.resolve_tree_content(tree) catch {
-    error => {
-      ignore(self.active_stack.pop())
-      self.visiting.remove(slug)
-      raise error
-    }
-  } noraise {
-    value => {
-      ignore(self.active_stack.pop())
-      self.visiting.remove(slug)
-      value
-    }
+  defer {
+    ignore(self.active_stack.pop())
+    self.visiting.remove(slug)
   }
+  let resolved = self.resolve_tree_content(tree)
   let (contents, references) = resolved
   let compiled : ResolvedTree = {
     slug: tree.slug,
@@ -159,15 +151,10 @@ fn ResolveState::resolve_link_directive(
           self.insert_backlink(resolved_key, source_tree.slug.canonical())
         }
       }
-      let title = match link.text {
-        Some(value) => LinkText(value)
-        None =>
-          try self.compile_resolved_tree(resolved_key) catch {
-            _ => LinkFallbackText(resolved_key)
-          } noraise {
-            tree => self.resolve_link_fallback_label(tree, resolved_key)
-          }
-      }
+      let title = link.text.map_or_else(
+        () => self.resolve_link_label(resolved_key),
+        value => LinkText(value),
+      )
       ResolvedLink({
         source: source_path,
         target,
@@ -194,21 +181,41 @@ fn ResolveState::resolve_link_directive(
 }
 
 ///|
+fn ResolveState::resolve_link_label(
+  self : ResolveState,
+  key : String,
+) -> ResolvedLinkLabel {
+  try self.compile_resolved_tree(key) catch {
+    _ => LinkFallbackText(key)
+  } noraise {
+    tree => self.resolve_link_fallback_label(tree, key)
+  }
+}
+
+///|
 fn ResolveState::resolve_link_fallback_label(
   self : ResolveState,
   tree : ResolvedTree,
   fallback : String,
 ) -> ResolvedLinkLabel {
   match tree.metadata.title {
-    Some((content, _)) =>
-      try
-        self.resolve_rich_content(content, tree.slug.canonical(), tree.path)
-      catch {
-        _ => LinkFallbackText(resolved_tree_title(tree))
-      } noraise {
-        result => LinkResolvedContent(result.0)
-      }
+    Some((content, _)) => self.resolve_metadata_title(tree, content)
     None => LinkFallbackText(tree.metadata.page_title.unwrap_or(fallback))
+  }
+}
+
+///|
+fn ResolveState::resolve_metadata_title(
+  self : ResolveState,
+  tree : ResolvedTree,
+  content : @model.RichContent,
+) -> ResolvedLinkLabel {
+  try
+    self.resolve_rich_content(content, tree.slug.canonical(), tree.path)
+  catch {
+    _ => LinkFallbackText(resolved_tree_title(tree))
+  } noraise {
+    result => LinkResolvedContent(result.0)
   }
 }
 

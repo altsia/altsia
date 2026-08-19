@@ -43,24 +43,21 @@ pub fn ProjectLayout::resolve_entry_source_path(
   self : ProjectLayout,
   entry : String,
 ) -> Result[String, String] {
+  let normalized = @vfs.Path::new(entry).normalize().to_string()
   let relative = if @vfs.Path::new(entry).is_absolute() {
-    let full_path = @vfs.Path::new(entry).normalize().to_string()
-    match self.source_relative_path(full_path) {
+    match self.source_relative_path(normalized) {
       Some(value) => value
       None => return Err("entry is outside source root: " + entry)
     }
   } else {
-    let value = @vfs.Path::new(entry).normalize().to_string()
-    if value == ".." || value.has_prefix("../") {
+    guard normalized != ".." && !normalized.has_prefix("../") else {
       return Err("entry is outside source root: " + entry)
     }
-    value
+    normalized
   }
   match @model.source_file_kind(relative) {
     Some(AltDocument) => Ok(relative)
-    Some(AltLibrary) =>
-      Err("preview entry must be an .alt or .altsia file: " + relative)
-    None => Err("preview entry must be an .alt or .altsia file: " + relative)
+    _ => Err("preview entry must be an .alt or .altsia file: " + relative)
   }
 }
 
@@ -85,43 +82,53 @@ pub fn ProjectConfig::default() -> ProjectConfig {
 }
 
 ///|
+priv suberror ConfigError {
+  ConfigError(String)
+}
+
+///|
 pub fn parse_project_config(source : String) -> Result[ProjectConfig, String] {
-  let value = try @toml.parse(source) catch {
-    error => return Err("failed to parse altsia.toml: " + error.to_string())
-  } noraise {
-    value => value
+  Ok(parse_project_config_internal(source)) catch {
+    ConfigError(message) => Err(message)
+  }
+}
+
+///|
+fn parse_project_config_internal(
+  source : String,
+) -> ProjectConfig raise ConfigError {
+  let value = @toml.parse(source) catch {
+    error =>
+      raise ConfigError("failed to parse altsia.toml: " + error.to_string())
   }
   match value {
     TomlTable(table) => project_config_from_table(table)
-    value => Err("altsia.toml root must be a table, got " + value.type_name())
+    value =>
+      raise ConfigError(
+        "altsia.toml root must be a table, got " + value.type_name(),
+      )
   }
 }
 
 ///|
 fn project_config_from_table(
   table : Map[String, @toml.TomlValue],
-) -> Result[ProjectConfig, String] {
+) -> ProjectConfig raise ConfigError {
   let mut config = ProjectConfig::default()
   if table.get("altsia") is Some(value) {
     guard value is TomlTable(altsia) else {
-      return Err("[altsia] must be a table, got " + value.type_name())
+      raise ConfigError("[altsia] must be a table, got " + value.type_name())
     }
-    let sources = match optional_string(altsia, "sources", "[altsia].sources") {
-      Ok(value) => value
-      Err(error) => return Err(error)
-    }
+    let sources = optional_string(altsia, "sources", "[altsia].sources")
     if sources is Some(sources) {
       config = { ..config, sources, }
     }
   }
   if table.get("preview") is Some(value) {
     guard value is TomlTable(preview) else {
-      return Err("[preview] must be a table, got " + value.type_name())
+      raise ConfigError("[preview] must be a table, got " + value.type_name())
     }
-    let entry = match optional_string(preview, "entry", "[preview].entry") {
-      Ok(value) => value
-      Err(error) => return Err(error)
-    }
+    let entry = optional_string(preview, "entry", "[preview].entry")
     if entry is Some(entry) {
       config = { ..config, preview_entry: Some(entry) }
     }
@@ -134,30 +141,29 @@ fn optional_string(
   table : Map[String, @toml.TomlValue],
   key : String,
   label : String,
-) -> Result[String?, String] {
+) -> String? raise ConfigError {
   match table.get(key) {
-    Some(TomlString(value)) => Ok(Some(value))
-    Some(value) => Err("\{label} must be a string, got \{value.type_name()}")
-    None => Ok(None)
+    Some(TomlString(value)) => Some(value)
+    Some(value) =>
+      raise ConfigError("\{label} must be a string, got \{value.type_name()}")
+    None => None
   }
 }
 
 ///|
 fn validate_project_config(
   config : ProjectConfig,
-) -> Result[ProjectConfig, String] {
+) -> ProjectConfig raise ConfigError {
   guard config.sources.trim() != "" else {
-    return Err("[altsia].sources must not be empty")
+    raise ConfigError("[altsia].sources must not be empty")
   }
   guard !@vfs.Path::new(config.sources).is_absolute() else {
-    return Err("[altsia].sources must be relative to the project root")
+    raise ConfigError("[altsia].sources must be relative to the project root")
   }
-  match config.preview_entry {
-    Some(entry) if entry.trim() == "" =>
-      return Err("[preview].entry must not be empty")
-    _ => ()
+  guard config.preview_entry.map_or(true, entry => entry.trim() != "") else {
+    raise ConfigError("[preview].entry must not be empty")
   }
-  Ok(config)
+  config
 }
 
 ///|

@@ -46,15 +46,18 @@ pub fn compile_alt_fragment(
 ) -> String raise @core.Diagnostic {
   let project = @model.Project::new("", sources)
   let compiled = compile_project(project)
-  match compiled.find_tree(@model.TreeSlug::from_file_path(entry)) {
-    Some(tree) => tree.html
-    None =>
+  compiled
+  .find_tree(@model.TreeSlug::from_file_path(entry))
+  .map_or_else(
+    () => {
       raise @model.source_diagnostic(
         entry,
         Binding,
         "missing entry tree: " + entry,
       )
-  }
+    },
+    tree => tree.html,
+  )
 }
 
 ///|

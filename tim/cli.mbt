@@ -31,17 +31,18 @@ async fn main {
   let output_path = output_path_for(input_path)
   match matches.flags.get("watch") {
     Some(true) => watch_and_compile(input_path, output_path)
-    _ => compile_file(input_path, output_path)
+    _ =>
+      compile_file(input_path, output_path) catch {
+        err => println("error: \{err}")
+      }
   }
 }
 
 ///|
-fn compile_file(input_path : String, output_path : String) -> Unit {
-  guard read_input(input_path) is Some(source) &&
-    render_html(input_path, source) is Some(html) &&
-    write_output(output_path, html) else {
-    return
-  }
+async fn compile_file(input_path : String, output_path : String) -> Unit {
+  let source = @async_fs.read_file(input_path).text()
+  guard render_html(input_path, source) is Some(html) else { return }
+  @async_fs.write_file(output_path, html)
   println("output: \{output_path}")
 }
 
@@ -54,13 +55,17 @@ async fn watch_and_compile(input_path : String, output_path : String) -> Unit {
     error => return println("error: unable to watch \{input_path}: \{error}")
   }
   defer watcher.close()
-  compile_file(input_path, output_path)
+  compile_file(input_path, output_path) catch {
+    err => println("error: \{err}")
+  }
   println("watching: \{input_path}")
   for ;; {
     watcher.wait_any() catch {
       error => return println("error: stopped watching \{input_path}: \{error}")
     }
-    compile_file(input_path, output_path)
+    compile_file(input_path, output_path) catch {
+      err => println("error: \{err}")
+    }
   }
 }
 
@@ -71,29 +76,67 @@ fn output_path_for(input_path : String) -> String {
 }
 
 ///|
-fn render_html(input_path : String, source : String) -> String? {
+async fn render_html(input_path : String, source : String) -> String? {
   let base_dir = @path.Path(input_path).dirname().to_string()
+  let contents : Map[String, String] = Map([])
+  for target in collect_include_targets(source, base_dir) {
+    let (path, span) = target
+    let content = read_include(path, span) catch {
+      error => {
+        println(error.render())
+        return None
+      }
+    }
+    contents[path] = content
+  }
   let options = Some({
     ..@backend_html.HtmlDocumentOptions::default(),
-    extensions: [html_include_resolver(base_dir)],
+    extensions: [html_include_resolver(base_dir, contents)],
   })
-  try @backend_html.to_html_document(source, options) catch {
+  Some(@backend_html.to_html_document(source, options)) catch {
     error => {
       println(error.render())
       None
     }
-  } noraise {
-    html => Some(html)
   }
 }
 
 ///|
-fn html_include_resolver(base_dir : String) -> @backend_html.ElementResolver {
+fn collect_include_targets(
+  source : String,
+  base_dir : String,
+) -> Array[(String, @core.SourceSpan)] {
+  let targets : Array[(String, @core.SourceSpan)] = []
+  let options = Some({
+    ..@backend_html.HtmlDocumentOptions::default(),
+    extensions: [
+      compiler => {
+        guard compiler.call.tag == "html.include" else { return None }
+        let path = include_path(compiler.call, compiler.context)
+        targets.push((resolve_include_path(base_dir, path), compiler.call.span))
+        Some(@backend_html.ElementOutput::body([]))
+      },
+    ],
+  })
+  ignore(@backend_html.to_html_document(source, options) catch { _ => "" })
+  targets
+}
+
+///|
+fn html_include_resolver(
+  base_dir : String,
+  contents : Map[String, String],
+) -> @backend_html.ElementResolver {
   compiler => {
     guard compiler.call.tag == "html.include" else { return None }
     let path = include_path(compiler.call, compiler.context)
     let resolved = resolve_include_path(base_dir, path)
-    let content = read_include(resolved, compiler.call.span)
+    guard contents.get(resolved) is Some(content) else {
+      raise compiler.call.span.diagnostic(
+        @core.DiagnosticPhase::ContentModel,
+        "html.include target was not preloaded: " + resolved,
+      )
+    }
     let raw = @sexp.SexpNode::Raw(content)
     Some(@backend_html.ElementOutput::body([raw]))
   }
@@ -126,15 +169,15 @@ fn include_path(
 }
 
 ///|
-fn read_include(
+async fn read_include(
   path : String,
   span : @core.SourceSpan,
 ) -> String raise @core.Diagnostic {
-  @fs.read_file_to_string(path) catch {
-    @fs.IOError(msg) =>
+  @async_fs.read_file(path).text() catch {
+    err =>
       raise span.diagnostic(
         @core.DiagnosticPhase::ContentModel,
-        describe_io_error("including", path, msg),
+        describe_io_error("including", path, err.to_string()),
       )
   }
 }
@@ -152,27 +195,4 @@ fn watch_directory(path : String) -> String {
   let dir = @path.Path(path).dirname().to_string()
   guard dir.is_empty() else { dir }
   "."
-}
-
-///|
-fn read_input(path : String) -> String? {
-  Some(@fs.read_file_to_string(path)) catch {
-    @fs.IOError(msg) => {
-      println(describe_io_error("reading", path, msg))
-      None
-    }
-  }
-}
-
-///|
-fn write_output(path : String, content : String) -> Bool {
-  try {
-    @fs.write_string_to_file(path, content)
-    true
-  } catch {
-    @fs.IOError(msg) => {
-      println(describe_io_error("writing", path, msg))
-      false
-    }
-  }
 }

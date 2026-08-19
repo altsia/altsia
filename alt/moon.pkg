@@ -4,7 +4,8 @@ import {
   "kokic/vfs",
   "kokic/altsia/project",
   "moonbitlang/core/argparse",
-  "moonbitlang/x/fs",
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @async_fs,
   "moonbitlang/x/path",
 }
 

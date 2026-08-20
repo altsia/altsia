@@ -6,6 +6,12 @@ pub struct TreeSlug {
 } derive(Eq, Debug)
 
 ///|
+pub extend TreeSlug with Eq::{not_equal, equal}
+
+///|
+pub extend TreeSlug with Debug::{to_repr}
+
+///|
 pub fn TreeSlug::parse(value : String) -> TreeSlug {
   let normalized = @vfs.Path::new(value).normalize().to_string()
   let path = if normalized.has_prefix("/") {

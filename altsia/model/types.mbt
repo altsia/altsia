@@ -5,10 +5,22 @@ pub(all) struct SourceFile {
 } derive(Eq, Debug)
 
 ///|
+pub extend SourceFile with Eq::{not_equal, equal}
+
+///|
+pub extend SourceFile with Debug::{to_repr}
+
+///|
 pub(all) struct Project {
   workspace : @vfs.Workspace
   sources : Array[SourceFile]
 } derive(Eq, Debug)
+
+///|
+pub extend Project with Eq::{not_equal, equal}
+
+///|
+pub extend Project with Debug::{to_repr}
 
 ///|
 pub(all) struct EmbedOption {
@@ -16,6 +28,12 @@ pub(all) struct EmbedOption {
   details_open : Bool
   catalog : Bool
 } derive(Eq, Debug)
+
+///|
+pub extend EmbedOption with Eq::{not_equal, equal}
+
+///|
+pub extend EmbedOption with Debug::{to_repr}
 
 ///|
 pub fn EmbedOption::default() -> EmbedOption {
@@ -95,6 +113,12 @@ pub(all) enum SourceFileDependencyKind {
 } derive(Eq, Debug)
 
 ///|
+pub extend SourceFileDependencyKind with Eq::{not_equal, equal}
+
+///|
+pub extend SourceFileDependencyKind with Debug::{to_repr}
+
+///|
 pub(all) struct SourceFileDependency {
   source : String
   target : String
@@ -102,10 +126,22 @@ pub(all) struct SourceFileDependency {
 } derive(Eq, Debug)
 
 ///|
+pub extend SourceFileDependency with Eq::{not_equal, equal}
+
+///|
+pub extend SourceFileDependency with Debug::{to_repr}
+
+///|
 pub(all) struct DanglingTreeLink {
   source : String
   target : String
 } derive(Eq, Debug)
+
+///|
+pub extend DanglingTreeLink with Eq::{not_equal, equal}
+
+///|
+pub extend DanglingTreeLink with Debug::{to_repr}
 
 ///|
 pub(all) struct CompiledTree {
@@ -146,6 +182,12 @@ pub(all) struct PreviewOptions {
 } derive(Eq, Debug)
 
 ///|
+pub extend PreviewOptions with Eq::{not_equal, equal}
+
+///|
+pub extend PreviewOptions with Debug::{to_repr}
+
+///|
 pub fn PreviewOptions::default() -> PreviewOptions {
   { annotate_html: true, collect_assets: true }
 }
@@ -162,6 +204,12 @@ pub(all) struct PreviewTreeLink {
 } derive(Eq, Debug)
 
 ///|
+pub extend PreviewTreeLink with Eq::{not_equal, equal}
+
+///|
+pub extend PreviewTreeLink with Debug::{to_repr}
+
+///|
 pub(all) struct PreviewEmbed {
   id : String
   source : String
@@ -170,6 +218,12 @@ pub(all) struct PreviewEmbed {
   target_slug : TreeSlug
   open : Bool
 } derive(Eq, Debug)
+
+///|
+pub extend PreviewEmbed with Eq::{not_equal, equal}
+
+///|
+pub extend PreviewEmbed with Debug::{to_repr}
 
 ///|
 // TODO(altsia): define the supported asset sources before relying on this
@@ -182,6 +236,12 @@ pub(all) struct PreviewAsset {
   resolved_path : String?
   kind : String
 } derive(Eq, Debug)
+
+///|
+pub extend PreviewAsset with Eq::{not_equal, equal}
+
+///|
+pub extend PreviewAsset with Debug::{to_repr}
 
 ///|
 pub(all) struct StructuredPreview {

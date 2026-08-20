@@ -6,6 +6,12 @@ pub enum SourceFileKind {
 } derive(Eq, Debug)
 
 ///|
+pub extend SourceFileKind with Eq::{not_equal, equal}
+
+///|
+pub extend SourceFileKind with Debug::{to_repr}
+
+///|
 pub fn source_file_kind(path : String) -> SourceFileKind? {
   if path.has_suffix(".alt") || path.has_suffix(".altsia") {
     Some(AltDocument)

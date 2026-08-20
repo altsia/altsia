@@ -6,9 +6,18 @@
 pub struct Path(String) derive(Eq, Debug)
 
 ///|
+pub extend Path with Eq::{not_equal, equal}
+
+///|
+pub extend Path with Debug::{to_repr}
+
+///|
 pub impl Show for Path with fn output(self : Path, logger : &Logger) -> Unit {
   logger.write_string(self.0)
 }
+
+///|
+pub extend Path with Show::{output}
 
 ///|
 pub fn Path::new(value : String) -> Path {

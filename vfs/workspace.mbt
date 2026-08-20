@@ -9,6 +9,12 @@ pub struct Workspace {
 } derive(Eq, Debug)
 
 ///|
+pub extend Workspace with Eq::{not_equal, equal}
+
+///|
+pub extend Workspace with Debug::{to_repr}
+
+///|
 pub fn Workspace::new(root : String) -> Workspace {
   { root: Path::new(root).normalize() }
 }

@@ -5,6 +5,12 @@ pub(all) struct ProjectConfig {
 } derive(Eq, Debug)
 
 ///|
+pub extend ProjectConfig with Eq::{not_equal, equal}
+
+///|
+pub extend ProjectConfig with Debug::{to_repr}
+
+///|
 /// The layout of an altsia workspace: the workspace root plus the
 /// absolute source directory that holds all `.alt`/`.altsia`/`.sia`
 /// files.
@@ -12,6 +18,12 @@ pub struct ProjectLayout {
   workspace : @vfs.Workspace
   source_root : String
 } derive(Eq, Debug)
+
+///|
+pub extend ProjectLayout with Eq::{not_equal, equal}
+
+///|
+pub extend ProjectLayout with Debug::{to_repr}
 
 ///|
 pub fn ProjectLayout::new(

@@ -4,6 +4,12 @@ pub struct TaxonKey {
 } derive(Eq, Debug)
 
 ///|
+pub extend TaxonKey with Eq::{not_equal, equal}
+
+///|
+pub extend TaxonKey with Debug::{to_repr}
+
+///|
 pub fn TaxonKey::new(value : String) -> TaxonKey {
   { value: value.trim().to_owned().to_lower() }
 }
@@ -13,6 +19,12 @@ pub struct Taxon {
   key : TaxonKey
   display : String?
 } derive(Eq, Debug)
+
+///|
+pub extend Taxon with Eq::{not_equal, equal}
+
+///|
+pub extend Taxon with Debug::{to_repr}
 
 ///|
 pub fn Taxon::new(key : String, display? : String) -> Taxon {

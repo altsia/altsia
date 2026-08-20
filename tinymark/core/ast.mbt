@@ -5,6 +5,12 @@ pub(all) enum InterpolationPart {
 } derive(Eq, Debug)
 
 ///|
+pub extend InterpolationPart with Eq::{not_equal, equal}
+
+///|
+pub extend InterpolationPart with Debug::{to_repr}
+
+///|
 pub type Interpolation = Array[InterpolationPart]
 
 ///|

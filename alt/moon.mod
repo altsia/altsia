@@ -5,8 +5,8 @@ version = "0.1.0"
 import {
   "kokic/altsia@0.1.1",
   "kokic/vfs@0.1.0",
-  "moonbitlang/async@0.20.6",
-  "moonbitlang/x@0.4.50",
+  "moonbitlang/async@0.21.0",
+  "moonbitlang/x@0.5.1",
 }
 
 readme = "README.md"

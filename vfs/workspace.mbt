@@ -5,7 +5,7 @@
 
 ///|
 pub struct Workspace {
-  root : Path
+  root : NormalizedPath
 } derive(Eq, Debug)
 
 ///|
@@ -16,19 +16,19 @@ pub extend Workspace with Debug::{to_repr}
 
 ///|
 pub fn Workspace::new(root : String) -> Workspace {
-  { root: Path::new(root).normalize() }
+  { root: Path::new(root).to_normalized() }
 }
 
 ///|
 pub fn Workspace::root(self : Workspace) -> Path {
-  self.root
+  self.root.to_path()
 }
 
 ///|
 /// Whether the workspace has no root: paths are treated as already
 /// relative to the workspace itself.
 fn Workspace::is_empty(self : Workspace) -> Bool {
-  self.root.to_string() == ""
+  self.root.to_path().to_string() == ""
 }
 
 ///|
@@ -36,8 +36,8 @@ fn Workspace::is_empty(self : Workspace) -> Bool {
 /// as-is, relative paths are joined onto the workspace root.
 pub fn Workspace::abs(self : Workspace, path : String) -> Path {
   let path = Path::new(path)
-  guard !path.is_absolute() else { path.normalize() }
-  self.root.join(path.to_string())
+  guard !path.is_absolute() else { return path.normalize() }
+  self.root.join(path.to_string()).to_path()
 }
 
 ///|
@@ -45,7 +45,7 @@ pub fn Workspace::abs(self : Workspace, path : String) -> Path {
 /// escapes the workspace.
 pub fn Workspace::relative(self : Workspace, path : String) -> String? {
   let value = self.abs(path).to_string()
-  let root = self.root.to_string()
+  let root = self.root.to_path().to_string()
   guard !self.is_empty() else { return Some(value) }
   guard value != root else { return Some("") }
   let prefix = root + "/"

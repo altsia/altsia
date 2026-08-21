@@ -6,6 +6,20 @@
 pub struct Path(String) derive(Eq, Debug)
 
 ///|
+/// A path in canonical form: no `.`/`..` segments, no duplicate separators.
+///
+/// The invariant is established once at `Path::to_normalized`; every
+/// operation on `NormalizedPath` yields another canonical path, so the
+/// invariant is preserved structurally.
+struct NormalizedPath(String) derive(Eq, Debug)
+
+///|
+pub extend NormalizedPath with Eq::{not_equal, equal}
+
+///|
+pub extend NormalizedPath with Debug::{to_repr}
+
+///|
 pub extend Path with Eq::{not_equal, equal}
 
 ///|
@@ -30,23 +44,48 @@ pub fn Path::to_string(self : Path) -> String {
 }
 
 ///|
-pub fn Path::normalize(self : Path) -> Path {
-  guard self.0 != "" else { return self }
+/// The single normalization entry point.
+fn Path::to_normalized(self : Path) -> NormalizedPath {
+  guard self.0 != "" else { return NormalizedPath("") }
   let value : @posix.Path = self.0
-  Path(value.normalize().to_string())
+  NormalizedPath(value.normalize() |> Show::to_string())
+}
+
+///|
+fn NormalizedPath::to_path(self : NormalizedPath) -> Path {
+  Path(self.0)
+}
+
+///|
+pub fn Path::normalize(self : Path) -> Path {
+  self.to_normalized().to_path()
+}
+
+///|
+fn NormalizedPath::join(
+  self : NormalizedPath,
+  child : String,
+) -> NormalizedPath {
+  let lhs : @posix.Path = self.0
+  let rhs : @posix.Path = Path::new(child).0
+  NormalizedPath(lhs.join(rhs) |> Show::to_string())
 }
 
 ///|
 pub fn Path::join(self : Path, child : String) -> Path {
-  let lhs : @posix.Path = self.normalize().0
-  let rhs : @posix.Path = Path::new(child).0
-  Path(lhs.join(rhs).to_string())
+  self.to_normalized().join(child).to_path()
+}
+
+///|
+fn NormalizedPath::dirname(self : NormalizedPath) -> NormalizedPath {
+  let value : @posix.Path = self.0
+  NormalizedPath(value.dirname() |> Show::to_string())
 }
 
 ///|
 pub fn Path::dirname(self : Path) -> Path {
   let value : @posix.Path = self.0
-  Path(value.dirname().to_string())
+  Path(value.dirname() |> Show::to_string())
 }
 
 ///|
@@ -64,20 +103,28 @@ pub fn Path::is_absolute(self : Path) -> Bool {
 
 ///|
 pub fn Path::relative(self : Path, base~ : Path) -> Path {
-  let value : @posix.Path = self.normalize().0
-  let base : @posix.Path = base.normalize().0
-  Path(value.relative(base~).to_string())
+  let value : @posix.Path = self.to_normalized().0
+  let base : @posix.Path = base.to_normalized().0
+  Path(value.relative(base~) |> Show::to_string())
 }
 
 ///|
 /// Resolves `target` against the directory of this path, or as an
 /// absolute path when `target` starts with `/`.
 pub fn Path::resolve(self : Path, target : String) -> Path {
+  self.to_normalized().resolve(target).to_path()
+}
+
+///|
+fn NormalizedPath::resolve(
+  self : NormalizedPath,
+  target : String,
+) -> NormalizedPath {
   let target = Path::new(target)
   if target.is_absolute() {
-    target.normalize()
+    target.to_normalized()
   } else {
-    self.dirname().join(target.0).normalize()
+    self.dirname().join(target.0)
   }
 }
 
@@ -96,14 +143,25 @@ pub fn Path::strip_extension(self : Path, extension : String) -> Path {
 test "logical paths are slash-normalized" {
   @test.assert_eq(Path::new("").normalize().to_string(), "")
   @test.assert_eq(
+    Path::new("//repo//site///trees").normalize().to_string(),
+    "/repo/site/trees",
+  )
+  @test.assert_eq(
     Path::new("math\\a.alt").normalize().to_string(),
     "math/a.alt",
   )
+  @test.assert_eq(Path::new("a/./b").normalize().to_string(), "a/b")
   @test.assert_eq(
-    Path::new("/repo/site").join("trees").to_string(),
-    "/repo/site/trees",
+    Path::new("/repo/site").join("trees\\a.alt").to_string(),
+    "/repo/site/trees/a.alt",
   )
-  @test.assert_eq(Path::new("math/c.alt").dirname().to_string(), "math")
+  @test.assert_eq(Path::new("/a/b").join("../../c.alt").to_string(), "/c.alt")
+  @test.assert_eq(Path::new("a/b").join("../c.alt").to_string(), "a/c.alt")
+  @test.assert_eq(Path::new("/repo").join("").to_string(), "/repo")
+  @test.assert_eq(Path::new("").join("a/b.alt").to_string(), "a/b.alt")
+  @test.assert_eq(Path::new("/a/b/c").dirname().to_string(), "/a/b")
+  @test.assert_eq(Path::new("/a/b/").dirname().to_string(), "/a")
+  @test.assert_eq(Path::new("a/b/").basename().to_string(), "b")
   @test.assert_eq(
     Path::new("a/auto date.sia").basename().to_string(),
     "auto date.sia",
@@ -116,6 +174,18 @@ test "logical paths are slash-normalized" {
     Path::new("math/deep/c.alt").resolve("../a.alt").to_string(),
     "math/a.alt",
   )
+  @test.assert_eq(
+    Path::new("math/deep/c.alt").resolve("../../a.alt").to_string(),
+    "a.alt",
+  )
+  @test.assert_eq(
+    Path::new("a/b/c.alt").resolve("../../../../d.alt").to_string(),
+    "../../d.alt",
+  )
+  @test.assert_eq(
+    Path::new("a/b/c.alt").resolve("/x/y.alt").to_string(),
+    "/x/y.alt",
+  )
   @test.assert_eq(Path::new("/a/b.alt").is_absolute(), true)
   @test.assert_eq(Path::new("C:\\repo\\a.alt").is_absolute(), true)
   @test.assert_eq(Path::new("a/b.alt").is_absolute(), false)
@@ -126,7 +196,21 @@ test "logical paths are slash-normalized" {
     "trees/a.alt",
   )
   @test.assert_eq(
+    Path::new("/repo/other/a.alt")
+    .relative(base=Path::new("/repo/site"))
+    .to_string(),
+    "../other/a.alt",
+  )
+  @test.assert_eq(
+    Path::new("/repo/site").relative(base=Path::new("/repo/site")).to_string(),
+    "",
+  )
+  @test.assert_eq(
     Path::new("math/analysis.alt").strip_extension(".alt").to_string(),
     "math/analysis",
+  )
+  @test.assert_eq(
+    Path::new("math/analysis.alt.bak").strip_extension(".alt").to_string(),
+    "math/analysis.alt.bak",
   )
 }

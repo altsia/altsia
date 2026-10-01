@@ -4,13 +4,17 @@ fn compile_css_or_abort(
   scope? : String,
 ) -> String raise @core.Diagnostic {
   let doc = @core.parse_abort(source)
-  CSS::compile_rule_nodes(doc.nodes, scope, @core.CompileEnv::empty()).join("")
+  @backend_html.CSS::compile_rule_nodes(
+    doc.nodes,
+    scope,
+    @core.CompileEnv::empty(),
+  ).join("")
 }
 
 ///|
 test "scopes selectors and replaces scope marker" {
-  @test.assert_eq(CSS::normalize_css_scope("article"), ".article")
-  @test.assert_eq(CSS::normalize_css_scope("#main"), "#main")
+  @test.assert_eq(@backend_html.CSS::normalize_css_scope("article"), ".article")
+  @test.assert_eq(@backend_html.CSS::normalize_css_scope("#main"), "#main")
   @test.assert_eq(
     compile_css_or_abort(
       "(& (:color `red`))(a:hover (:text-decoration `none`))",
@@ -24,7 +28,11 @@ test "scopes selectors and replaces scope marker" {
 test "rejects selector lists and scope marker without scope" {
   let doc = @core.parse_abort("(a,b (:color `red`))")
   try
-    CSS::compile_rule_nodes(doc.nodes, None, @core.CompileEnv::empty())
+    @backend_html.CSS::compile_rule_nodes(
+      doc.nodes,
+      None,
+      @core.CompileEnv::empty(),
+    )
   catch {
     diagnostic =>
       @test.assert_eq(
@@ -37,7 +45,11 @@ test "rejects selector lists and scope marker without scope" {
 
   let scoped = @core.parse_abort("(& (:color `red`))")
   try
-    CSS::compile_rule_nodes(scoped.nodes, None, @core.CompileEnv::empty())
+    @backend_html.CSS::compile_rule_nodes(
+      scoped.nodes,
+      None,
+      @core.CompileEnv::empty(),
+    )
   catch {
     diagnostic =>
       @test.assert_eq(
@@ -53,7 +65,11 @@ test "rejects selector lists and scope marker without scope" {
 test "rejects declaration without value" {
   let doc = @core.parse_abort("(a (:color))")
   try
-    CSS::compile_rule_nodes(doc.nodes, None, @core.CompileEnv::empty())
+    @backend_html.CSS::compile_rule_nodes(
+      doc.nodes,
+      None,
+      @core.CompileEnv::empty(),
+    )
   catch {
     diagnostic =>
       @test.assert_eq(

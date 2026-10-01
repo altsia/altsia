@@ -1,6 +1,6 @@
 ///|
 fn source(path : String, body : String) -> @model.SourceFile {
-  { path, source: body }
+  { path, source: body, }
 }
 
 ///|
@@ -8,14 +8,14 @@ fn render_entry(
   sources : Array[@model.SourceFile],
   entry : String,
 ) -> String raise @core.Diagnostic {
-  compile_alt_fragment(sources, entry)
+  @altsia.compile_alt_fragment(sources, entry)
 }
 
 ///|
 fn compile_ok(
   sources : Array[@model.SourceFile],
 ) -> @model.CompiledProject raise @core.Diagnostic {
-  compile_project(@model.Project::new("", sources))
+  @altsia.compile_project(@model.Project::new("", sources))
 }
 
 ///|

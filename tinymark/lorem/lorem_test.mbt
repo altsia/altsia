@@ -15,7 +15,7 @@ fn lorem_text_or_abort(source : String) -> String raise @core.Diagnostic {
   guard doc.nodes[last] is Element("lorem", attrs, children, span) else {
     abort("expected lorem element")
   }
-  compile_lorem_text(attrs, children, collect_env(doc), span)
+  @lorem.compile_lorem_text(attrs, children, collect_env(doc), span)
 }
 
 ///|
@@ -43,7 +43,7 @@ test "reports missing and invalid count" {
   guard missing.nodes[0] is Ref("lorem", span) else {
     abort("expected lorem ref")
   }
-  try compile_lorem_text([], [], @core.CompileEnv::empty(), span) catch {
+  try @lorem.compile_lorem_text([], [], @core.CompileEnv::empty(), span) catch {
     diagnostic =>
       @test.assert_eq(diagnostic.message(), "(lorem ...) requires a count")
   } noraise {
@@ -55,7 +55,7 @@ test "reports missing and invalid count" {
     abort("expected lorem element")
   }
   try
-    compile_lorem_text(attrs, children, @core.CompileEnv::empty(), span)
+    @lorem.compile_lorem_text(attrs, children, @core.CompileEnv::empty(), span)
   catch {
     diagnostic =>
       @test.assert_eq(diagnostic.message(), "lorem <count> requires an integer")

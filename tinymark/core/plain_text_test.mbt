@@ -1,27 +1,29 @@
 ///|
-fn parse_doc(source : String) -> Document raise Diagnostic {
-  parse(source)
+fn parse_doc(source : String) -> @core.Document raise @core.Diagnostic {
+  @core.parse(source)
 }
 
 ///|
-fn collect_env_or_abort(doc : Document) -> CompileEnv {
-  collect_bindings(doc)
+fn collect_env_or_abort(doc : @core.Document) -> @core.CompileEnv {
+  @core.collect_bindings(doc)
 }
 
 ///|
 fn plain_value_or_abort(
-  value : Value,
-  env? : CompileEnv,
-) -> String raise Diagnostic {
+  value : @core.Value,
+  env? : @core.CompileEnv,
+) -> String raise @core.Diagnostic {
   match env {
-    Some(text_env) => value_to_plain_text(value, env=text_env)
-    None => value_to_plain_text(value)
+    Some(text_env) => @core.value_to_plain_text(value, env=text_env)
+    None => @core.value_to_plain_text(value)
   }
 }
 
 ///|
-fn plain_nodes_or_abort(nodes : Array[Node]) -> String raise Diagnostic {
-  nodes_to_plain_text(nodes, None)
+fn plain_nodes_or_abort(
+  nodes : Array[@core.Node],
+) -> String raise @core.Diagnostic {
+  @core.nodes_to_plain_text(nodes, None)
 }
 
 ///|
@@ -34,7 +36,7 @@ test "value to plain text handles scalar and bool values" {
     None => abort("expected title binding")
   }
   @test.assert_eq(
-    plain_value_or_abort(nodes_to_value(parse_doc("true").nodes)),
+    plain_value_or_abort(@core.nodes_to_value(parse_doc("true").nodes)),
     "true",
   )
 }
@@ -65,7 +67,9 @@ test "nodes to plain text observes conditionals" {
 
 ///|
 test "plain text reports unbound interpolation" {
-  try nodes_to_plain_text(parse_doc("\"Hello (name)\"").nodes, None) catch {
+  try
+    @core.nodes_to_plain_text(parse_doc("\"Hello (name)\"").nodes, None)
+  catch {
     diagnostic =>
       @test.assert_eq(diagnostic.message(), "unbound interpolation name: name")
   } noraise {
@@ -75,7 +79,7 @@ test "plain text reports unbound interpolation" {
 
 ///|
 test "plain text reports unbound refs" {
-  try nodes_to_plain_text(parse_doc("(missing)").nodes, None) catch {
+  try @core.nodes_to_plain_text(parse_doc("(missing)").nodes, None) catch {
     diagnostic =>
       @test.assert_eq(diagnostic.message(), "unbound plain text name: missing")
   } noraise {

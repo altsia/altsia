@@ -1,6 +1,8 @@
 ///|
-fn parse_nodes_or_error(source : String) -> Result[Array[Node], Diagnostic] {
-  try parse(source) catch {
+fn parse_nodes_or_error(
+  source : String,
+) -> Result[Array[@core.Node], @core.Diagnostic] {
+  try @core.parse(source) catch {
     diagnostic => Err(diagnostic)
   } noraise {
     doc => Ok(doc.nodes)

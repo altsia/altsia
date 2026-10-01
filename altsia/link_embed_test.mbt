@@ -47,7 +47,7 @@ test "dangling local link is non fatal in normal build" {
   ])
   @test.assert_eq(project.diagnostics.length(), 1)
   @test.assert_eq(project.dangling_tree_links, [
-    { source: "index.alt", target: "missing.alt" },
+    { source: "index.alt", target: "missing.alt", },
   ])
   @test.assert_eq(
     project.trees[0].html,
@@ -58,7 +58,7 @@ test "dangling local link is non fatal in normal build" {
 ///|
 test "strict check fails on dangling local link" {
   try
-    compile_project_strict(
+    @altsia.compile_project_strict(
       @model.Project::new("", [
         source("index.alt", "See (link `missing.alt` Missing)."),
       ]),
@@ -127,7 +127,7 @@ test "embed target and title support interpolation" {
 ///|
 test "unknown embed option reports diagnostic" {
   try
-    compile_project(
+    @altsia.compile_project(
       @model.Project::new("", [
         source("index.alt", "(embed (:unknown true) `child.alt`)"),
         source("child.alt", "Child."),
@@ -143,7 +143,7 @@ test "unknown embed option reports diagnostic" {
 ///|
 test "missing embed target is hard error" {
   try
-    compile_project(
+    @altsia.compile_project(
       @model.Project::new("", [source("index.alt", "(embed `missing.alt`)")]),
     )
   catch {
@@ -157,7 +157,7 @@ test "missing embed target is hard error" {
 ///|
 test "embed target validation rejects non local target" {
   try
-    compile_project(
+    @altsia.compile_project(
       @model.Project::new("", [
         source("index.alt", "(embed `https://example.com`)"),
       ]),
@@ -176,7 +176,7 @@ test "embed target validation rejects non local target" {
 ///|
 test "relative embed target must end with alt extension" {
   try
-    compile_project(
+    @altsia.compile_project(
       @model.Project::new("", [source("index.alt", "(embed `child`)")]),
     )
   catch {
@@ -286,7 +286,7 @@ test "dirty source expansion follows embed and backlink graph" {
 
 ///|
 test "preview project returns html diagnostics and transitive source file dependencies" {
-  let preview = preview_project(
+  let preview = @altsia.preview_project(
     @model.Project::new("", [
       source("index.alt", "(embed `child.alt`)"),
       source(
@@ -299,17 +299,17 @@ test "preview project returns html diagnostics and transitive source file depend
   @test.assert_eq(preview.entry_tree_slug, slug("index"))
   @test.assert_eq(preview.diagnostics.length(), 1)
   @test.assert_eq(preview.dangling_tree_links, [
-    { source: "child.alt", target: "missing.alt" },
+    { source: "child.alt", target: "missing.alt", },
   ])
   @test.assert_eq(preview.source_file_dependencies, [
-    { source: "index.alt", target: "child.alt", kind: @model.TreeEmbed },
-    { source: "child.alt", target: "lib.sia", kind: @model.LibraryUse },
+    { source: "index.alt", target: "child.alt", kind: @model.TreeEmbed, },
+    { source: "child.alt", target: "lib.sia", kind: @model.LibraryUse, },
   ])
 }
 
 ///|
 test "structured preview annotates tree links and embeds" {
-  let preview = preview_project_structured(
+  let preview = @altsia.preview_project_structured(
     @model.Project::new("", [
       source("index.alt", "See (link `about.alt` About). (embed `child.alt`)"),
       source("child.alt", "Child (link `about.alt` About)."),
@@ -359,7 +359,7 @@ test "structured preview annotates tree links and embeds" {
 
 ///|
 test "structured preview records dangling tree links" {
-  let preview = preview_project_structured(
+  let preview = @altsia.preview_project_structured(
     @model.Project::new("", [
       source("index.alt", "See (link `missing.alt` Missing)."),
     ]),
@@ -367,7 +367,7 @@ test "structured preview records dangling tree links" {
   )
   @test.assert_eq(preview.diagnostics.length(), 1)
   @test.assert_eq(preview.dangling_tree_links, [
-    { source: "index.alt", target: "missing.alt" },
+    { source: "index.alt", target: "missing.alt", },
   ])
   @test.assert_eq(preview.tree_links, [
     {
@@ -388,7 +388,7 @@ test "structured preview records dangling tree links" {
 
 ///|
 test "structured preview can omit html annotations" {
-  let preview = preview_project_structured(
+  let preview = @altsia.preview_project_structured(
     @model.Project::new("", [
       source("index.alt", "See (link `about.alt` About)."),
       source("about.alt", "About."),
@@ -426,7 +426,7 @@ test "explicit parent overrides inferred parent" {
 ///|
 test "cyclic embed reports full chain" {
   try
-    compile_project(
+    @altsia.compile_project(
       @model.Project::new("", [
         source("a.alt", "(embed `b.alt`)"),
         source("b.alt", "(embed `a.alt`)"),

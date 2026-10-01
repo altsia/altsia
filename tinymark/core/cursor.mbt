@@ -33,7 +33,7 @@ fn Cursor::peek(self : Cursor) -> Char? {
 
 ///|
 fn Cursor::advance(self : Cursor, amount : Int) -> Cursor {
-  { ..self, index: self.index + amount }
+  { ..self, index: self.index + amount, }
 }
 
 ///|
@@ -48,7 +48,7 @@ fn Cursor::error(self : Cursor, message : String) -> Diagnostic {
 
 ///|
 fn Cursor::slice_to_string(self : Cursor, start : Int, end : Int) -> String {
-  String::from_array(self.chars.view(start~, end~))
+  String::from_array(self.chars.exact_view(start~, end~))
 }
 
 ///|

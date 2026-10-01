@@ -9,7 +9,10 @@ let test_span : @core.SourceSpan = {
 
 ///|
 test "renders paper css for known presets" {
-  let css = paper_style_css({ slate_name: "a4", staple: false }, test_span)
+  let css = @paper.paper_style_css(
+    { slate_name: "a4", staple: false, },
+    test_span,
+  )
   @test.assert_eq(css.contains("@page"), true)
   @test.assert_eq(css.contains("size: A4"), true)
   @test.assert_eq(css.contains(".paper"), true)
@@ -17,6 +20,9 @@ test "renders paper css for known presets" {
 
 ///|
 test "staple adds binding margin" {
-  let css = paper_style_css({ slate_name: "a4", staple: true }, test_span)
+  let css = @paper.paper_style_css(
+    { slate_name: "a4", staple: true, },
+    test_span,
+  )
   @test.assert_eq(css.contains("calc(24mm + 8mm)"), true)
 }

@@ -64,7 +64,9 @@ fn split_paragraph_text(text : String) -> Array[ParagraphPart] {
     match paragraph_break_end(chars, index) {
       Some(break_end) => {
         if index > start {
-          parts.push(Text(String::from_array(chars.view(start~, end=index))))
+          parts.push(
+            Text(String::from_array(chars.exact_view(start~, end=index))),
+          )
         }
         parts.push(Break)
         index = break_end
@@ -74,7 +76,7 @@ fn split_paragraph_text(text : String) -> Array[ParagraphPart] {
     }
   }
   if start < chars.length() {
-    parts.push(Text(String::from_array(chars.view(start~))))
+    parts.push(Text(String::from_array(chars.exact_view(start~))))
   }
   parts
 }

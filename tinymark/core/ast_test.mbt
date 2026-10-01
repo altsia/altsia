@@ -1,6 +1,6 @@
 ///|
 test "diagnostic render includes hint after source context" {
-  let span : SourceSpan = {
+  let span : @core.SourceSpan = {
     source_id: Some("docs.sia"),
     line: 2,
     column: 3,

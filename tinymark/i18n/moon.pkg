@@ -1,4 +1,7 @@
 import {
-  "moonbitlang/core/test",
   "moonbitlang/core/immut/hashset",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "test"

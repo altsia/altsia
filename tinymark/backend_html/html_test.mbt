@@ -1,6 +1,6 @@
 ///|
 fn render_html_result(source : String) -> Result[String, String] {
-  try to_html(source) catch {
+  try @backend_html.to_html(source) catch {
     diagnostic => Err(diagnostic.render())
   } noraise {
     html => Ok(html)
@@ -10,9 +10,9 @@ fn render_html_result(source : String) -> Result[String, String] {
 ///|
 fn render_html_document_result(
   source : String,
-  options? : HtmlDocumentOptions,
+  options? : @backend_html.HtmlDocumentOptions,
 ) -> Result[String, String] {
-  try to_html_document(source, options) catch {
+  try @backend_html.to_html_document(source, options) catch {
     diagnostic => Err(diagnostic.render())
   } noraise {
     html => Ok(html)
@@ -28,14 +28,15 @@ fn collect_env(doc : @core.Document) -> @core.CompileEnv {
 fn render_fragment_result(
   doc : @core.Document,
   env? : @core.CompileEnv,
-  options? : CompileOptions,
+  options? : @backend_html.CompileOptions,
 ) -> Result[String, String] {
   try {
     let nodes = match (env, options) {
-      (Some(env), Some(options)) => compile_fragment(doc, env~, options~)
-      (Some(env), None) => compile_fragment(doc, env~)
-      (None, Some(options)) => compile_fragment(doc, options~)
-      (None, None) => compile_fragment(doc)
+      (Some(env), Some(options)) =>
+        @backend_html.compile_fragment(doc, env~, options~)
+      (Some(env), None) => @backend_html.compile_fragment(doc, env~)
+      (None, Some(options)) => @backend_html.compile_fragment(doc, options~)
+      (None, None) => @backend_html.compile_fragment(doc)
     }
     @sexp.render_html_fragment(nodes)
   } catch {
@@ -445,7 +446,10 @@ test "html scoped style supports pseudo classes" {
     #|  </body>
     #|</html>
   @test.assert_eq(
-    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    render_html_document_result(
+      input,
+      options=@backend_html.HtmlDocumentOptions::empty(),
+    ),
     Ok(expected),
   )
 }
@@ -468,7 +472,10 @@ test "html style without scope remains global" {
     #|  </body>
     #|</html>
   @test.assert_eq(
-    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    render_html_document_result(
+      input,
+      options=@backend_html.HtmlDocumentOptions::empty(),
+    ),
     Ok(expected),
   )
 }
@@ -501,7 +508,10 @@ test "html document uses altsia doc and explicit html head" {
     #|  </body>
     #|</html>
   @test.assert_eq(
-    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    render_html_document_result(
+      input,
+      options=@backend_html.HtmlDocumentOptions::empty(),
+    ),
     Ok(expected),
   )
 }
@@ -576,7 +586,10 @@ test "html doc attrs apply to body wrapper" {
     #|  </body>
     #|</html>
   @test.assert_eq(
-    render_html_document_result(input, options=HtmlDocumentOptions::empty()),
+    render_html_document_result(
+      input,
+      options=@backend_html.HtmlDocumentOptions::empty(),
+    ),
     Ok(expected),
   )
 }
@@ -585,13 +598,13 @@ test "html doc attrs apply to body wrapper" {
 test "html doc paper appends to final body class" {
   let input = "(doc (:class \"page hero\" :data-x `1` :class `wide` :paper `a4`))Body"
   @test.assert_eq(
-    render_html_document_result(input, options=HtmlDocumentOptions::empty()).map(html => {
-        html.contains(
-          "<div class=\"wide paper\" data-x=\"1\"><p>Body</p></div>",
-        ) &&
-        !html.contains("page hero")
-      },
-    ),
+    render_html_document_result(
+      input,
+      options=@backend_html.HtmlDocumentOptions::empty(),
+    ).map(html => {
+      html.contains("<div class=\"wide paper\" data-x=\"1\"><p>Body</p></div>") &&
+      !html.contains("page hero")
+    }),
     Ok(true),
   )
 }
@@ -615,10 +628,10 @@ test "html document appends extra head after defaults" {
 
 ///|
 test "extension resolver handles element and fallback preserves html" {
-  let resolver : ElementResolver = compiler => {
+  let resolver : @backend_html.ElementResolver = compiler => {
     if compiler.call.tag == "icon" {
       Some(
-        ElementOutput::body([
+        @backend_html.ElementOutput::body([
           @sexp.SexpNode::Element(
             "span",
             @sexp.Attrs({ "class": Some("icon") }),
@@ -630,7 +643,7 @@ test "extension resolver handles element and fallback preserves html" {
       None
     }
   }
-  let options : CompileOptions = {
+  let options : @backend_html.CompileOptions = {
     initial_heading_level: 1,
     wrap_inline_content: true,
     extensions: [resolver],
@@ -646,17 +659,20 @@ test "extension resolver handles element and fallback preserves html" {
 
 ///|
 test "extension resolver can emit document head nodes" {
-  let resolver : ElementResolver = compiler => {
+  let resolver : @backend_html.ElementResolver = compiler => {
     if compiler.call.tag == "asset" {
       return Some(
-        ElementOutput::head([
+        @backend_html.ElementOutput::head([
           @sexp.SexpNode::Raw("<script src=\"/asset.js\"></script>"),
         ]),
       )
     }
     None
   }
-  let doc_options = { ..HtmlDocumentOptions::empty(), extensions: [resolver] }
+  let doc_options = {
+    ..@backend_html.HtmlDocumentOptions::empty(),
+    extensions: [resolver],
+  }
   let expected =
     #|<html>
     #|  <head>
@@ -671,7 +687,7 @@ test "extension resolver can emit document head nodes" {
     Ok(expected),
   )
   let fragment_options = {
-    ..CompileOptions::fragment(),
+    ..@backend_html.CompileOptions::fragment(),
     extensions: [resolver],
   }
   @test.assert_eq(
@@ -685,7 +701,7 @@ test "extension resolver can emit document head nodes" {
 
 ///|
 test "extension resolver diagnostic keeps source span" {
-  let resolver : ElementResolver = compiler => {
+  let resolver : @backend_html.ElementResolver = compiler => {
     if compiler.call.tag == "boom" {
       raise compiler.call.span.diagnostic(
         @core.DiagnosticPhase::ContentModel,
@@ -695,7 +711,7 @@ test "extension resolver diagnostic keeps source span" {
       None
     }
   }
-  let options : CompileOptions = {
+  let options : @backend_html.CompileOptions = {
     initial_heading_level: 1,
     wrap_inline_content: true,
     extensions: [resolver],

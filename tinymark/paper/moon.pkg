@@ -1,5 +1,7 @@
 import {
-  "moonbitlang/core/test",
-  "moonbitlang/core/hashmap",
   "kokic/tinymark/core",
 }
+
+import {
+  "moonbitlang/core/test",
+} for "test"

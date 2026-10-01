@@ -1,14 +1,13 @@
 import {
   "kokic/altsia/model",
-  "kokic/vfs",
   "kokic/altsia/parse",
   "kokic/altsia/compile",
   "kokic/tinymark/core",
   "kokic/tinymark/backend_html" @html,
   "kokic/sexp-html" @sexp,
-  "moonbitlang/core/test",
 }
 
 import {
   "kokic/altsia/content",
+  "moonbitlang/core/test",
 } for "test"

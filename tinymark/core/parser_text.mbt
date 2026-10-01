@@ -30,7 +30,7 @@ fn parse_raw_string(cursor : Cursor) -> (String, Cursor) raise Diagnostic {
       continue
     }
     if ch == '`' {
-      return (String::from_array(buffer.view()), cursor.at(index + 1))
+      return (String::from_array(buffer.exact_view()), cursor.at(index + 1))
     }
     buffer.push(ch)
     index += 1
@@ -79,7 +79,7 @@ fn flush_interpolation_literal(
   buffer : Array[Char],
 ) -> Unit {
   guard !buffer.is_empty() else { return }
-  parts.push(Literal(String::from_array(buffer.view())))
+  parts.push(Literal(String::from_array(buffer.exact_view())))
   buffer.clear()
 }
 
@@ -93,7 +93,7 @@ fn parse_text(cursor : Cursor) -> (String, Cursor) {
   while index < cursor.chars.length() && !is_text_stop(cursor, index) {
     index = consume_text_unit(cursor.chars, index, buffer)
   }
-  (smart_dashes(String::from_array(buffer.view())), cursor.at(index))
+  (smart_dashes(String::from_array(buffer.exact_view())), cursor.at(index))
 }
 
 ///|
@@ -201,7 +201,10 @@ fn capture_until(
   let mut scan = cursor
   while !scan.is_end() {
     if scan.starts_with(marker) {
-      return (String::from_array(buffer.view()), scan.advance(marker.length()))
+      return (
+        String::from_array(buffer.exact_view()),
+        scan.advance(marker.length()),
+      )
     }
     buffer.push(scan.chars[scan.index])
     scan = scan.advance(1)
@@ -233,5 +236,5 @@ fn smart_dashes(text : String) -> String {
     out.push(chars[index])
     index += 1
   }
-  String::from_array(out.view())
+  String::from_array(out.exact_view())
 }

@@ -1,0 +1,4 @@
+import {
+  "kokic/katex-parser" @katex,
+  "kokic/dulox/backend",
+}

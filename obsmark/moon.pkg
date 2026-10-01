@@ -1,0 +1,16 @@
+import {
+  "moonbitlang/core/argparse",
+  "moonbitlang/core/string",
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "kokic/notiz",
+  "kokic/notiz/backend",
+  "kokic/notiz/parsing",
+  "kokic/cmark",
+}
+
+pkgtype(kind: "executable")
+
+options(
+  targets: { "cli.mbt": [ "native" ] },
+)

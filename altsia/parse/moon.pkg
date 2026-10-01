@@ -1,6 +1,0 @@
-import {
-  "kokic/altsia/model",
-  "kokic/vfs",
-  "kokic/altsia/content",
-  "kokic/tinymark/core",
-}

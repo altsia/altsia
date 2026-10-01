@@ -1,0 +1,7 @@
+import {
+  "moonbitlang/core/builtin",
+  "moonbitlang/core/buffer",
+  "moonbitlang/core/deque",
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/encoding/utf8",
+}

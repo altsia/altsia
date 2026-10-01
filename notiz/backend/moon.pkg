@@ -1,0 +1,11 @@
+import {
+  "kokic/notiz/parsing",
+  "kokic/katex-parser" @katex,
+  "kokic/katex-parser/unicode",
+  "kokic/dulox/eval",
+  "kokic/dulox/backend/mathml",
+  "kokic/dulox/backend/canonical",
+  "kokic/cmark",
+  "moonbitlang/core/string",
+  "moonbit-community/chalk" @chalk,
+}

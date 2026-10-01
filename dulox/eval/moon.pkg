@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/hashmap",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/math",
+  "moonbitlang/x/rational",
+  "kokic/katex-parser" @katex,
+  "kokic/pythagoras",
+}

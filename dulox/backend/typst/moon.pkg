@@ -1,0 +1,8 @@
+import {
+  "kokic/katex-parser" @katex,
+  "kokic/dulox/backend",
+}
+
+import {
+  "moonbitlang/core/test",
+} for "test"

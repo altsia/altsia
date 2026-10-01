@@ -1,7 +1,6 @@
 members = [
-  "tinymark",
-  "tim",
-  "altsia",
-  "alt",
-  "vfs",
+  "./cmark",
+  "./notiz",
+  "./obsmark",
+  "./dulox",
 ]

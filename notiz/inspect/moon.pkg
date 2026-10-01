@@ -1,0 +1,8 @@
+import {
+  "moonbitlang/core/test",
+  "kokic/talcparsec" @talc,
+  "kokic/notiz",
+  "kokic/notiz/parsing",
+  "kokic/notiz/backend",
+  "kokic/cmark",
+} for "test"

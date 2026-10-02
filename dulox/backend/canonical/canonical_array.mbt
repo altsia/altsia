@@ -45,27 +45,24 @@ fn array_preamble(
   columns : Array[@katex.ArrayColumn]?,
   body : Array[Array[@katex.ParseNode]],
 ) -> String {
-  match columns {
-    Some(columns) =>
-      columns
-      .map(column => {
-        match column {
-          @katex.ArrayColumn::AlignColumn(alignment~, ..) => alignment
-          @katex.ArrayColumn::SeparatorColumn(separator~) => separator
-        }
-      })
-      .join("")
-    None => {
-      let width = body.fold(init=0, (acc, row) => {
-        if row.length() > acc {
-          row.length()
-        } else {
-          acc
-        }
-      })
-      "c".repeat(width)
-    }
+  guard columns is Some(columns) else {
+    let width = body.fold(init=0, (acc, row) => {
+      if row.length() > acc {
+        row.length()
+      } else {
+        acc
+      }
+    })
+    return "c".repeat(width)
   }
+  columns
+  .map(column => {
+    match column {
+      @katex.ArrayColumn::AlignColumn(alignment~, ..) => alignment
+      @katex.ArrayColumn::SeparatorColumn(separator~) => separator
+    }
+  })
+  .join("")
 }
 
 ///|
@@ -75,11 +72,8 @@ fn render_array_row(row : Array[@katex.ParseNode]) -> String {
 
 ///|
 fn write_array_hlines(builder : StringBuilder, hlines : Array[Bool]?) -> Unit {
-  match hlines {
-    Some(lines) if !lines.is_empty() =>
-      builder.write_string(if lines[0] { "\\hdashline" } else { "\\hline" })
-    _ => ()
-  }
+  guard hlines is Some(lines) && !lines.is_empty() else { return }
+  builder.write_string(if lines[0] { "\\hdashline" } else { "\\hline" })
 }
 
 ///|
@@ -87,10 +81,8 @@ fn write_array_row_gap(
   builder : StringBuilder,
   gap : @katex.Measurement??,
 ) -> Unit {
-  match gap {
-    Some(Some(value)) => builder.write_string("[\{render_measurement(value)}]")
-    _ => ()
-  }
+  guard gap is Some(Some(value)) else { return }
+  builder.write_string("[\{render_measurement(value)}]")
 }
 
 ///|

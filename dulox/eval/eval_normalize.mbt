@@ -101,10 +101,10 @@ fn normalize_add(
     0 => zero
     1 => children[0]
     _ =>
-      match sum_exact_rationals(children) {
-        Some(value) => rational_to_expr(value)
-        None => normalize_sum_children(children, options).to_expr()
-      }
+      sum_exact_rationals(children).map_or_else(
+        () => normalize_sum_children(children, options).to_expr(),
+        value => rational_to_expr(value),
+      )
   }
 }
 
@@ -113,11 +113,7 @@ fn normalize_add_children(
   children : Array[EvalExpr],
   options : EvalOptions,
 ) -> Array[EvalExpr] raise EvalDiagnostic {
-  let result : Array[EvalExpr] = []
-  for child in flatten_add(children) {
-    result.push(normalize_once(child, options))
-  }
-  result
+  flatten_add(children).map(child => normalize_once(child, options))
 }
 
 ///|
@@ -146,10 +142,10 @@ fn normalize_mul(
     0 => one
     1 => children[0]
     _ =>
-      match product_exact_rationals(children) {
-        Some(value) => rational_to_expr(value)
-        None => normalize_product_children(children, options).to_expr()
-      }
+      product_exact_rationals(children).map_or_else(
+        () => normalize_product_children(children, options).to_expr(),
+        value => rational_to_expr(value),
+      )
   }
 }
 
@@ -158,11 +154,7 @@ fn normalize_mul_children(
   children : Array[EvalExpr],
   options : EvalOptions,
 ) -> Array[EvalExpr] raise EvalDiagnostic {
-  let result : Array[EvalExpr] = []
-  for child in flatten_mul(children) {
-    result.push(normalize_once(child, options))
-  }
-  result
+  flatten_mul(children).map(child => normalize_once(child, options))
 }
 
 ///|
@@ -288,17 +280,17 @@ fn normalize_general_power(
 
 ///|
 fn power_int(base : Int, exp : Int) -> EvalExpr raise EvalDiagnostic {
-  if exp < 0 {
+  guard exp >= 0 else {
     // e.g. 2^-1: not representable as an integer; keep the power.
     return IntPow(Integer(base), exp)
   }
   guard exp <= NORMALIZE_MAX_INTEGER_POWER else {
     raise EvalDiagnostic::make(ExpressionTooLarge)
   }
-  match checked_pow(base, exp) {
-    Some(result) => Integer(result)
-    None => raise EvalDiagnostic::make(IntegerOverflow)
+  guard checked_pow(base, exp) is Some(result) else {
+    raise EvalDiagnostic::make(IntegerOverflow)
   }
+  Integer(result)
 }
 
 ///|

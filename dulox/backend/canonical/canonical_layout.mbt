@@ -52,18 +52,16 @@ fn render_styled_genfrac(
 ) -> String {
   let numer = render_arg(numer)
   let denom = render_arg(denom)
-  match
-    styled_genfrac_command(
+  guard styled_genfrac_command(
       style, continued, has_bar_line, left_delim, right_delim,
-    ) {
-    Some(command) => "\{command}{\{numer}}{\{denom}}"
-    None => {
-      let plain = render_genfrac(
-        numer, denom, continued, has_bar_line, bar_size, left_delim, right_delim,
-      )
-      "\{style_command(style)} \{plain}"
-    }
+    )
+    is Some(command) else {
+    let plain = render_genfrac(
+      numer, denom, continued, has_bar_line, bar_size, left_delim, right_delim,
+    )
+    return "\{style_command(style)} \{plain}"
   }
+  "\{command}{\{numer}}{\{denom}}"
 }
 
 ///|
@@ -74,9 +72,7 @@ fn styled_genfrac_command(
   left_delim : String?,
   right_delim : String?,
 ) -> String? {
-  if continued {
-    return Some("\\cfrac")
-  }
+  guard !continued else { return Some("\\cfrac") }
   match (has_bar_line, left_delim, right_delim) {
     (true, None, None) =>
       match style {

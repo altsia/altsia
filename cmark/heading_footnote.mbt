@@ -224,14 +224,10 @@ fn FirstPass::scan_refdef_space(
   while true {
     let whitespaces = scan_whitespace_no_nl(bytes.exact_view(start=i))
     i += whitespaces
-    match scan_eol(bytes.exact_view(start=i)) {
-      Some(eol_bytes) => {
-        i += eol_bytes
-        newlines += 1
-        guard newlines <= 1 else { return None }
-      }
-      None => break
-    }
+    guard scan_eol(bytes.exact_view(start=i)) is Some(eol_bytes) else { break }
+    i += eol_bytes
+    newlines += 1
+    guard newlines <= 1 else { return None }
     let line_start = LineStart::new(bytes.exact_view(start=i))
     let tree_position = line_start.scan_containers(self.tree, self.options)
     let current_container = tree_position == self.tree.spine_len()
@@ -293,7 +289,9 @@ fn FirstPass::scan_refdef_title(
       let tree_position = line_start.scan_containers(self.tree, self.options)
       let current_container = tree_position == self.tree.spine_len()
       if !line_start.scan_space(4) {
-        let suffix = text.exact_view(start=bytecount + line_start.bytes_scanned())
+        let suffix = text.exact_view(
+          start=bytecount + line_start.bytes_scanned(),
+        )
         let interrupt = self.scan_paragraph_interrupt(
             suffix, current_container, tree_position,
           ) ||
@@ -483,15 +481,17 @@ fn FirstPass::extract_and_parse_heading_attribute_block(
     header_bytes,
   )
   let content_end = header_start + content_len
-  let attrs = match attr_block_range_rel {
-    Some((r_start, r_end)) =>
-      parse_inside_attribute_block(
-        @utf8.decode_lossy(
-          self.text.exact_view(start=header_start + r_start, end=header_start + r_end),
+  let attrs = attr_block_range_rel.bind(range => {
+    let (r_start, r_end) = range
+    parse_inside_attribute_block(
+      @utf8.decode_lossy(
+        self.text.exact_view(
+          start=header_start + r_start,
+          end=header_start + r_end,
         ),
-      )
-    None => None
-  }
+      ),
+    )
+  })
   (content_end, attrs)
 }
 
@@ -513,16 +513,15 @@ fn scan_paragraph_interrupt_no_table(
     return true
   }
   guard scan_blockquote_start(bytes) is None else { return true }
-  let list_interrupt = match scan_listitem(bytes) {
-    Some((ix, delim, index, _)) =>
-      !current_container ||
-      tree.is_in_table() ||
-      (
-        (delim == b'*' || delim == b'-' || delim == b'+' || index == 1) &&
-        scan_blank_line(bytes.exact_view(start=ix)) is None
-      )
-    None => false
-  }
+  let list_interrupt = scan_listitem(bytes).map_or(false, marker => {
+    let (ix, delim, index, _) = marker
+    !current_container ||
+    tree.is_in_table() ||
+    (
+      (delim == b'*' || delim == b'-' || delim == b'+' || index == 1) &&
+      scan_blank_line(bytes.exact_view(start=ix)) is None
+    )
+  })
   guard !list_interrupt else { return true }
   let html_interrupt = bytes.length() > 0 &&
     bytes.unsafe_get(0) == b'<' &&
@@ -551,17 +550,15 @@ fn scan_paragraph_interrupt_no_table(
   guard !deflist_interrupt else { return true }
   let has_foot_prefix = has_footnote && bytes.has_prefix(b"[^".exact_view())
   let foot_label_ok = if has_foot_prefix {
-    match
-      scan_link_label_rest(
-        @utf8.encode(@utf8.decode_lossy(bytes.exact_view(start=2))),
-        0,
-        None,
-        tree.is_in_table(),
-      ) {
-      Some((len, _)) =>
-        bytes.length() > 2 + len && bytes.unsafe_get(2 + len) == b':'
-      None => false
-    }
+    scan_link_label_rest(
+      @utf8.encode(@utf8.decode_lossy(bytes.exact_view(start=2))),
+      0,
+      None,
+      tree.is_in_table(),
+    ).map_or(false, label => {
+      let (len, _) = label
+      bytes.length() > 2 + len && bytes.unsafe_get(2 + len) == b':'
+    })
   } else {
     false
   }

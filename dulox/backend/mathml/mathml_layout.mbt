@@ -123,10 +123,10 @@ fn render_sup_sub(
 
 ///|
 fn operator_uses_limits(base : @katex.ParseNode?, state : RenderState) -> Bool {
+  guard base is Some(base) else { return false }
   match base {
-    Some(Op(limits=true, always_handle_sup_sub~, ..)) =>
-      state.style is DisplayStyle || always_handle_sup_sub
-    Some(OperatorName(limits=true, always_handle_sup_sub~, ..)) =>
+    Op(limits=true, always_handle_sup_sub~, ..)
+    | OperatorName(limits=true, always_handle_sup_sub~, ..) =>
       state.style is DisplayStyle || always_handle_sup_sub
     _ => false
   }

@@ -8,19 +8,12 @@ fn concrete_root_of_unity(
 ) -> (Int, Int)? raise EvalDiagnostic {
   let order = exact_integer(order)
   let power = exact_integer(power)
-  match (order, power) {
-    (Some(order), Some(power)) => {
-      guard order > 0 else { raise EvalDiagnostic::make(InvalidPower) }
-      let reduced = positive_mod(power, order)
-      if reduced == 0 {
-        Some((order, 0))
-      } else {
-        let divisor = gcd_int(order, reduced)
-        Some((order / divisor, reduced / divisor))
-      }
-    }
-    (None, _) | (_, None) => None
-  }
+  guard (order, power) is (Some(order), Some(power)) else { return None }
+  guard order > 0 else { raise EvalDiagnostic::make(InvalidPower) }
+  let reduced = positive_mod(power, order)
+  guard reduced != 0 else { return Some((order, 0)) }
+  let divisor = gcd_int(order, reduced)
+  Some((order / divisor, reduced / divisor))
 }
 
 ///|
@@ -36,14 +29,12 @@ fn simplify_root_of_unity(
     value.denominator() != @bigint.BigInt::from_int(1)) else {
     raise EvalDiagnostic::make(InvalidPower)
   }
-  match concrete_root_of_unity(order, power) {
-    Some((order, power)) => {
-      guard order != 1 && power != 0 else { one }
-      guard !(order == 2 && power == 1) else { Integer(-1) }
-      RootOfUnity(order=Integer(order), power=Integer(power))
-    }
-    None => RootOfUnity(order~, power~)
+  guard concrete_root_of_unity(order, power) is Some((order, power)) else {
+    return RootOfUnity(order~, power~)
   }
+  guard order != 1 && power != 0 else { one }
+  guard !(order == 2 && power == 1) else { Integer(-1) }
+  RootOfUnity(order=Integer(order), power=Integer(power))
 }
 
 ///|
@@ -82,14 +73,14 @@ fn UnitRootCollector::add_concrete_root(
     match self.factors[i] {
       RootOfUnity(order=Integer(existing_order), power=Integer(existing_power)) if existing_order ==
         order => {
-        match checked_int_add(existing_power, power) {
-          Some(merged_power) =>
-            self.factors[i] = simplify_root_of_unity(
-              Integer(order),
-              Integer(merged_power),
-            )
-          None => self.factors.push(root)
+        guard checked_int_add(existing_power, power) is Some(merged_power) else {
+          self.factors.push(root)
+          return
         }
+        self.factors[i] = simplify_root_of_unity(
+          Integer(order),
+          Integer(merged_power),
+        )
         return
       }
       _ => ()

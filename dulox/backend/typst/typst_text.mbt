@@ -4,10 +4,10 @@ fn render_text(
   font : String,
   state : RenderState,
 ) -> String {
-  let base = match plain_text_of(body) {
-    Some(text) => quote_string(text)
-    None => "(\{body.map(node => render_text_child(node, state)).join(" ")})"
-  }
+  let base = plain_text_of(body).map_or_else(
+    () => "(\{body.map(node => render_text_child(node, state)).join(" ")})",
+    quote_string,
+  )
   match font {
     "\\textbf" => "#strong[$text\{base}$]"
     "\\textit" | "\\emph" => "#emph[$text\{base}$]"
@@ -59,12 +59,14 @@ fn render_font_wrapped(
   body : @katex.ParseNode,
   state : RenderState,
 ) -> String {
-  match font_functions.get(font) {
-    Some(name) => "\{name}(\{font_body(body, state)})"
-    None if font == "mathsfit" => "italic(sans(\{font_body(body, state)}))"
+  guard font_functions.get(font) is Some(name) else {
+    guard font != "mathsfit" else {
+      return "italic(sans(\{font_body(body, state)}))"
+    }
     // mathnormal, bold (for \pmb bodies handled elsewhere): pass through
-    _ => render_node(body, state)
+    return render_node(body, state)
   }
+  "\{name}(\{font_body(body, state)})"
 }
 
 ///|
@@ -74,10 +76,10 @@ fn render_font_wrapped(
 fn font_body(body : @katex.ParseNode, state : RenderState) -> String {
   match body {
     OrdGroup(body=nodes, ..) =>
-      match plain_text_of(nodes) {
-        Some(text) => quote_string(text)
-        None => wrap_arg(render_nodes(nodes, state))
-      }
+      plain_text_of(nodes).map_or_else(
+        () => wrap_arg(render_nodes(nodes, state)),
+        quote_string,
+      )
     _ => wrap_arg(render_node(body, state))
   }
 }

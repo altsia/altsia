@@ -37,11 +37,7 @@ fn algebra_monomial_key(exps : Array[Int]) -> String {
 
 ///|
 fn algebra_axes_from_symbols(symbols : Array[String]) -> Array[MonomialFactor] {
-  let axes : Array[MonomialFactor] = []
-  for symbol in symbols {
-    axes.push(SymbolFactor(SymbolKey::make(symbol)))
-  }
-  axes
+  symbols.map(symbol => SymbolFactor(SymbolKey::make(symbol)))
 }
 
 ///|
@@ -64,16 +60,15 @@ fn[E : PolynomialSemiring] algebra_add_term(
 ) -> Unit {
   guard !coeff.is_zero() else { return }
   let key = algebra_monomial_key(exps)
-  match terms.get(key) {
-    Some(term) => {
-      let new_coeff = term.coeff + coeff
-      if new_coeff.is_zero() {
-        terms.remove(key)
-      } else {
-        terms[key] = Term::{ exps: term.exps, coeff: new_coeff, }
-      }
-    }
-    None => terms[key] = Term::{ exps, coeff, }
+  guard terms.get(key) is Some(term) else {
+    terms[key] = Term::{ exps, coeff, }
+    return
+  }
+  let new_coeff = term.coeff + coeff
+  if new_coeff.is_zero() {
+    terms.remove(key)
+  } else {
+    terms[key] = Term::{ exps: term.exps, coeff: new_coeff, }
   }
 }
 
@@ -209,10 +204,9 @@ pub fn[E : PolynomialSemiring] Polynomial::coeff(
   poly : Polynomial[E],
   exps : Array[Int],
 ) -> E {
-  match poly.terms.get(algebra_monomial_key(exps)) {
-    Some(term) => term.coeff
-    None => E::zero()
-  }
+  poly.terms
+  .get(algebra_monomial_key(exps))
+  .map_or_else(E::zero, term => term.coeff)
 }
 
 ///|

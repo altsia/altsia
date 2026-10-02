@@ -111,7 +111,8 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
           }),
         )
         ignore(self.tree.push())
-        if scan_blank_line(bytes.exact_view(start=after_marker_index)) is Some(n) {
+        if scan_blank_line(bytes.exact_view(start=after_marker_index))
+          is Some(n) {
           self.begin_list_item = Some(after_marker_index + n)
           return after_marker_index + n
         }
@@ -124,18 +125,15 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
             end: start_ix + line_start.bytes_scanned(),
             body: TaskListMarker(is_checked),
           }
-          match scan_blank_line(bytes.exact_view(start=task_list_marker.end)) {
-            Some(n) => {
-              ignore(self.tree.append(task_list_marker))
-              self.begin_list_item = Some(task_list_marker.end + n)
-              return task_list_marker.end + n
-            }
-            None => {
-              line_start.scan_all_space()
-              let ix = start_ix + line_start.bytes_scanned()
-              return self.parse_paragraph(ix, Some(task_list_marker))
-            }
+          guard scan_blank_line(bytes.exact_view(start=task_list_marker.end))
+            is Some(n) else {
+            line_start.scan_all_space()
+            let ix = start_ix + line_start.bytes_scanned()
+            return self.parse_paragraph(ix, Some(task_list_marker))
           }
+          ignore(self.tree.append(task_list_marker))
+          self.begin_list_item = Some(task_list_marker.end + n)
+          return task_list_marker.end + n
         }
       }
       None => {
@@ -192,7 +190,8 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
             }
           }
           ignore(self.tree.push())
-          if scan_blank_line(bytes.exact_view(start=after_marker_index)) is Some(n) {
+          if scan_blank_line(bytes.exact_view(start=after_marker_index))
+            is Some(n) {
             self.begin_list_item = Some(after_marker_index + n)
             return after_marker_index + n
           }
@@ -262,7 +261,9 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
               line_start.bytes_scanned() +
               fence_length +
               excess_colons
-            kind_start += scan_whitespace_no_nl(bytes.exact_view(start=kind_start))
+            kind_start += scan_whitespace_no_nl(
+              bytes.exact_view(start=kind_start),
+            )
             let kind_length = scan_while(bytes.exact_view(start=kind_start), c => {
               c.is_ascii_alphanumeric() ||
               c == b'_' ||
@@ -284,9 +285,10 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
             let line_end = summary_start +
               scan_nextline(bytes.exact_view(start=summary_start))
             let summary_end = line_end -
-              scan_rev_while(bytes.exact_view(start=summary_start, end=line_end), c => {
-                c.to_char().is_ascii_whitespace()
-              })
+              scan_rev_while(
+                bytes.exact_view(start=summary_start, end=line_end),
+                c => c.to_char().is_ascii_whitespace(),
+              )
             let is_spoiler = eq_ignore_ascii_case(
               @utf8.encode(kind).exact_view(),
               b"spoiler".exact_view(),
@@ -346,20 +348,20 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
   let ix = start_ix + line_start.bytes_scanned()
 
   if scan_blank_line(bytes.exact_view(start=ix)) is Some(n) {
-    match self.tree.peek_up() {
-      Some(node_ix) =>
-        match self.tree.nodes[node_ix].item.body {
-          Container(_, _, _) => ()
-          BlockQuote(_) => ()
-          ListItem(_) | DefinitionListDefinition(_) if self.begin_list_item
-            is Some(_) => {
-            self.last_line_blank = true
-            // This is a blank list item.
-            self.tree.nodes[node_ix].item.body = ListItem(0)
-          }
-          _ => self.last_line_blank = true
-        }
-      None => self.last_line_blank = true
+    guard self.tree.peek_up() is Some(node_ix) else {
+      self.last_line_blank = true
+      return ix + n
+    }
+    match self.tree.nodes[node_ix].item.body {
+      Container(_, _, _) => ()
+      BlockQuote(_) => ()
+      ListItem(_) | DefinitionListDefinition(_) if self.begin_list_item
+        is Some(_) => {
+        self.last_line_blank = true
+        // This is a blank list item.
+        self.tree.nodes[node_ix].item.body = ListItem(0)
+      }
+      _ => self.last_line_blank = true
     }
     return ix + n
   }
@@ -448,16 +450,13 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
       self.finish_list(start_ix)
       return ix
     }
-    match self.scan_next_line_or_lazy_continuation(bytes.exact_view(start=ix)) {
-      Some(lazy_line_start) => {
-        line_start = lazy_line_start
-        start_ix = ix
-      }
-      None => {
-        self.finish_list(start_ix)
-        return ix
-      }
+    guard self.scan_next_line_or_lazy_continuation(bytes.exact_view(start=ix))
+      is Some(lazy_line_start) else {
+      self.finish_list(start_ix)
+      return ix
     }
+    line_start = lazy_line_start
+    start_ix = ix
   }
 
   let ix = start_ix + line_start.bytes_scanned()

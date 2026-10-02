@@ -5,10 +5,10 @@ fn lower_ordinary_node(
   options : EvalOptions,
 ) -> EvalExpr raise EvalDiagnostic {
   if is_all_digits(text) {
-    match parse_decimal_int(text) {
-      None => raise EvalDiagnostic::make(InvalidNumber)
-      Some(value) => Integer(value)
+    guard parse_decimal_int(text) is Some(value) else {
+      raise EvalDiagnostic::make(InvalidNumber)
     }
+    Integer(value)
   } else if text.length() == 1 || (text.length() > 1 && text[0] == '\\') {
     Symbol(SymbolKey::make(text))
   } else {
@@ -24,11 +24,10 @@ fn lower_superscript(
   superscript : @katex.ParseNode?,
   options : EvalOptions,
 ) -> EvalExpr raise EvalDiagnostic {
-  match (base, subscript, superscript) {
-    (Some(base), None, Some(exponent)) =>
-      lower_power(lower_node(base, options), lower_node(exponent, options))
-    _ => unsupported(original, options)
+  guard (base, subscript, superscript) is (Some(base), None, Some(exponent)) else {
+    return unsupported(original, options)
   }
+  lower_power(lower_node(base, options), lower_node(exponent, options))
 }
 
 ///|
@@ -47,14 +46,10 @@ fn lower_root(
   options : EvalOptions,
 ) -> EvalExpr raise EvalDiagnostic {
   let radicand = lower_node(body, options)
-  match index {
-    None => Root(index=two, radicand)
-    Some(index) => {
-      let index = lower_node(index, options)
-      guard !(index is Integer(value) && value <= 0) else {
-        raise EvalDiagnostic::make(InvalidPower)
-      }
-      Root(index~, radicand)
-    }
+  guard index is Some(index) else { return Root(index=two, radicand) }
+  let index = lower_node(index, options)
+  guard !(index is Integer(value) && value <= 0) else {
+    raise EvalDiagnostic::make(InvalidPower)
   }
+  Root(index~, radicand)
 }

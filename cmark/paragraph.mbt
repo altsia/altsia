@@ -28,7 +28,9 @@ fn FirstPass::scan_next_line_or_lazy_continuation(
       current_container,
       tree_position,
     )
-  let blank = scan_blank_line(bytes.exact_view(start=line_start.bytes_scanned()))
+  let blank = scan_blank_line(
+      bytes.exact_view(start=line_start.bytes_scanned()),
+    )
     is Some(_)
   guard !(interrupted || blank) else { None }
   line_start.scan_all_space()
@@ -179,24 +181,22 @@ fn FirstPass::parse_paragraph(
   start_ix : Int,
   tasklist_marker : Item?,
 ) -> Int {
-  let body = match self.tree.peek_up() {
-    Some(idx) => {
-      let is_deflist = self.tree.nodes[idx].item.body is DefinitionList(_)
-      let cur_is_def = self.tree
-        .cur()
-        .map_or(true, idx2 => {
-          self.tree.nodes[idx2].item.body is DefinitionListDefinition(_)
-        })
-      if is_deflist && cur_is_def {
-        // blank lines between the previous definition and this one don't count
-        self.last_line_blank = false
-        MaybeDefinitionListTitle
-      } else {
-        self.finish_list(start_ix)
-        Paragraph
-      }
+  let body = {
+    guard self.tree.peek_up() is Some(idx) else {
+      self.finish_list(start_ix)
+      Paragraph
     }
-    None => {
+    let is_deflist = self.tree.nodes[idx].item.body is DefinitionList(_)
+    let cur_is_def = self.tree
+      .cur()
+      .map_or(true, idx2 => {
+        self.tree.nodes[idx2].item.body is DefinitionListDefinition(_)
+      })
+    if is_deflist && cur_is_def {
+      // blank lines between the previous definition and this one don't count
+      self.last_line_blank = false
+      MaybeDefinitionListTitle
+    } else {
       self.finish_list(start_ix)
       Paragraph
     }

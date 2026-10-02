@@ -205,10 +205,7 @@ fn scan_hrule(bytes : BytesView) -> Result[Int, Int] {
   while i < bytes.length() {
     let b = bytes.unsafe_get(i)
     if b == b'\n' || b == b'\r' {
-      i += match scan_eol(bytes.exact_view(start=i)) {
-        Some(e) => e
-        None => 0
-      }
+      i += scan_eol(bytes.exact_view(start=i)).unwrap_or(0)
       break
     } else if b == c {
       n += 1
@@ -249,14 +246,8 @@ fn scan_setext_heading(data : BytesView) -> (Int, HeadingLevel)? {
   guard !data.is_empty() else { return None }
   let c = data.unsafe_get(0)
   let level = if c == b'=' { H1 } else if c == b'-' { H2 } else { return None }
-  let mut i = 1 + scan_ch_repeat(data.exact_view(start=1), c)
-  match scan_blank_line(data.exact_view(start=i)) {
-    Some(n) => {
-      i += n
-      Some((i, level))
-    }
-    None => None
-  }
+  let i = 1 + scan_ch_repeat(data.exact_view(start=1), c)
+  scan_blank_line(data.exact_view(start=i)).map(n => (i + n, level))
 }
 
 // returns number of bytes in line (including trailing
@@ -278,12 +269,9 @@ fn scan_table_head(data : BytesView) -> (Int, Array[Alignment]) {
     found_pipe = true
   }
   while i < data.length() {
-    match scan_eol(data.exact_view(start=i)) {
-      Some(n) => {
-        i += n
-        break
-      }
-      None => ()
+    if scan_eol(data.exact_view(start=i)) is Some(n) {
+      i += n
+      break
     }
     let c = data.unsafe_get(i)
     if c == b' ' {
@@ -401,7 +389,8 @@ fn scan_metadata_block(
   let mut first_line = true
   while j < data.length() {
     j += scan_nextline(data.exact_view(start=j))
-    let closed = scan_closing_metadata_block(data.exact_view(start=j), c) is Some(_)
+    let closed = scan_closing_metadata_block(data.exact_view(start=j), c)
+      is Some(_)
     // The first line of the metadata block cannot be an empty line
     // nor the end of the block
     if first_line {
@@ -447,10 +436,7 @@ fn scan_listitem(bytes : BytesView) -> (Int, Byte, Int, Int)? {
   let mut postn = postn0
   let mut postindent = postindent0
   if postindent == 0 {
-    match scan_eol(bytes.exact_view(start=w)) {
-      Some(_) => ()
-      None => return None
-    }
+    guard scan_eol(bytes.exact_view(start=w)) is Some(_) else { return None }
     postindent += 1
   } else if postindent > 4 {
     postn = 1
@@ -549,12 +535,13 @@ fn scan_entity(bytes : BytesView) -> (Int, String?) {
       )
     }
   } else {
-    end += scan_while(bytes.exact_view(start=end), c => c.is_ascii_alphanumeric())
+    end += scan_while(bytes.exact_view(start=end), c => {
+      c.is_ascii_alphanumeric()
+    })
     if bytes.length() > end && bytes.unsafe_get(end) == b';' {
-      match get_entity(bytes.exact_view(start=1, end~)) {
-        Some(value) => (end + 1, Some(value))
-        None => (0, None)
-      }
+      get_entity(bytes.exact_view(start=1, end~)).map_or((0, None), value => {
+        (end + 1, Some(value))
+      })
     } else {
       (0, None)
     }
@@ -677,25 +664,19 @@ fn AttrScanState::scan_whitespace_with_newline_handler(
     guard data.unsafe_get(i).to_char().is_ascii_whitespace() else {
       return Some(i)
     }
-    match scan_eol(data.exact_view(start=i)) {
-      Some(eol_bytes) =>
-        match newline_handler {
-          Some(handler) => {
-            i += eol_bytes
-            let skipped_bytes = handler(data.exact_view(start=i))
-
-            if skipped_bytes > 0 {
-              let start = self.last_buf_index
-              self.buffer.write_bytesview(data.exact_view(start~, end=i))
-              self.last_buf_index = i + skipped_bytes
-            }
-
-            i += skipped_bytes
-          }
-          None => return None
-        }
-      None => i += 1
+    guard scan_eol(data.exact_view(start=i)) is Some(eol_bytes) else {
+      i += 1
+      continue
     }
+    guard newline_handler is Some(handler) else { return None }
+    i += eol_bytes
+    let skipped_bytes = handler(data.exact_view(start=i))
+    if skipped_bytes > 0 {
+      let start = self.last_buf_index
+      self.buffer.write_bytesview(data.exact_view(start~, end=i))
+      self.last_buf_index = i + skipped_bytes
+    }
+    i += skipped_bytes
   }
 
   Some(i)
@@ -714,18 +695,14 @@ fn scan_whitespace_with_newline_handler_without_buffer(
     guard data.unsafe_get(i).to_char().is_ascii_whitespace() else {
       return Some(i)
     }
-    match scan_eol(data.exact_view(start=i)) {
-      Some(eol_bytes) =>
-        match newline_handler {
-          Some(handler) => {
-            i += eol_bytes
-            let skipped_bytes = handler(data.exact_view(start=i))
-            i += skipped_bytes
-          }
-          None => return None
-        }
-      None => i += 1
+    guard scan_eol(data.exact_view(start=i)) is Some(eol_bytes) else {
+      i += 1
+      continue
     }
+    guard newline_handler is Some(handler) else { return None }
+    i += eol_bytes
+    let skipped_bytes = handler(data.exact_view(start=i))
+    i += skipped_bytes
   }
 
   Some(i)
@@ -747,24 +724,19 @@ fn AttrScanState::scan_attribute_value(
     i += 1
     while i < data.length() {
       guard data.unsafe_get(i) != quote else { return Some(i + 1) }
-      match scan_eol(data.exact_view(start=i)) {
-        Some(eol_bytes) =>
-          match newline_handler {
-            Some(handler) => {
-              i += eol_bytes
-              let skipped_bytes = handler(data.exact_view(start=i))
-
-              if skipped_bytes > 0 {
-                let start = self.last_buf_index
-                self.buffer.write_bytesview(data.exact_view(start~, end=i))
-                self.last_buf_index = i + skipped_bytes
-              }
-              i += skipped_bytes
-            }
-            None => return None
-          }
-        None => i += 1
+      guard scan_eol(data.exact_view(start=i)) is Some(eol_bytes) else {
+        i += 1
+        continue
       }
+      guard newline_handler is Some(handler) else { return None }
+      i += eol_bytes
+      let skipped_bytes = handler(data.exact_view(start=i))
+      if skipped_bytes > 0 {
+        let start = self.last_buf_index
+        self.buffer.write_bytesview(data.exact_view(start~, end=i))
+        self.last_buf_index = i + skipped_bytes
+      }
+      i += skipped_bytes
     }
     return None
   } else {
@@ -792,7 +764,9 @@ fn AttrScanState::scan_attribute(
   newline_handler : ((BytesView) -> Int)?,
 ) -> Int? {
   let mut ix = ix
-  guard scan_attribute_name(data.exact_view(start=ix)) is Some(n) else { return None }
+  guard scan_attribute_name(data.exact_view(start=ix)) is Some(n) else {
+    return None
+  }
   ix += n
   let ix_after_attribute = ix
   guard scan_whitespace_with_newline_handler_without_buffer(
@@ -983,10 +957,10 @@ fn html_tags() -> Array[String] {
 fn scan_html_type_7(data : BytesView) -> Int? {
   // Block type html does ! allow for newlines, so we
   // do ! pass a newline handler.
-  match scan_html_block_inner(data, None) {
-    Some((_span, i)) => scan_blank_line(data.exact_view(start=i)).map(_ => i)
-    None => None
+  guard scan_html_block_inner(data, None) is Some((_span, i)) else {
+    return None
   }
+  scan_blank_line(data.exact_view(start=i)).map(_ => i)
 }
 
 ///|
@@ -1014,26 +988,19 @@ fn scan_html_block_inner(
       let old_i = i
       while true {
         i += scan_whitespace_no_nl(data.exact_view(start=i))
-        match scan_eol(data.exact_view(start=i)) {
-          Some(eol_bytes) => {
-            guard eol_bytes != 0 else { return None }
-            match newline_handler {
-              Some(handler) => {
-                i += eol_bytes
-                let skipped_bytes = handler(data.exact_view(start=i))
-
-                if skipped_bytes > 0 {
-                  state.buffer.write_bytesview(
-                    data.exact_view(start=state.last_buf_index, end=i),
-                  )
-                  i += skipped_bytes
-                  state.last_buf_index = i
-                }
-              }
-              None => return None
-            }
-          }
-          None => break
+        guard scan_eol(data.exact_view(start=i)) is Some(eol_bytes) else {
+          break
+        }
+        guard eol_bytes != 0 else { return None }
+        guard newline_handler is Some(handler) else { return None }
+        i += eol_bytes
+        let skipped_bytes = handler(data.exact_view(start=i))
+        if skipped_bytes > 0 {
+          state.buffer.write_bytesview(
+            data.exact_view(start=state.last_buf_index, end=i),
+          )
+          i += skipped_bytes
+          state.last_buf_index = i
         }
       }
       if data.length() > i &&
@@ -1062,7 +1029,9 @@ fn scan_html_block_inner(
   let buffer = if state.buffer.is_empty() {
     []
   } else {
-    state.buffer.write_bytesview(data.exact_view(start=state.last_buf_index, end=i))
+    state.buffer.write_bytesview(
+      data.exact_view(start=state.last_buf_index, end=i),
+    )
     state.buffer.to_bytes().to_array()
   }
   Some((buffer, i))
@@ -1071,14 +1040,13 @@ fn scan_html_block_inner(
 ///|
 /// Returns (next_byte_offset, uri, type)
 fn scan_autolink(text : BytesView, start_ix : Int) -> (Int, String, LinkType)? {
-  match scan_uri(text, start_ix) {
-    Some((bytes, uri)) => Some((bytes, uri, Autolink))
-    None =>
-      match scan_email(text, start_ix) {
-        Some((bytes, uri)) => Some((bytes, uri, Email))
-        None => None
-      }
+  guard scan_uri(text, start_ix) is Some((bytes, uri)) else {
+    return scan_email(text, start_ix).map(link => {
+      let (bytes, uri) = link
+      (bytes, uri, Email)
+    })
   }
+  Some((bytes, uri, Autolink))
 }
 
 ///|
@@ -1241,18 +1209,14 @@ fn scan_inline_html_comment(
     ix -= 1
 
     while true {
-      match find_byte(bytes, ix, b'-') {
-        Some(off) => {
-          ix = off + 1
-          scan_guard.comment = ix
-          let is_close = bytes.length() > ix &&
-            bytes.unsafe_get(ix) == b'-' &&
-            bytes.length() > ix + 1 &&
-            bytes.unsafe_get(ix + 1) == b'>'
-          guard !is_close else { return Some(ix + 2) }
-        }
-        None => break
-      }
+      guard find_byte(bytes, ix, b'-') is Some(off) else { break }
+      ix = off + 1
+      scan_guard.comment = ix
+      let is_close = bytes.length() > ix &&
+        bytes.unsafe_get(ix) == b'-' &&
+        bytes.length() > ix + 1 &&
+        bytes.unsafe_get(ix + 1) == b'>'
+      guard !is_close else { return Some(ix + 2) }
     }
     None
   } else {
@@ -1263,10 +1227,7 @@ fn scan_inline_html_comment(
       ix > scan_guard.cdata
     if is_cdata {
       ix += 6 // "CDATA[".len()
-      match find_byte(bytes, ix, b']') {
-        Some(off) => ix = off
-        None => ix = bytes.length()
-      }
+      ix = find_byte(bytes, ix, b']').unwrap_or(bytes.length())
       let close_brackets = scan_ch_repeat(bytes.exact_view(start=ix), b']')
       ix += close_brackets
 
@@ -1281,10 +1242,7 @@ fn scan_inline_html_comment(
       let is_decl = c.to_char().is_ascii_alphabetic() &&
         ix > scan_guard.declaration
       guard is_decl else { None }
-      match find_byte(bytes, ix, b'>') {
-        Some(off) => ix = off
-        None => ix = bytes.length()
-      }
+      ix = find_byte(bytes, ix, b'>').unwrap_or(bytes.length())
       guard bytes.length() > ix && bytes.unsafe_get(ix) == b'>' else {
         scan_guard.declaration = ix
         None
@@ -1315,14 +1273,10 @@ fn scan_inline_html_processing(
   let mut ix = ix
   guard ix > scan_guard.processing else { return None }
   while true {
-    match find_byte(bytes, ix, b'?') {
-      Some(off) => {
-        ix = off + 1
-        guard !(bytes.length() > ix && bytes.unsafe_get(ix) == b'>') else {
-          return Some(ix + 1)
-        }
-      }
-      None => break
+    guard find_byte(bytes, ix, b'?') is Some(off) else { break }
+    ix = off + 1
+    guard !(bytes.length() > ix && bytes.unsafe_get(ix) == b'>') else {
+      return Some(ix + 1)
     }
   }
   scan_guard.processing = ix

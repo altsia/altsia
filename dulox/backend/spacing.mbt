@@ -188,11 +188,13 @@ pub fn join_with_spacing(
     let prev = items[i - 1]
     let curr = items[i]
     match (prev.atom_type, curr.atom_type) {
-      (Some(left), Some(right)) =>
-        match math_spacing(left, right, tight, spec) {
-          Some(space) => result = result + space + curr.text
-          None => result = result + curr.text
+      (Some(left), Some(right)) => {
+        guard math_spacing(left, right, tight, spec) is Some(space) else {
+          result = result + curr.text
+          continue
         }
+        result = result + space + curr.text
+      }
       _ => result = result + curr.text
     }
   }

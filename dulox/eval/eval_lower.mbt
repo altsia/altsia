@@ -22,13 +22,15 @@ pub fn lower_expr(
 ) -> EvalExpr raise EvalDiagnostic {
   let items = scan_items(nodes, options)
   let terms = split_terms(items)
-  let exprs : Array[EvalExpr] = []
-  for term in terms {
+  let exprs = terms.map(term => {
     let (term_items, neg) = term
     let expr = parse_factors(term_items)
-    let expr = if neg { Mul([neg_one, expr]) } else { expr }
-    exprs.push(expr)
-  }
+    if neg {
+      Mul([neg_one, expr])
+    } else {
+      expr
+    }
+  })
   match exprs.length() {
     0 => raise EvalDiagnostic::make(InvalidNumber)
     1 => exprs[0]
@@ -130,18 +132,12 @@ fn append_parenthesized_item(
   items : Array[LowerItem],
   options : EvalOptions,
 ) -> Int raise EvalDiagnostic {
-  match scan_paren_end(nodes, start) {
-    None => {
-      push_lowered(items, nodes[start], options)
-      start + 1
-    }
-    Some(end) => {
-      items.push(
-        ItemExpr(lower_parenthesized_group(nodes, start, end, options)),
-      )
-      parenthesized_group_next(end)
-    }
+  guard scan_paren_end(nodes, start) is Some(end) else {
+    push_lowered(items, nodes[start], options)
+    return start + 1
   }
+  items.push(ItemExpr(lower_parenthesized_group(nodes, start, end, options)))
+  parenthesized_group_next(end)
 }
 
 ///|
@@ -156,10 +152,7 @@ fn lower_parenthesized_group(
     parenthesized_group_body(nodes, start, closing),
     options,
   )
-  match exponent {
-    None => group
-    Some(node) => lower_power(group, lower_node(node, options))
-  }
+  exponent.map_or(group, node => lower_power(group, lower_node(node, options)))
 }
 
 ///|
@@ -239,10 +232,10 @@ fn scan_number(
       _ => break
     }
   }
-  match parse_decimal_int(acc) {
-    None => Err(EvalDiagnostic::make(InvalidNumber, loc=node_loc(nodes[start])))
-    Some(value) => Ok((value, j))
+  guard parse_decimal_int(acc) is Some(value) else {
+    return Err(EvalDiagnostic::make(InvalidNumber, loc=node_loc(nodes[start])))
   }
+  Ok((value, j))
 }
 
 ///|
@@ -251,9 +244,7 @@ fn parse_decimal_int(text : String) -> Int? {
   let mut value = 0
   for c in text {
     let digit = c.to_int() - '0'.to_int()
-    if value > (2147483647 - digit) / 10 {
-      return None
-    }
+    guard value <= (2147483647 - digit) / 10 else { return None }
     value = value * 10 + digit
   }
   Some(value)
@@ -411,13 +402,9 @@ fn unsupported_with(
 
 ///|
 fn is_all_digits(text : String) -> Bool {
-  if text.length() == 0 {
-    return false
-  }
+  guard text.length() > 0 else { return false }
   for c in text {
-    if c < '0' || c > '9' {
-      return false
-    }
+    guard c >= '0' && c <= '9' else { return false }
   }
   true
 }

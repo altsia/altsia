@@ -79,12 +79,10 @@ async fn main {
   let use_cmark = matches.flags.get("cmark") is Some(true)
   let halfwidth_punct = matches.flags.get("halfwidth") is Some(true)
   if use_cmark {
-    match matches.values.get("target") {
-      Some(["html"]) | Some(["html-text"]) =>
-        return println(
-          "error: --cmark only renders terminal text; --target html/html-text is not available with cmark yet",
-        )
-      _ => ()
+    guard !(matches.values.get("target") is Some(["html" | "html-text"])) else {
+      return println(
+        "error: --cmark only renders terminal text; --target html/html-text is not available with cmark yet",
+      )
     }
   }
   let options = RenderOptions::{
@@ -93,9 +91,7 @@ async fn main {
     line_style,
     disable_math,
     use_cmark,
-    output_path: matches.values
-    .get("output")
-    .map_or(None, values => Some(values[0])),
+    output_path: matches.values.get("output").map(values => values[0]),
     range: {
       guard matches.values.get("range") is Some([value]) else { None }
       let parsed = parse_range(value) catch {

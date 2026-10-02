@@ -206,14 +206,15 @@ fn render_array_table(
   hlines_before_row : Array[Array[Bool]],
   state : RenderState,
 ) -> String {
-  let ncols = match columns {
-    Some(cols) => cols.filter(col => col is AlignColumn(..)).length()
-    None =>
+  let ncols = columns.map_or_else(
+    () => {
       match body {
         [row, ..] => row.length()
         _ => 0
       }
-  }
+    },
+    cols => cols.filter(col => col is AlignColumn(..)).length(),
+  )
   let vline_boundaries : Set[Int] = Set([])
   let aligns : Array[String] = []
   for col in columns.unwrap_or([]) {

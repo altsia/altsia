@@ -34,18 +34,18 @@ fn EvalExpr::simplify_pow(
       rational_to_expr(exact_rational_pow(value, exp))
     // For a unit root, raising to a power multiplies its root index. Fall
     // back if the indices are not exact integers or the product overflows.
-    RootOfUnity(order~, power~) =>
-      match (exact_integer(order), exact_integer(power)) {
-        (Some(order), Some(power)) =>
-          match checked_int_mul(power, exp) {
-            Some(product) =>
-              simplify_root_of_unity(Integer(order), Integer(product)) catch {
-                _ => IntPow(base, exp)
-              }
-            None => IntPow(base, exp)
-          }
+    RootOfUnity(order~, power~) => {
+      guard (exact_integer(order), exact_integer(power))
+        is (Some(order), Some(power)) else {
+        return IntPow(base, exp)
+      }
+      guard checked_int_mul(power, exp) is Some(product) else {
+        return IntPow(base, exp)
+      }
+      simplify_root_of_unity(Integer(order), Integer(product)) catch {
         _ => IntPow(base, exp)
       }
+    }
     // Handle an integer quotient that has not yet been canonicalized as a
     // `Rational`, preserving exactness on both numerator and denominator.
     Div(Integer(p), Integer(q)) if q != 0 =>

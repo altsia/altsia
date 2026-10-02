@@ -85,14 +85,18 @@ fn render_heading_element(
   element : ElementData,
   options : HtmlOptions,
 ) -> Array[Node] {
-  let level = match element.named.get("level") {
-    Some(Integer(n)) => n.max(1).min(6)
-    Some(Text(s)) => {
-      let n = @string.parse_int(s) catch { _ => 1 }
-      n.max(1).min(6)
-    }
-    _ => 1
-  }
+  let level = element.named
+    .get("level")
+    .map_or(1, value => {
+      match value {
+        Integer(n) => n.max(1).min(6)
+        Text(s) => {
+          let n = @string.parse_int(s) catch { _ => 1 }
+          n.max(1).min(6)
+        }
+        _ => 1
+      }
+    })
   let attrs = element.named
     .iter()
     .filter_map(pair => {

@@ -164,16 +164,12 @@ fn LineStart::scan_blockquote_tag(self : LineStart) -> BlockQuoteKind? {
     self.ix = saved_ix
     return None
   }
-  match scan_blank_line(self.bytes.exact_view(start=self.ix)) {
-    Some(nl) => {
-      self.ix += nl
-      Some(kind)
-    }
-    None => {
-      self.ix = saved_ix
-      None
-    }
+  guard scan_blank_line(self.bytes.exact_view(start=self.ix)) is Some(nl) else {
+    self.ix = saved_ix
+    return None
   }
+  self.ix += nl
+  Some(kind)
 }
 
 ///|

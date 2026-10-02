@@ -104,21 +104,13 @@ fn rebuild_add(collection : AddCollection) -> EvalExpr {
       rational_to_expr(complex_real + numeric_sum),
       rational_to_expr(complex_imaginary),
     )
-    if remaining.length() == 0 {
-      return value
-    }
-    if value == zero {
-      return simplify_add(remaining)
-    }
+    guard remaining.length() > 0 else { return value }
+    guard value != zero else { return simplify_add(remaining) }
     return Add([value, ..remaining])
   }
-  if remaining.length() == 0 {
-    return rational_to_expr(numeric_sum)
-  }
+  guard remaining.length() > 0 else { return rational_to_expr(numeric_sum) }
   if rational_is_zero(numeric_sum) {
-    if remaining.length() == 1 {
-      return remaining[0]
-    }
+    guard remaining.length() != 1 else { return remaining[0] }
     return Add(remaining)
   }
   Add([..remaining, rational_to_expr(numeric_sum)])
@@ -184,38 +176,26 @@ fn rebuild_mul(collection : MulCollection) -> EvalExpr {
   let complex_imaginary = collection.complex_imaginary
   let has_complex = collection.has_complex
   let remaining = collection.remaining
-  if rational_is_zero(numeric_product) {
-    return zero
-  }
+  guard !rational_is_zero(numeric_product) else { return zero }
   if has_complex {
     let value = complex(
       rational_to_expr(complex_real * numeric_product),
       rational_to_expr(complex_imaginary * numeric_product),
     )
-    if remaining.length() == 0 {
-      return value
-    }
+    guard remaining.length() > 0 else { return value }
     if value == one {
-      if remaining.length() == 1 {
-        return remaining[0]
-      }
+      guard remaining.length() != 1 else { return remaining[0] }
       return Mul(remaining)
     }
     return Mul([value, ..remaining])
   }
   if rational_is_one(numeric_product) {
-    if remaining.length() == 0 {
-      return one
-    }
-    if remaining.length() == 1 {
-      return remaining[0]
-    }
+    guard remaining.length() > 0 else { return one }
+    guard remaining.length() != 1 else { return remaining[0] }
     return Mul(remaining)
   }
   let scalar = rational_to_expr(numeric_product)
-  if remaining.length() == 0 {
-    return scalar
-  }
+  guard remaining.length() > 0 else { return scalar }
   Mul([scalar, ..remaining])
 }
 
@@ -226,10 +206,9 @@ fn simplify_div(
   domain : Domain,
 ) -> EvalExpr raise EvalDiagnostic {
   guard !simplifies_zero_quotient(numer, denom) else { zero }
-  match simplify_exact_rational_division(numer, denom) {
-    Some(result) => result
-    None => simplify_nonrational_division(numer, denom, domain)
-  }
+  simplify_exact_rational_division(numer, denom).unwrap_or_else(() => {
+    simplify_nonrational_division(numer, denom, domain)
+  })
 }
 
 ///|
@@ -307,12 +286,8 @@ fn is_definitely_nonzero(expr : EvalExpr) -> Bool {
 
 ///|
 fn all_children_nonzero(children : Array[EvalExpr]) -> Bool {
-  let mut result = true
   for child in children {
-    if !is_definitely_nonzero(child) {
-      result = false
-      break
-    }
+    guard is_definitely_nonzero(child) else { return false }
   }
-  result
+  true
 }

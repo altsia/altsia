@@ -318,18 +318,15 @@ fn cm_assemble_list_item(
 
 ///|
 fn cm_item_marker(list_ctx : ListContext, task : Bool?, ansi : Bool) -> String {
-  match task {
-    Some(true) =>
-      term_style("✔", ansi~, color=@chalk.Green, modifier=[
-        @chalk.Modifier::Bold,
-      ])
-    Some(false) => term_style("○", ansi~, color=@chalk.WhiteBright)
-    None =>
-      match list_ctx.start {
-        Some(n) => (n + list_ctx.index.to_int64()).to_string() + "."
-        None => "•"
-      }
+  guard task is Some(checked) else {
+    return list_ctx.start.map_or("•", n => {
+      (n + list_ctx.index.to_int64()).to_string() + "."
+    })
   }
+  guard checked else {
+    return term_style("○", ansi~, color=@chalk.WhiteBright)
+  }
+  term_style("✔", ansi~, color=@chalk.Green, modifier=[@chalk.Modifier::Bold])
 }
 
 ///|

@@ -38,11 +38,8 @@ async fn render_input(input_path : String, options : RenderOptions) -> Unit {
       error => return println(@parsing.format_parse_error(error, source))
     }
   }
-  match options.output_path {
-    None => println(output)
-    Some(path) =>
-      @fs.write_file(path, output, create_mode=@fs.CreateMode::CreateOrTruncate)
-  }
+  guard options.output_path is Some(path) else { return println(output) }
+  @fs.write_file(path, output, create_mode=@fs.CreateMode::CreateOrTruncate)
 }
 
 ///|
@@ -59,10 +56,8 @@ async fn render_input(input_path : String, options : RenderOptions) -> Unit {
 /// the optimal strategy given the input sizes obsmark actually handles.
 async fn read_source(input_path : String, range~ : (Int, Int)?) -> String {
   let content = @fs.read_file(input_path).text()
-  match range {
-    Some((start, end)) => extract_range(content, start, end).join("\n")
-    None => content
-  }
+  guard range is Some((start, end)) else { return content }
+  extract_range(content, start, end).join("\n")
 }
 
 ///|

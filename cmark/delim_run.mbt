@@ -267,7 +267,8 @@ fn prev_char_ix(s : Bytes, ix : Int) -> Int {
 ///|
 fn ends_with_pipe(s : Bytes, ix : Int) -> Bool {
   let prefix = s.exact_view(start=0, end=ix)
-  prefix.has_suffix(b"|".exact_view()) && !prefix.has_suffix(b"\\|".exact_view())
+  prefix.has_suffix(b"|".exact_view()) &&
+  !prefix.has_suffix(b"\\|".exact_view())
 }
 
 ///|
@@ -404,16 +405,14 @@ fn parse_inside_attribute_block(
           ),
         )
       } else {
-        match attr.split_once("=") {
-          Some((key, value)) =>
-            attrs.push(
-              (
-                replace_nuls(key.to_owned()),
-                Some(replace_nuls(value.to_owned())),
-              ),
-            )
-          None => attrs.push((replace_nuls(attr), None))
-        }
+        attrs.push(
+          attr
+          .split_once("=")
+          .map_or_else(() => (replace_nuls(attr), None), pair => {
+            let (key, value) = pair
+            (replace_nuls(key.to_owned()), Some(replace_nuls(value.to_owned())))
+          }),
+        )
       }
     }
   }

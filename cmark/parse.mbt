@@ -93,22 +93,16 @@ pub fn Parser::next_event_range(self : Parser) -> (Event, Int, Int)? {
 /// Emits the `End` event of the node being popped, or `None` when the
 /// document is exhausted.
 fn Parser::pop_event(self : Parser) -> (Event, Int, Int)? {
-  match self.tree.pop() {
-    Some(ix) => {
-      let ix = if self.tree.nodes[ix].item.body is TightParagraph {
-        // tight paragraphs emit nothing
-        ignore(self.tree.next_sibling(ix))
-        return self.next_event_range()
-      } else {
-        ix
-      }
-      let tag_end = body_to_tag_end(self.tree.nodes[ix].item.body)
-      ignore(self.tree.next_sibling(ix))
-      let span = (self.tree.nodes[ix].item.start, self.tree.nodes[ix].item.end)
-      Some((End(tag_end), span.0, span.1))
-    }
-    None => None
+  guard self.tree.pop() is Some(ix) else { return None }
+  guard !(self.tree.nodes[ix].item.body is TightParagraph) else {
+    // tight paragraphs emit nothing
+    ignore(self.tree.next_sibling(ix))
+    return self.next_event_range()
   }
+  let tag_end = body_to_tag_end(self.tree.nodes[ix].item.body)
+  ignore(self.tree.next_sibling(ix))
+  let span = (self.tree.nodes[ix].item.start, self.tree.nodes[ix].item.end)
+  Some((End(tag_end), span.0, span.1))
 }
 
 ///|
@@ -147,7 +141,9 @@ fn body_to_tag_end(body : ItemBody) -> TagEnd {
 fn item_to_event(item : Item, text : Bytes, allocs : Allocations) -> Event {
   let tag = match item.body {
     Text(_) =>
-      return Text(@utf8.decode_lossy(text.exact_view(start=item.start, end=item.end)))
+      return Text(
+        @utf8.decode_lossy(text.exact_view(start=item.start, end=item.end)),
+      )
     Code(cow_ix) => return Code(allocs.take_cow(cow_ix))
     SynthesizeText(cow_ix) => return Text(allocs.take_cow(cow_ix))
     SynthesizeChar(c) => return Text(c.to_string())

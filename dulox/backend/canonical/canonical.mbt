@@ -139,10 +139,8 @@ fn render_size(value : @katex.Measurement, is_blank : Bool) -> String {
 
 ///|
 fn render_sqrt(index : @katex.ParseNode?, body : @katex.ParseNode) -> String {
-  match index {
-    None => "\\sqrt{\{render_arg(body)}}"
-    Some(index) => "\\sqrt[\{render_arg(index)}]{\{render_arg(body)}}"
-  }
+  guard index is Some(index) else { return "\\sqrt{\{render_arg(body)}}" }
+  "\\sqrt[\{render_arg(index)}]{\{render_arg(body)}}"
 }
 
 ///|
@@ -468,9 +466,7 @@ fn render_symbol_text(text : String) -> String {
 /// itself.
 fn needs_char_escape(text : String) -> Bool {
   guard !text.is_empty() else { false }
-  if text.has_prefix("\\") && text.length() > 1 {
-    return false
-  }
+  guard !(text.has_prefix("\\") && text.length() > 1) else { return false }
   let first = text[0]
   is_combining_mark_code(first) ||
   is_surrogate_code(first) ||

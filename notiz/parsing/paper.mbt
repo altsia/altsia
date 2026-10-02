@@ -19,10 +19,10 @@ let paper_sizes : Map[String, Paper] = { "a4": A4, "b5": B5, "book": Book }
 
 ///|
 pub fn Paper::from_string(name : String) -> Result[Paper, String] {
-  match paper_sizes.get(name) {
-    Some(paper) => Ok(paper)
-    None => Err("unknown paper size: \{name}")
+  guard paper_sizes.get(name) is Some(paper) else {
+    return Err("unknown paper size: \{name}")
   }
+  Ok(paper)
 }
 
 ///|

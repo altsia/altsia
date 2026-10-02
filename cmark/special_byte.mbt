@@ -36,9 +36,10 @@ fn FirstPass::handle_special_byte_inner(
       let eol_bytes = scan_eol(bytes.exact_view(start=ix)).unwrap()
 
       let end_ix = ix + eol_bytes
-      let trailing_backslashes = scan_rev_while(bytes.exact_view(start=0, end=ix), b => {
-        b == b'\\'
-      })
+      let trailing_backslashes = scan_rev_while(
+        bytes.exact_view(start=0, end=ix),
+        b => b == b'\\',
+      )
       if trailing_backslashes % 2 == 1 && end_ix < bytes_len {
         i -= 1
         self.tree.append_text(state.begin_text, i, state.backslash_escaped)
@@ -93,9 +94,10 @@ fn FirstPass::handle_special_byte_inner(
         }
       }
 
-      let trailing_whitespace = scan_rev_while(bytes.exact_view(start=0, end=ix), c => {
-        c.is_ascii_whitespace_no_nl()
-      })
+      let trailing_whitespace = scan_rev_while(
+        bytes.exact_view(start=0, end=ix),
+        c => c.is_ascii_whitespace_no_nl(),
+      )
       if trailing_whitespace >= 2 {
         i -= trailing_whitespace
         self.tree.append_text(state.begin_text, i, state.backslash_escaped)
@@ -224,13 +226,12 @@ fn FirstPass::handle_special_byte_inner(
         MATH_BRACE_CONTEXT_MAX_NESTING {
         self.brace_context_next & 0xff
       } else {
-        match self.brace_context_stack.last() {
-          Some(v) => v
-          None => {
-            self.brace_context_stack.push(0xff)
-            0xff
-          }
-        }
+        self.brace_context_stack
+        .last()
+        .unwrap_or_else(() => {
+          self.brace_context_stack.push(0xff)
+          0xff
+        })
       }
 
       self.tree.append_text(state.begin_text, ix, state.backslash_escaped)

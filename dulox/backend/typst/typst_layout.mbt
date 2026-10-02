@@ -167,9 +167,9 @@ fn render_folded_arrow(
   let t_str = sup.map_or(body_str, node => {
     "\{wrap_arg(render_node(node, state))}, t: \{body_str}"
   })
-  let b_str = match below {
-    Some(_) => attach_arg("b", below, state)
-    None => attach_arg("b", sub, state)
+  let b_str = {
+    guard below is Some(_) else { attach_arg("b", sub, state) }
+    attach_arg("b", below, state)
   }
   "attach(\{arrow}, t: \{t_str}\{b_str})"
 }
@@ -263,14 +263,15 @@ fn render_spacing(text : String) -> String {
 
 ///|
 fn render_kern(dimension : @katex.Measurement) -> String {
-  let amount = match @backend.em_value(dimension) {
-    Some(em) if dimension.unit == "mu" => em_string(em)
-    _ =>
+  let amount = {
+    guard @backend.em_value(dimension) is Some(em) && dimension.unit == "mu" else {
       if dimension.unit == "fill" {
         "1fr"
       } else {
         render_measurement(dimension)
       }
+    }
+    em_string(em)
   }
   "#h(\{amount})"
 }

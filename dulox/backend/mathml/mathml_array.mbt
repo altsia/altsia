@@ -135,8 +135,9 @@ fn column_spacing(
   kind : @katex.ColumnSeparationType?,
   columns : Array[@katex.ArrayColumn]?,
 ) -> String {
+  guard kind is Some(kind) else { return "1em" }
   match kind {
-    Some(AlignSeparation) => {
+    AlignSeparation => {
       let count = columns.map_or(0, specs => {
         specs.fold(init=0, (acc, spec) => {
           match spec {
@@ -145,13 +146,12 @@ fn column_spacing(
           }
         })
       })
-      guard !(count <= 1) else { "" }
+      guard count > 1 else { "" }
       Array::makei(count - 1, index => "\{index % 2}em").join(" ")
     }
-    Some(AlignAtSeparation) | Some(GatherSeparation) => "0em"
-    Some(SmallSeparation) => "0.2778em"
-    Some(CdSeparation) => "0.5em"
-    None => "1em"
+    AlignAtSeparation | GatherSeparation => "0em"
+    SmallSeparation => "0.2778em"
+    CdSeparation => "0.5em"
   }
 }
 

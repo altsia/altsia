@@ -1,10 +1,6 @@
 ///|
 fn[E] Term::degree(self : Term[E]) -> Int {
-  let mut total = 0
-  for exp in self.exps {
-    total = total + exp
-  }
-  total
+  self.exps.iter().fold(init=0, (total, exp) => total + exp)
 }
 
 ///|
@@ -30,7 +26,7 @@ fn[E] algebra_term_compare(
 ) -> Int {
   let left_degree = left.degree()
   let right_degree = right.degree()
-  if left_degree != right_degree {
+  guard left_degree == right_degree else {
     return if left_degree > right_degree { -1 } else { 1 }
   }
   compare_canonical_strings(

@@ -74,9 +74,8 @@ fn normalize_mul_polynomials(
   let builder = NormalizePolynomialBuilder::make(a.axes, max_terms)
   for _, left in a.terms {
     for _, right in b.terms {
-      let coeff = match checked_int_mul(left.coeff, right.coeff) {
-        Some(value) => value
-        None => raise EvalDiagnostic::make(IntegerOverflow)
+      guard checked_int_mul(left.coeff, right.coeff) is Some(coeff) else {
+        raise EvalDiagnostic::make(IntegerOverflow)
       }
       builder.add({ exps: algebra_add_exponents(left.exps, right.exps), coeff, })
     }
@@ -145,24 +144,20 @@ fn NormalizePolynomialBuilder::add(
 ) -> Unit raise EvalDiagnostic {
   guard term.coeff != 0 else { return }
   let key = algebra_monomial_key(term.exps)
-  match self.terms.get(key) {
-    Some(existing) => {
-      let coeff = match checked_int_add(existing.coeff, term.coeff) {
-        Some(value) => value
-        None => raise EvalDiagnostic::make(IntegerOverflow)
-      }
-      if coeff == 0 {
-        self.terms.remove(key)
-      } else {
-        self.terms[key] = { exps: existing.exps, coeff, }
-      }
+  guard self.terms.get(key) is Some(existing) else {
+    self.terms[key] = term
+    guard self.terms.length() <= self.max_terms else {
+      raise EvalDiagnostic::make(ExpressionTooLarge)
     }
-    None => {
-      self.terms[key] = term
-      guard self.terms.length() <= self.max_terms else {
-        raise EvalDiagnostic::make(ExpressionTooLarge)
-      }
-    }
+    return
+  }
+  guard checked_int_add(existing.coeff, term.coeff) is Some(coeff) else {
+    raise EvalDiagnostic::make(IntegerOverflow)
+  }
+  if coeff == 0 {
+    self.terms.remove(key)
+  } else {
+    self.terms[key] = { exps: existing.exps, coeff, }
   }
 }
 

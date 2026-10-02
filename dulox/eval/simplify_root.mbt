@@ -140,11 +140,10 @@ fn simplify_nested_root(
   original : EvalExpr,
   domain : Domain,
 ) -> EvalExpr raise EvalDiagnostic {
-  match checked_int_mul(outer_index, inner_index) {
-    Some(combined_index) =>
-      simplify_root(Integer(combined_index), radicand, domain)
-    None => Root(index=Integer(outer_index), original)
+  guard checked_int_mul(outer_index, inner_index) is Some(combined_index) else {
+    return Root(index=Integer(outer_index), original)
   }
+  simplify_root(Integer(combined_index), radicand, domain)
 }
 
 ///|
@@ -158,14 +157,14 @@ fn simplify_integer_root_product(
 ) -> EvalExpr raise EvalDiagnostic {
   let factors = flatten_mul(children)
   let (coefficient, rest) = collect_positive_integer_factors(factors)
-  match extract_root_coefficient(coefficient, index) {
-    None => Root(index=Integer(index), Mul(factors))
-    Some((extracted, remainder)) =>
-      simplify_mul([
-        Integer(extracted),
-        Root(index=Integer(index), rebuild_extracted_radicand(remainder, rest)),
-      ])
+  guard extract_root_coefficient(coefficient, index)
+    is Some((extracted, remainder)) else {
+    return Root(index=Integer(index), Mul(factors))
   }
+  simplify_mul([
+    Integer(extracted),
+    Root(index=Integer(index), rebuild_extracted_radicand(remainder, rest)),
+  ])
 }
 
 ///|
@@ -184,11 +183,13 @@ fn collect_positive_integer_factors(
   let rest : Array[EvalExpr] = []
   for factor in factors {
     match factor {
-      Integer(value) if value > 0 =>
-        match checked_int_mul(coefficient, value) {
-          Some(product) => coefficient = product
-          None => rest.push(factor)
+      Integer(value) if value > 0 => {
+        guard checked_int_mul(coefficient, value) is Some(product) else {
+          rest.push(factor)
+          continue
         }
+        coefficient = product
+      }
       _ => rest.push(factor)
     }
   }

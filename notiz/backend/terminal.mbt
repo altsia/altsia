@@ -130,11 +130,7 @@ fn term_render_heading(
 
 ///|
 fn term_render_fenced_code(code : String, options : TerminalOptions) -> String {
-  term_style(
-    code.trim_end().to_owned(),
-    ansi=options.ansi,
-    color=@chalk.Cyan,
-  )
+  term_style(code.trim_end().to_owned(), ansi=options.ansi, color=@chalk.Cyan)
 }
 
 ///|

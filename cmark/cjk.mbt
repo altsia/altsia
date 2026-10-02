@@ -98,20 +98,18 @@ fn classify_preceding_cjk_friendly_sequence(
       is_punctuation: is_punctuation(prev.to_int()),
     }
   }
-  match get_prev_prev() {
-    Some(base_char) =>
-      {
-        is_cjk: base_char.is_cjk_character() ||
-        is_cjk_ambiguous_punctuation_sequence(base_char, prev),
-        is_ideographic_variation_selector: false,
-        is_punctuation: is_punctuation(base_char.to_int()),
-      }
-    None =>
-      {
-        is_cjk: false,
-        is_ideographic_variation_selector: false,
-        is_punctuation: false,
-      }
+  guard get_prev_prev() is Some(base_char) else {
+    return {
+      is_cjk: false,
+      is_ideographic_variation_selector: false,
+      is_punctuation: false,
+    }
+  }
+  {
+    is_cjk: base_char.is_cjk_character() ||
+    is_cjk_ambiguous_punctuation_sequence(base_char, prev),
+    is_ideographic_variation_selector: false,
+    is_punctuation: is_punctuation(base_char.to_int()),
   }
 }
 

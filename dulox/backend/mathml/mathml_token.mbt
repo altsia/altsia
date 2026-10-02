@@ -81,9 +81,8 @@ fn render_atom(
       Mopen | Mclose => [("stretchy", "false")]
       _ => []
     },
-    ..match state.math_variant {
-      Some("bold-italic") if family is Mbin => [("mathvariant", "bold-italic")]
-      _ => []
+    ..if state.math_variant is Some("bold-italic") && family is Mbin {
+      [("mathvariant", "bold-italic")]
     },
   ]
   element(

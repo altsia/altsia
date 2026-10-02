@@ -58,10 +58,7 @@ fn to_halfwidth_punct(
       (if i > 0 {
         !chars[i - 1].is_whitespace() && !is_spacing_punct(chars[i - 1])
       } else {
-        match prev {
-          Some(p) => !p.is_whitespace() && !is_spacing_punct(p)
-          None => false
-        }
+        prev.map_or(false, p => !p.is_whitespace() && !is_spacing_punct(p))
       })
     if lead_space {
       buf.write_char(' ')
@@ -72,10 +69,7 @@ fn to_halfwidth_punct(
       (if i + 1 < chars.length() {
         !chars[i + 1].is_whitespace() && !is_spacing_punct(chars[i + 1])
       } else {
-        match next {
-          Some(n) => !n.is_whitespace() && !is_spacing_punct(n)
-          None => false
-        }
+        next.map_or(false, n => !n.is_whitespace() && !is_spacing_punct(n))
       })
     if trail_space {
       buf.write_char(' ')

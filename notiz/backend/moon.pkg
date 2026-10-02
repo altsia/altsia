@@ -7,5 +7,5 @@ import {
   "kokic/dulox/backend/canonical",
   "kokic/cmark",
   "moonbitlang/core/string",
-  "moonbit-community/chalk" @chalk,
+  "moonbit-community/chalk",
 }

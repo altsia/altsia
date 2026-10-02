@@ -18,41 +18,33 @@ fn Parser::scan_inline_link(
   let sep1 = self.scan_separator(underlying, ix)
   ix += sep1
 
-  match scan_link_dest(underlying, ix, LINK_MAX_NESTED_PARENS) {
-    Some((dest_length, dest_start, dest_end)) => {
-      let dest = unescape(
-        self.text,
-        dest_start,
-        dest_end,
-        self.tree.is_in_table(),
-      )
-      ix += dest_length
-
-      let title_sep = self.scan_separator(underlying, ix)
-      ix += title_sep
-
-      // scan title
-      let title = match self.scan_link_title(underlying, ix, node) {
-        Some((bytes_scanned, t)) => {
-          guard title_sep != 0 else { return None }
-          ix += bytes_scanned
-          t
-        }
-        None => ""
-      }
-
-      // scan any remaining whitespace
-      ix += self.scan_separator(underlying, ix)
-
-      guard underlying.length() > ix && underlying.unsafe_get(ix) == b')' else {
-        return None
-      }
-      ix += 1
-
-      Some((ix, dest, title))
-    }
-    None => None
+  guard scan_link_dest(underlying, ix, LINK_MAX_NESTED_PARENS)
+    is Some((dest_length, dest_start, dest_end)) else {
+    return None
   }
+  let dest = unescape(self.text, dest_start, dest_end, self.tree.is_in_table())
+  ix += dest_length
+
+  let title_sep = self.scan_separator(underlying, ix)
+  ix += title_sep
+
+  // scan title
+  let title = {
+    guard self.scan_link_title(underlying, ix, node) is Some((bytes_scanned, t)) else {
+      ""
+    }
+    guard title_sep != 0 else { return None }
+    ix += bytes_scanned
+    t
+  }
+
+  // scan any remaining whitespace
+  ix += self.scan_separator(underlying, ix)
+  guard underlying.length() > ix && underlying.unsafe_get(ix) == b')' else {
+    return None
+  }
+  ix += 1
+  Some((ix, dest, title))
 }
 
 ///|
@@ -64,7 +56,9 @@ fn Parser::scan_separator(
 ) -> Int {
   let start = ix0
   let mut i = ix0
-  i += scan_while(underlying.exact_view(start=i), c => c.is_ascii_whitespace_no_nl())
+  i += scan_while(underlying.exact_view(start=i), c => {
+    c.is_ascii_whitespace_no_nl()
+  })
   if scan_eol(underlying.exact_view(start=i)) is Some(bl) {
     i += bl
     i += skip_container_prefixes(
@@ -73,7 +67,9 @@ fn Parser::scan_separator(
       self.options,
     )
   }
-  i += scan_while(underlying.exact_view(start=i), c => c.is_ascii_whitespace_no_nl())
+  i += scan_while(underlying.exact_view(start=i), c => {
+    c.is_ascii_whitespace_no_nl()
+  })
   i - start
 }
 
@@ -246,7 +242,9 @@ fn Parser::make_math_span(self : Parser, open : Int, close : Int) -> Unit {
     replace_nuls(buf2.to_string())
   } else {
     replace_nuls(
-      @utf8.decode_lossy(spanned_text.exact_view(start=0, end=spanned_bytes.length())),
+      @utf8.decode_lossy(
+        spanned_text.exact_view(start=0, end=spanned_bytes.length()),
+      ),
     )
   }
 
@@ -322,7 +320,9 @@ fn Parser::make_code_span(
       )
       buf.to_string()
     } else {
-      @utf8.decode_lossy(spanned_text.exact_view(start=0, end=spanned_bytes.length()))
+      @utf8.decode_lossy(
+        spanned_text.exact_view(start=0, end=spanned_bytes.length()),
+      )
     }
     let sb = @utf8.encode(s)
     (
@@ -354,7 +354,9 @@ fn Parser::make_code_span(
     replace_nuls(buf.to_string())
   } else {
     replace_nuls(
-      @utf8.decode_lossy(spanned_text.exact_view(start=0, end=spanned_bytes.length())),
+      @utf8.decode_lossy(
+        spanned_text.exact_view(start=0, end=spanned_bytes.length()),
+      ),
     )
   }
 
@@ -389,17 +391,16 @@ fn Parser::scan_inline_html(
       ([], n)
     })
   } else {
-    match
-      scan_html_block_inner(
-        // Subtract 1 to include the < character
-        bytes.exact_view(start=ix - 1),
-        Some((bytes : BytesView) => {
-          skip_container_prefixes(self.tree, bytes, self.options)
-        }),
-      ) {
-      Some((span, i)) => Some((span, i + ix - 1))
-      None => None
-    }
+    scan_html_block_inner(
+      // Subtract 1 to include the < character
+      bytes.exact_view(start=ix - 1),
+      Some((bytes : BytesView) => {
+        skip_container_prefixes(self.tree, bytes, self.options)
+      }),
+    ).map(result => {
+      let (span, i) = result
+      (span, i + ix - 1)
+    })
   }
 }
 

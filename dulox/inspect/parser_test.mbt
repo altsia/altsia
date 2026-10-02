@@ -39,40 +39,29 @@ test "settings accepts strict callbacks with locations" {
 
 ///|
 test "parse failures expose source locations" {
-  try @katex.parse("\\unknown") catch {
+  let error = @test.expect_error(() => @katex.parse("\\unknown"))
+  match error {
     UndefinedControlSequence(loc=Some(loc), ..) => {
       @test.assert_eq(loc.start, 0)
       @test.assert_eq(loc.end, 8)
     }
     _ => @test.fail("expected an undefined control sequence")
-  } noraise {
-    _ => @test.fail("expected parsing to fail")
   }
 }
 
 ///|
 test "color model syntax is rejected like KaTeX" {
-  let rejected = try {
-    let _ = @katex.parse("\\color[HTML]{FF0000} x")
-    false
-  } catch {
-    InvalidArgument(message=_, loc=_) => true
-    _ => false
-  }
-  @test.assert_eq(rejected, true)
+  let error = @test.expect_error(() => @katex.parse("\\color[HTML]{FF0000} x"))
+  @test.assert_eq(error is InvalidArgument(..), true)
 }
 
 ///|
 test "trailing comment reports in strict error mode" {
   let settings = @katex.Settings::make(strict=Error)
-  let raised = try {
-    let _ = @katex.parse("a % comment without newline", settings~)
-    false
-  } catch {
-    InvalidArgument(message=_, loc=_) => true
-    _ => false
-  }
-  @test.assert_eq(raised, true)
+  let error = @test.expect_error(() => {
+    @katex.parse("a % comment without newline", settings~)
+  })
+  @test.assert_eq(error is InvalidArgument(..), true)
 }
 
 ///|
@@ -91,42 +80,18 @@ test "trailing comment warns in strict warn mode" {
 ///|
 test "unicode text in math mode reports in strict mode" {
   let strict = @katex.Settings::make(strict=Error)
-  let raised = try {
-    let _ = @katex.parse("é + 1", settings=strict)
-    false
-  } catch {
-    InvalidArgument(message=_, loc=_) => true
-    _ => false
-  }
   // Decomposed accented Latin letter in math mode
-  @test.assert_eq(raised, true)
+  let error = @test.expect_error(() => @katex.parse("é + 1", settings=strict))
+  @test.assert_eq(error is InvalidArgument(..), true)
   // Latin-1 fallback letter (Ð Þ þ, extraLatin)
-  let raised = try {
-    let _ = @katex.parse("Ð", settings=strict)
-    false
-  } catch {
-    InvalidArgument(message=_, loc=_) => true
-    _ => false
-  }
-  @test.assert_eq(raised, true)
+  let error = @test.expect_error(() => @katex.parse("Ð", settings=strict))
+  @test.assert_eq(error is InvalidArgument(..), true)
   // Supported script character (Cyrillic) in math mode
-  let raised = try {
-    let _ = @katex.parse("ж", settings=strict)
-    false
-  } catch {
-    InvalidArgument(message=_, loc=_) => true
-    _ => false
-  }
-  @test.assert_eq(raised, true)
+  let error = @test.expect_error(() => @katex.parse("ж", settings=strict))
+  @test.assert_eq(error is InvalidArgument(..), true)
   // Unsupported codepoint (en dash) reports unknownSymbol
-  let raised = try {
-    let _ = @katex.parse("–", settings=strict)
-    false
-  } catch {
-    InvalidArgument(message=_, loc=_) => true
-    _ => false
-  }
-  @test.assert_eq(raised, true)
+  let error = @test.expect_error(() => @katex.parse("–", settings=strict))
+  @test.assert_eq(error is InvalidArgument(..), true)
 }
 
 ///|
@@ -139,13 +104,6 @@ test "unicode text stays permissive without strict mode" {
 test "implicit commands do not raise undefined control sequence" {
   // \limits reaching the parser breaks the group instead of being reported
   // as an undefined control sequence (KaTeX implicitCommands)
-  let raised = try {
-    let _ = @katex.parse("{\\limits}")
-    "no error"
-  } catch {
-    UndefinedControlSequence(..) => "undefined"
-    ExpectedToken(..) => "expected token"
-    _ => "other"
-  }
-  @test.assert_eq(raised, "expected token")
+  let error = @test.expect_error(() => @katex.parse("{\\limits}"))
+  @test.assert_eq(error is ExpectedToken(..), true)
 }

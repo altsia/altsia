@@ -218,11 +218,10 @@ fn render_sqrt(
   body : @katex.ParseNode,
   state : RenderState,
 ) -> String {
-  match index {
-    None => math_fn("sqrt", render_node(body, state))
-    Some(index) =>
-      "root(\{wrap_arg(render_node(index, state))}, \{wrap_arg(render_node(body, state))})"
+  guard index is Some(index) else {
+    return math_fn("sqrt", render_node(body, state))
   }
+  "root(\{wrap_arg(render_node(index, state))}, \{wrap_arg(render_node(body, state))})"
 }
 
 ///|
@@ -263,10 +262,10 @@ fn quote_string(text : String) -> String {
 /// `ex` unit is not lexable (`0.1ex` reads as the float `0.1e`). `ex` is
 /// converted to `em` with the standard x-height ratio of 0.5.
 fn render_measurement(measurement : @katex.Measurement) -> String {
-  match @backend.em_value(measurement) {
-    Some(em) if measurement.unit == "ex" => em_string(em)
-    _ => "\{measurement.number}\{measurement.unit}"
+  guard @backend.em_value(measurement) is Some(em) && measurement.unit == "ex" else {
+    return "\{measurement.number}\{measurement.unit}"
   }
+  em_string(em)
 }
 
 ///|

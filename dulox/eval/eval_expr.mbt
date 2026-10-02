@@ -1,4 +1,5 @@
-using @rational { type BigRational }
+///|
+using @rational {type BigRational}
 
 ///|
 /// A computed mathematical expression. Canonicalized by `normalize`:

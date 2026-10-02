@@ -184,24 +184,14 @@ test "mismatched begin and end still raises for extended environments" {
     0,
     handler=parens_environment_handler,
   )
-  let raised = try {
-    let _ = @katex.parse("\\begin{parens}a\\end{other}", extra_env_specs=[spec])
-    false
-  } catch {
-    _ => true
-  }
-  @test.assert_eq(raised, true)
+  @test.assert_raise(() => {
+    @katex.parse("\\begin{parens}a\\end{other}", extra_env_specs=[spec])
+  })
 }
 
 ///|
 test "unregistered environment still raises" {
-  let raised = try {
-    let _ = @katex.parse("\\begin{nope}a\\end{nope}")
-    false
-  } catch {
-    _ => true
-  }
-  @test.assert_eq(raised, true)
+  @test.assert_raise(() => @katex.parse("\\begin{nope}a\\end{nope}"))
 }
 
 ///|

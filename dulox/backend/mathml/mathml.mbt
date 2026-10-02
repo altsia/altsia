@@ -18,16 +18,16 @@ pub fn render(
   // Internal(..) | EnvironmentEnd(..) => ""
   guard !body.is_empty() else { return "" }
 
-  let semantic_children = match config.annotation {
-    Some(source) =>
+  let semantic_children = [
+    body,
+    ..config.annotation.map_or([], source => {
       [
-        body,
         element("annotation", children=[text_node(source)], attributes=[
           ("encoding", "application/x-tex"),
         ]),
       ]
-    None => [body]
-  }
+    }),
+  ]
   let math_attributes = [
     ("xmlns", "http://www.w3.org/1998/Math/MathML"),
     ..if config.display_mode {

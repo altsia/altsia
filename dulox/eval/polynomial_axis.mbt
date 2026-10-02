@@ -18,16 +18,14 @@ fn MonomialFactor::to_canonical_string(self : MonomialFactor) -> String {
 fn compare_canonical_strings(left : String, right : String) -> Int {
   let left_length = left.length()
   let right_length = right.length()
-  let mut i = 0
-  while i < left_length && i < right_length {
+  for i = 0; i < left_length && i < right_length; i = i + 1 {
     let left_char = left[i]
     let right_char = right[i]
-    if left_char != right_char {
+    guard left_char == right_char else {
       return if left_char < right_char { -1 } else { 1 }
     }
-    i = i + 1
   }
-  if left_length != right_length {
+  guard left_length == right_length else {
     return if left_length < right_length { -1 } else { 1 }
   }
   0

@@ -131,7 +131,8 @@ fn FirstPass::parse_indented_code_block(
     guard next_line_ix != self.text.length() else { break }
     ix = next_line_ix
     remaining_space = line_start.remaining_space()
-    self.last_line_blank = scan_blank_line(bytes.exact_view(start=ix)) is Some(_)
+    self.last_line_blank = scan_blank_line(bytes.exact_view(start=ix))
+      is Some(_)
   }
 
   // Trim trailing blank lines.
@@ -221,7 +222,9 @@ fn FirstPass::parse_metadata_block(
     PlusesStyle
   }
   // 3 delimiter characters
-  let mut ix = start_ix + 3 + scan_nextline(bytes.exact_view(start=start_ix + 3))
+  let mut ix = start_ix +
+    3 +
+    scan_nextline(bytes.exact_view(start=start_ix + 3))
   ignore(
     self.tree.append(Item::{
       start: start_ix,
@@ -236,7 +239,10 @@ fn FirstPass::parse_metadata_block(
     guard n_containers >= self.tree.spine_len() else { break }
     let (indent, _) = calc_indent(bytes.exact_view(start=ix), 4)
     if indent == 0 {
-      if scan_closing_metadata_block(bytes.exact_view(start=ix), metadata_block_ch)
+      if scan_closing_metadata_block(
+          bytes.exact_view(start=ix),
+          metadata_block_ch,
+        )
         is Some(n) {
         ix += n
         break

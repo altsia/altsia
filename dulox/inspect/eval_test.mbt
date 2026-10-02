@@ -57,24 +57,12 @@ test "eval canonical forms" {
 
 ///|
 test "eval decimal literals are rejected" {
-  let raised = try {
-    let _ = @eval.parse("\\eval{2.14}", allow_degenerate=false)
-    false
-  } catch {
-    _ => true
-  }
-  @test.assert_eq(raised, true)
+  @test.assert_raise(() => @eval.parse("\\eval{2.14}", allow_degenerate=false))
 }
 
 ///|
 test "eval integer overflow is rejected" {
-  let raised = try {
-    let _ = @eval.parse("\\eval{2^{31}}", allow_degenerate=false)
-    false
-  } catch {
-    _ => true
-  }
-  @test.assert_eq(raised, true)
+  @test.assert_raise(() => @eval.parse("\\eval{2^{31}}", allow_degenerate=false))
 }
 
 ///|
@@ -92,11 +80,7 @@ test "eval strict mode lowers roots" {
   let normalized = @eval.normalize(@eval.lower_expr(nodes, strict), strict)
   let constant_last = match normalized {
     @eval.Add(children) =>
-      children.length() == 2 &&
-      (match children[1] {
-        @eval.Integer(_) => true
-        _ => false
-      })
+      children.length() == 2 && children[1] is @eval.Integer(_)
     _ => false
   }
   @test.assert_eq(constant_last, true)

@@ -6,30 +6,26 @@ pub fn split_equation(
 ) -> (Array[@katex.ParseNode], Array[@katex.ParseNode]) raise EvalDiagnostic {
   let mut separator : Int? = None
   for i, node in nodes {
-    match node {
-      @katex.ParseNode::Atom(family=@katex.AtomFamily::Mrel, text="=", ..) =>
-        match separator {
-          None => separator = Some(i)
-          Some(_) => raise EvalDiagnostic::make(InvalidEquation)
-        }
-      _ => ()
+    guard node
+      is @katex.ParseNode::Atom(family=@katex.AtomFamily::Mrel, text="=", ..) else {
+      continue
     }
+    guard separator is None else { raise EvalDiagnostic::make(InvalidEquation) }
+    separator = Some(i)
   }
-  match separator {
-    None => raise EvalDiagnostic::make(InvalidEquation)
-    Some(i) => {
-      let lhs : Array[@katex.ParseNode] = []
-      let rhs : Array[@katex.ParseNode] = []
-      for j in 0..<i {
-        lhs.push(nodes[j])
-      }
-      for j in (i + 1)..<nodes.length() {
-        rhs.push(nodes[j])
-      }
-      guard lhs.length() > 0 && rhs.length() > 0 else {
-        raise EvalDiagnostic::make(InvalidEquation)
-      }
-      (lhs, rhs)
-    }
+  guard separator is Some(i) else {
+    raise EvalDiagnostic::make(InvalidEquation)
   }
+  let lhs : Array[@katex.ParseNode] = []
+  let rhs : Array[@katex.ParseNode] = []
+  for j in 0..<i {
+    lhs.push(nodes[j])
+  }
+  for j in (i + 1)..<nodes.length() {
+    rhs.push(nodes[j])
+  }
+  guard lhs.length() > 0 && rhs.length() > 0 else {
+    raise EvalDiagnostic::make(InvalidEquation)
+  }
+  (lhs, rhs)
 }

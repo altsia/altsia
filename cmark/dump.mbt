@@ -172,21 +172,18 @@ fn join_alignments(items : Array[Alignment]) -> String {
 
 ///|
 fn list_str(o : Int64?) -> String {
-  match o {
-    Some(n) => "Some(" + n.to_string() + ")"
-    None => "None"
-  }
+  o.map_or("None", n => "Some(" + n.to_string() + ")")
 }
 
 ///|
 fn blockquote_str(kind : BlockQuoteKind?) -> String {
+  guard kind is Some(kind) else { return "None" }
   match kind {
-    None => "None"
-    Some(Note) => "Note"
-    Some(Tip) => "Tip"
-    Some(Important) => "Important"
-    Some(Warning) => "Warning"
-    Some(Caution) => "Caution"
+    Note => "Note"
+    Tip => "Tip"
+    Important => "Important"
+    Warning => "Warning"
+    Caution => "Caution"
   }
 }
 

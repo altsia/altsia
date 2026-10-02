@@ -200,10 +200,9 @@ fn call_value() -> @talc.StringParser[Value] {
       .optional()
       .bind(trailing => {
         let (positional, named) = pair.unwrap_or(([], Map([])))
-        let positional = match trailing {
-          None => positional
-          Some(blocks) => [..positional, Content(blocks)]
-        }
+        let positional = trailing.map_or(positional, blocks => {
+          [..positional, Content(blocks)]
+        })
         @talc.pure(Call(tag, positional, named))
       })
     })
@@ -270,10 +269,11 @@ fn collect_args(
   let named : Map[String, Value] = Map([])
   for pair in args {
     let (key, value) = pair
-    match key {
-      None => positional.push(value)
-      Some(name) => named.set(name, value)
+    guard key is Some(name) else {
+      positional.push(value)
+      continue
     }
+    named.set(name, value)
   }
   (positional, named)
 }

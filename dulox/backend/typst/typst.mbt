@@ -167,6 +167,9 @@ fn render_node(node : @katex.ParseNode, state : RenderState) -> String {
       "#rect(width: \{render_measurement(width)}, height: \{render_measurement(height)})"
     RaiseBox(dy~, body~, ..) =>
       "#place(dy: \{render_measurement(dy)}, $\{render_node(body, state)}$)"
+    // Preserve the body while explicitly marking unsupported mirroring.
+    ReflectBox(body~, ..) =>
+      "\{unsupported_comment("\\reflectbox/\\mathreflectbox mirroring")}\{render_node(body, state)}"
     HBox(body~, ..) => render_nodes(body, state)
     Lap(..) => unsupported_comment("\\llap/\\rlap/\\clap")
     MathChoice(display~, text~, script~, scriptscript~, ..) =>

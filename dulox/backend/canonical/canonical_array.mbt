@@ -86,11 +86,21 @@ fn write_array_row_gap(
 }
 
 ///|
-/// CD rows are rendered cell by cell: arrow cells produce the `@>label>label>`
-/// (or `@A{label}A{label}A`) syntax, plain cells their content. Empty corner
-/// cells render as nothing.
+/// CD cells are implicit in the source: arrows delimit the neighboring node
+/// cells. Omit padding cells and the final structural empty row; `&` would
+/// begin a new parsed row rather than separate cells in the same row.
 fn render_cd(body : Array[Array[@katex.ParseNode]]) -> String {
-  let rows = body.map(row => row.map(render_cd_cell).join("&"))
+  let rows : Array[String] = []
+  for index, row in body {
+    guard !(index == body.length() - 1 && row.is_empty()) else { continue }
+    let cells : Array[String] = []
+    for cell in row {
+      let text = render_cd_cell(cell)
+      guard text != "" else { continue }
+      cells.push(text)
+    }
+    rows.push(cells.join(" "))
+  }
   "\\begin{CD}\{rows.join("\\\\")}\\end{CD}"
 }
 
@@ -98,6 +108,7 @@ fn render_cd(body : Array[Array[@katex.ParseNode]]) -> String {
 fn render_cd_cell(cell : @katex.ParseNode) -> String {
   match cell {
     @katex.ParseNode::Styling(body=[content], ..) => render_cd_content(content)
+    @katex.ParseNode::Styling(body~, ..) => render_nodes(body)
     _ => render_node(cell)
   }
 }

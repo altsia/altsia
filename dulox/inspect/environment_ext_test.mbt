@@ -8,11 +8,12 @@ fn parens_environment_handler(
 ) -> @katex.ParseNode raise @katex.ParseFailure {
   let array = (context.parse_array)({
     columns: None,
-    array_stretch: 1.0,
+    array_stretch: Some(1.0),
     hskip_before_and_after: false,
     cell_style: @katex.StyleLevel::TextStyle,
     max_columns: Some(1),
     single_row: true,
+    empty_single_row: true,
     auto_tag: None,
     leqno: false,
     add_jot: false,
@@ -42,11 +43,12 @@ fn bracket_environment_handler(
   }
   let array = (context.parse_array)({
     columns: None,
-    array_stretch: 1.0,
+    array_stretch: Some(1.0),
     hskip_before_and_after: false,
     cell_style: @katex.StyleLevel::TextStyle,
     max_columns: Some(1),
     single_row: true,
+    empty_single_row: true,
     auto_tag: None,
     leqno: false,
     add_jot: false,
@@ -70,11 +72,12 @@ fn curly_matrix_environment_handler(
 ) -> @katex.ParseNode raise @katex.ParseFailure {
   let array = (context.parse_array)({
     columns: None,
-    array_stretch: 1.0,
+    array_stretch: Some(1.0),
     hskip_before_and_after: false,
     cell_style: @katex.StyleLevel::TextStyle,
     max_columns: Some(1),
     single_row: true,
+    empty_single_row: true,
     auto_tag: None,
     leqno: false,
     add_jot: false,

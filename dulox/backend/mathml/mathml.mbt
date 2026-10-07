@@ -148,6 +148,7 @@ fn render_node(node : @katex.ParseNode, state : RenderState) -> MathMlNode {
       element("mpadded", children=[render_group(body, state)], attributes=[
         ("voffset", measurement(dy)),
       ])
+    ReflectBox(body~, ..) => render_group(body, state)
     Lap(alignment~, body~, ..) => render_lap(alignment, body, state)
     CdParent(fragment~, ..) =>
       element("mrow", children=[render_group(fragment, state)])

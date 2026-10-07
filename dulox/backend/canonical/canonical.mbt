@@ -68,6 +68,7 @@ fn render_node(node : @katex.ParseNode) -> String {
     Rule(width~, height~, shift~, ..) => render_rule(width, height, shift)
     RaiseBox(dy~, body~, ..) =>
       "\\raisebox{\{render_measurement(dy)}}{\{render_arg(body)}}"
+    ReflectBox(body~, ..) => render_reflectbox(body)
     HBox(body~, ..) => "\\hbox{\{render_nodes(body)}}"
     Lap(alignment~, body~, ..) => render_lap(alignment, body)
     MathChoice(display~, text~, script~, scriptscript~, ..) =>
@@ -258,6 +259,33 @@ fn render_rule(
 ) -> String {
   let shift = shift.map_or("", value => "[\{render_measurement(value)}]")
   "\\rule\{shift}{\{render_measurement(width)}}{\{render_measurement(height)}}"
+}
+
+///|
+/// The hbox argument of `\reflectbox` inserts a text-style wrapper. Remove
+/// that wrapper before emitting the command so parsing recreates it once.
+/// `\mathreflectbox` instead keeps its math argument in the surrounding style.
+fn render_reflectbox(body : @katex.ParseNode) -> String {
+  match body {
+    Styling(
+      mode=Text,
+      body=[OrdGroup(body=nodes, ..)],
+      style=TextStyle,
+      reset_font=true
+    ) => "\\reflectbox{\{join_tight(nodes.map(render_reflectbox_text))}}"
+    _ => "\\mathreflectbox{\{render_arg(body)}}"
+  }
+}
+
+///|
+/// A math fragment inside the hbox is stored as another reset-font styling
+/// node; `$...$` preserves its math mode when the reflected text is re-parsed.
+fn render_reflectbox_text(node : @katex.ParseNode) -> String {
+  match node {
+    Styling(mode=Text, body~, style=TextStyle, reset_font=true) =>
+      "$\{render_nodes(body)}$"
+    _ => render_node(node)
+  }
 }
 
 ///|

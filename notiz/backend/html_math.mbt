@@ -1,4 +1,18 @@
 ///|
+fn render_inline_math(latex : String, options : HtmlOptions) -> Array[Node] {
+  guard !options.disable_math else { [Text("$\{latex}$")] }
+  let rendered = render_math(latex, false, target=options.target) catch {
+    err => err.to_repr().to_string()
+  }
+  guard !rendered.is_empty() else { [] }
+  match options.target {
+    Unicode => [el("span", [attr("class", "math-inline")], [Text(rendered)])]
+    Mathml => [Raw(rendered)]
+    Canonical => [Text("$\{rendered}$")]
+  }
+}
+
+///|
 fn render_display_math(latex : String, options : HtmlOptions) -> Array[Node] {
   guard !options.disable_math else { [Text("$$\{latex}$$")] }
 

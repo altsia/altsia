@@ -13,7 +13,7 @@
 /// call    ::= ident ("(" args? ")")? content-block?
 /// args    ::= arg ("," arg)*
 /// arg     ::= value | ident ":" value
-/// value   ::= number | string | content | comment
+/// value   ::= call | number | string | content | comment
 /// number  ::= [0-9]+
 /// string  ::= "..."           // data; \" \\ escapes
 /// content ::= "[" blocks "]"  // block-level markup; "]" terminates, "#" escapes back
@@ -144,7 +144,7 @@ fn number_literal() -> @talc.StringParser[Value] {
 }
 
 ///|
-/// `value ::= number | string | content | comment` — one typed argument
+/// `value ::= call | number | string | content | comment` — one typed argument
 /// value.
 fn expr_value() -> @talc.StringParser[Value] {
   @talc.choice([
@@ -199,16 +199,8 @@ fn call_parts(
     content_block().skip(inline_spaces())
   }
   identifier().bind(tag => {
-    @talc.spaces()
-    .then(arguments)
-    .attempt()
-    .optional()
-    .bind(pair => {
-      @talc.spaces()
-      .then(content)
-      .attempt()
-      .optional()
-      .bind(trailing => {
+    optional_call_part('(', arguments).bind(pair => {
+      optional_call_part('[', content).bind(trailing => {
         let (positional, named) = pair.unwrap_or(([], Map([])))
         let positional = trailing.map_or(positional, blocks => {
           [..positional, Content(blocks)]
@@ -216,6 +208,18 @@ fn call_parts(
         @talc.pure((tag, positional, named))
       })
     })
+  })
+}
+
+///|
+/// Absence leaves whitespace untouched; an opening delimiter commits errors.
+fn[T] optional_call_part(
+  opener : Char,
+  parser : @talc.StringParser[T],
+) -> @talc.StringParser[T?] {
+  @talc.Parser::new(input => {
+    guard peek_after_ws(input) == Some(opener) else { return Ok((None, input)) }
+    @talc.spaces().then(parser).map(value => Some(value)).run(input)
   })
 }
 
@@ -314,15 +318,18 @@ fn peek_after_ws(input : @talc.Input) -> Char? {
 /// parser and supports element calls.
 ///
 /// TODO(fix): paragraph text inside a content block is a flat sequence of
-/// bare `Text`/`Element` blocks, NOT a `Paragraph` like in document scope
+/// `Text`/`Inline`/`Element` blocks, NOT a `Paragraph` like in document scope
 /// (`note[hello]` → `[Text("hello")]` vs `hello` → `Paragraph(...)`).
-/// Consequence: paragraph-level rendering paths (`<p>` wrapping, empty
-/// paragraph elision, halfwidth punctuation conversion) do not apply to
-/// content block text. The markup inline representation now supports element
-/// calls, but content blocks still use the original flat block flow.
+/// Consequently `<p>` wrapping and empty-paragraph elision do not apply.
+/// Text still supports halfwidth punctuation conversion. The inline AST can
+/// represent element calls, but content blocks still use a flat block flow.
 fn content_block() -> @talc.StringParser[Array[Block]] {
   @talc.char('[')
-  .then(content_block_item().many())
+  .then(
+    @talc.Parser::new(input => {
+      content_block_item(input.cursor()).many().run(input)
+    }),
+  )
   .skip(@talc.char(']'))
   .map(pieces => pieces.flatten())
 }
@@ -333,9 +340,15 @@ fn content_block() -> @talc.StringParser[Array[Block]] {
 /// Tried in this order because a `=`-line must be claimed by `content_heading`
 /// before plain text can misparse it, and a `- ` line must not fall
 /// through to plain text either.
-fn content_block_item() -> @talc.StringParser[Array[Block]] {
-  @talc.delay(() => {
-    @talc.choice([content_heading(), content_list(), content_item()])
+fn content_block_item(start : Int) -> @talc.StringParser[Array[Block]] {
+  @talc.Parser::new(input => {
+    if input.cursor() == start || input.position().column == 1 {
+      @talc.choice([content_heading(), content_list(), content_item()]).run(
+        input,
+      )
+    } else {
+      content_item().run(input)
+    }
   })
 }
 
@@ -348,15 +361,15 @@ fn content_block_item() -> @talc.StringParser[Array[Block]] {
 fn content_heading() -> @talc.StringParser[Array[Block]] {
   @talc.char('=')
   .some()
+  .skip(@talc.space)
+  .attempt()
   .bind(equals => {
-    @talc.space
-    .then(
-      inline_block_item("\r\n]", false).many().map(items => items.flatten()),
-    )
+    inline_block_item("\r\n]", false)
+    .many()
+    .map(items => items.flatten())
     .skip(@talc.newline.optional())
     .map(items => [Heading(equals.length(), items)])
   })
-  .attempt()
 }
 
 ///|
@@ -373,9 +386,10 @@ fn content_list() -> @talc.StringParser[Array[Block]] {
 /// One `- text` line; nested lists are not supported yet.
 fn content_list_item(marker : Char) -> @talc.StringParser[MdListItem] {
   @talc.char(marker)
+  .skip(@talc.space)
+  .attempt()
   .bind(_ => {
-    @talc.space
-    .then(@talc.many_chars(@talc.none_of("\r\n]")))
+    @talc.many_chars(@talc.none_of("\r\n]"))
     .skip(@talc.newline.optional())
     .bind(text => {
       inlines(text.trim().to_owned()).map(ins => {
@@ -385,7 +399,6 @@ fn content_list_item(marker : Char) -> @talc.StringParser[MdListItem] {
       })
     })
   })
-  .attempt()
 }
 
 ///|
@@ -410,30 +423,9 @@ fn escape() -> @talc.StringParser[Array[Block]] {
 }
 
 ///|
-/// The markup inline AST as element blocks. Tag names follow the HTML backend
-/// (`strong`, `em`, `code`, `math`, `footnote-ref`); rendering
-/// semantics stay with the backends.
+/// Keep markup semantics when embedding an inline in headings or content.
 fn desugar_inline(item : Inline) -> Array[Block] {
-  match item {
-    Plain(text) => [Block::Text(text)]
-    Strong(items) =>
-      [
-        Element(
-          "strong",
-          [Content(items.map(desugar_inline).flatten())],
-          Map([]),
-        ),
-      ]
-    Emph(items) =>
-      [Element("em", [Content(items.map(desugar_inline).flatten())], Map([]))]
-    Code(text) => [Element("code", [Content([Block::Text(text)])], Map([]))]
-    Element(tag, positional, named) => [Block::Element(tag, positional, named)]
-    SoftBreak => [Block::Text("\n")]
-    HardBreak => [Block::Text("\n")]
-    InlineMath(latex) =>
-      [Element("math", [Content([Block::Text(latex)])], Map([]))]
-    FootnoteRef(label) => [Element("footnote-ref", [Text(label)], Map([]))]
-  }
+  [Block::Inline(item)]
 }
 
 ///|

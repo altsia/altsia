@@ -102,6 +102,14 @@ fn @parsing.Block::term_render(
     FootnoteDef(label, blocks) =>
       term_render_footnote_def(label, blocks, options)
     Text(s) => term_render_text(s, options)
+    Inline(item) =>
+      term_render_inline(
+        item,
+        options,
+        convert=options.halfwidth_punct,
+        prev=None,
+        next=None,
+      )
     Comment(_) => ""
     Element(tag, positional, named) =>
       term_render_element({ tag, positional, named, }, options)
@@ -138,6 +146,14 @@ fn term_render_thematic_break(options : TerminalOptions) -> String {
   term_style("─".repeat(32), ansi=options.ansi, modifier=[
     @chalk.Modifier::Dim,
   ])
+}
+
+///|
+fn term_render_inline_math(latex : String, options : TerminalOptions) -> String {
+  guard !options.disable_math else { "$\{latex}$" }
+  render_math(latex, false, target=Unicode) catch {
+    err => err.to_repr().to_string()
+  }
 }
 
 ///|
@@ -344,13 +360,7 @@ fn term_render_inline(
       term_render_element({ tag, positional, named, }, options)
     SoftBreak => "\n"
     HardBreak => "\n"
-    InlineMath(latex) => {
-      guard !options.disable_math else { "$\{latex}$" }
-      render_math(latex, false, target=Unicode) catch {
-        // need to check
-        err => err.to_repr().to_string()
-      }
-    }
+    InlineMath(latex) => term_render_inline_math(latex, options)
     FootnoteRef(label) =>
       term_style("[\{label}]", ansi=options.ansi, color=@chalk.Yellow)
   }

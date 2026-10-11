@@ -40,8 +40,9 @@ A #span(class: "note")[short note] in a paragraph.
 ```
 
 Inline calls use the existing element argument syntax and preserve following
-text whitespace. A `#` that does not form a call stays literal; `\#` prevents
-a call from being interpreted. Code and math keep their literal contents.
+text whitespace. A `#` without a call name stays literal; once a call's
+argument list or content block starts, malformed input is an error. `\#`
+prevents a call from being interpreted. Code and math keep their literal contents.
 The shared inline parser also permits calls in list items and table cells,
 subject to their existing line/cell boundaries.
 

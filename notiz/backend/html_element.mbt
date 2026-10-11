@@ -45,7 +45,21 @@ fn render_draft() -> Array[Node] {
 /// attributes.
 fn named_attr(pair : (String, @parsing.Value), options : HtmlOptions) -> Attr {
   let (name, value) = pair
-  attr(name, render_nodes(value.render(options)))
+  attr(name, value.attribute_value(options))
+}
+
+///|
+/// Scalar data is escaped only by Attr::render. Structured values retain
+/// their existing serialized-content behavior until their contract is defined.
+fn @parsing.Value::attribute_value(
+  self : @parsing.Value,
+  options : HtmlOptions,
+) -> String {
+  match self {
+    Text(s) => if options.halfwidth_punct { to_halfwidth_punct(s) } else { s }
+    Integer(n) => n.to_string()
+    _ => render_nodes(self.render(options))
+  }
 }
 
 ///|
@@ -55,10 +69,10 @@ fn named_attr(pair : (String, @parsing.Value), options : HtmlOptions) -> Attr {
 fn render_image(element : ElementData, options : HtmlOptions) -> Array[Node] {
   let positional_src = element.positional
     .get(0)
-    .map(value => render_nodes(value.render(options)))
+    .map(value => value.attribute_value(options))
   let named_src = element.named
     .get("src")
-    .map_or([], value => [attr("src", render_nodes(value.render(options)))])
+    .map_or([], value => [attr("src", value.attribute_value(options))])
   [
     el(
       "img",
@@ -67,7 +81,7 @@ fn render_image(element : ElementData, options : HtmlOptions) -> Array[Node] {
         ..["width", "height", "alt"].filter_map(name => {
           element.named
           .get(name)
-          .map(value => attr(name, render_nodes(value.render(options))))
+          .map(value => attr(name, value.attribute_value(options)))
         }),
       ],
       [],

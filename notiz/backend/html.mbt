@@ -20,7 +20,7 @@ pub fn render_document(
 ///|
 /// The document title for the HTML `<title>` element: the frontmatter
 /// `title` when set, otherwise the plain-text rendering of the first
-/// top-level `#` heading. Empty when neither exists.
+/// top-level `=` heading. Empty when neither exists.
 ///
 /// The heading is rendered with the terminal backend (ANSI off) so that
 /// rich content such as emphasis or math degrades to a readable
@@ -154,6 +154,14 @@ fn @parsing.Block::render(
     Table(header, rows) => render_table(header, rows, options)
     FootnoteDef(label, blocks) => render_footnote_def(label, blocks, options)
     Text(s) => render_text(s, options)
+    Inline(item) =>
+      render_inline(
+        item,
+        options,
+        convert=options.halfwidth_punct,
+        prev=None,
+        next=None,
+      )
     Comment(c) => render_comment(c)
     Element(tag, positional, named) =>
       render_element({ tag, positional, named, }, options)
@@ -362,20 +370,7 @@ fn render_inline(
       render_element({ tag, positional, named, }, options)
     SoftBreak => [Text("\n")]
     HardBreak => [el("br", [], [])]
-    InlineMath(latex) => {
-      guard !options.disable_math else { [Text("$\{latex}$")] }
-      let rendered = render_math(latex, false, target=options.target) catch {
-        // need to check
-        err => err.to_repr().to_string()
-      }
-      guard !rendered.is_empty() else { [] }
-      match options.target {
-        Unicode =>
-          [el("span", [attr("class", "math-inline")], [Text(rendered)])]
-        Mathml => [Raw(rendered)]
-        Canonical => [Text("$\{rendered}$")]
-      }
-    }
+    InlineMath(latex) => render_inline_math(latex, options)
     FootnoteRef(label) =>
       [el("sup", [], [el("a", [attr("href", "#fn:\{label}")], [Text(label)])])]
   }

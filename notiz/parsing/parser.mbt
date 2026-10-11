@@ -30,6 +30,7 @@ pub(all) enum Block {
   Table(TableRow, Array[TableRow])
   FootnoteDef(String, Array[Block])
   Text(String)
+  Inline(Inline)
   Comment(String)
   Element(String, Array[Value], Map[String, Value])
 } derive(Eq, Debug)
@@ -150,13 +151,21 @@ let inline_math : InlineParser = @talc.char('$')
 ///|
 /// An element call in markup. Keep following whitespace in the text flow.
 fn inline_element() -> InlineParser {
-  @talc.char('#')
-  .then(call_parts(preserve_trailing_space=true))
-  .map(parts => {
-    let (tag, positional, named) = parts
-    Inline::Element(tag, positional, named)
+  @talc.Parser::new(input => {
+    guard input.peek() == Some('#') else {
+      return Err(@talc.ParseError::new(input, "element call"))
+    }
+    let rest = input.advance('#')
+    guard identifier().run(rest) is Ok(_) else {
+      return Err(@talc.ParseError::new(input, "element call"))
+    }
+    call_parts(preserve_trailing_space=true)
+    .run(rest)
+    .map(pair => {
+      let ((tag, positional, named), after) = pair
+      (Inline::Element(tag, positional, named), after)
+    })
   })
-  .attempt()
 }
 
 ///|
@@ -272,8 +281,8 @@ let thematic_break : BlockParser = @talc.string("---")
 /// block's `]` in script scope, just newlines in markup. `literal_hash`
 /// selects the escape semantics of the scope — in script content a bare `#`
 /// is a committed error (a failed escape cannot degrade to text), while in
-/// markup a `#` that fails to parse as a script expression stays literal
-/// text (`\#` also escapes it). Nested `*...*`/`_..._` use the markup
+/// markup a `#` that does not start a call can fall back to literal text
+/// (`\#` also escapes it). Malformed calls propagate errors. Nested `*...*`/`_..._` use the markup
 /// inline parser, which supports element calls but not other script values.
 ///
 /// The `delay` breaks the construction cycle `inline_block_item → escape →
@@ -289,7 +298,11 @@ fn inline_block_item(
     let plain = non_special.bind(c => {
       @talc.many_chars(non_special).map(rest => [Block::Text("\{c}\{rest}")])
     })
-    let escape_parser = if literal_hash { escape().attempt() } else { escape() }
+    let escape_parser = if literal_hash {
+      inline_element().map(desugar_inline).or(escape().attempt())
+    } else {
+      escape()
+    }
     let items = [
       @talc.char('\\')
       .then(@talc.one_of(special_chars + "]#"))
@@ -543,8 +556,8 @@ let display_math_block : BlockParser = @talc.string("$$")
 /// `== Title` (Typst style), so a `#`-line that fails to parse as a script
 /// expression is a hard error — `paragraph_line` rejects `#`-starting
 /// lines before `paragraph` is tried. Inside a heading line, `#tag(...)`
-/// also escapes to the script scope, but a failing escape degrades to
-/// literal text instead of an error (see [`inline_block_item`](`inline_block_item`)).
+/// also escapes to the script scope; non-call escapes may fall back to literal
+/// text, while malformed calls are errors (see [`inline_block_item`](`inline_block_item`)).
 let script_block : BlockParser = @talc.char('#')
   .then(script_expr())
   .attempt()

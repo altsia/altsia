@@ -9,9 +9,25 @@ fn term_render_element(
 ) -> String {
   match element.tag {
     "quote" => term_render_quote(element, options)
+    "image" => term_render_image(element, options)
     "draft" => term_render_draft(options)
     _ => element.children().map(b => b.term_render(options)).join("")
   }
+}
+
+///|
+/// `image`: an alt-text placeholder; image content is not rendered.
+fn term_render_image(
+  element : ElementData,
+  options : TerminalOptions,
+) -> String {
+  let alt = element.named
+    .get("alt")
+    .map_or("", value => value.term_render(options))
+  let placeholder = if alt.is_empty() { "[img]" } else { "[img: \{alt}]" }
+  term_style(placeholder, ansi=options.ansi, color=@chalk.Yellow, modifier=[
+    @chalk.Italic,
+  ])
 }
 
 ///|

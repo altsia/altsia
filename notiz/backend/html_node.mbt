@@ -32,7 +32,7 @@ fn attr_flag(name : String) -> Attr {
 
 ///|
 /// Elements that never have a closing tag.
-let void_tags : Array[String] = ["image", "input", "hr", "br", "meta", "link"]
+let void_tags : Array[String] = ["img", "input", "hr", "br", "meta", "link"]
 
 ///|
 fn Node::render(self : Node) -> String {

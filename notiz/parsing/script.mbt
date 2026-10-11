@@ -45,15 +45,6 @@ fn inline_spaces() -> @talc.SParser {
 }
 
 ///|
-/// `token` with non-newline trailing whitespace. The leading whitespace
-/// still spans lines, so `#elem\n(1)` stays a cross-line call; only the
-/// tail is line-bounded, keeping `#elem[x]\n` from reaching into the next
-/// line.
-fn[T] inline_token(parser : @talc.StringParser[T]) -> @talc.StringParser[T] {
-  @talc.spaces().then(parser).skip(inline_spaces())
-}
-
-///|
 /// `ident ::= [a-zA-Z_][a-zA-Z0-9_-]*` — tag names are ASCII.
 fn identifier() -> @talc.StringParser[String] {
   @talc.satisfy("identifier start", c => {
@@ -157,7 +148,10 @@ fn number_literal() -> @talc.StringParser[Value] {
 /// value.
 fn expr_value() -> @talc.StringParser[Value] {
   @talc.choice([
-    call_value(),
+    call_parts().map(parts => {
+      let (tag, positional, named) = parts
+      Value::Call(tag, positional, named)
+    }),
     string_literal().map(s => Value::Text(s)),
     content_block().map(blocks => Value::Content(blocks)),
     comment().map(s => Value::Comment(s)),
@@ -186,16 +180,32 @@ fn flow_of(value : Value) -> Array[Block] {
 }
 
 ///|
-/// `call ::= ident ("(" args? ")")? content-block?`, as a value. The
+/// `call ::= ident ("(" args? ")")? content-block?`. The
 /// trailing content block is at most one item and becomes a positional
 /// `Content` argument, so `elem[bbb] ≡ elem([bbb])`.
-fn call_value() -> @talc.StringParser[Value] {
+/// Markup calls preserve following whitespace; script calls keep their
+/// token whitespace behavior. Whitespace before arguments/content is shared.
+fn call_parts(
+  preserve_trailing_space? : Bool = false,
+) -> @talc.StringParser[(String, Array[Value], Map[String, Value])] {
+  let arguments = if preserve_trailing_space {
+    paren_args()
+  } else {
+    paren_args().skip(@talc.spaces())
+  }
+  let content = if preserve_trailing_space {
+    content_block()
+  } else {
+    content_block().skip(inline_spaces())
+  }
   identifier().bind(tag => {
-    inline_token(paren_args())
+    @talc.spaces()
+    .then(arguments)
     .attempt()
     .optional()
     .bind(pair => {
-      inline_token(content_block())
+      @talc.spaces()
+      .then(content)
       .attempt()
       .optional()
       .bind(trailing => {
@@ -203,7 +213,7 @@ fn call_value() -> @talc.StringParser[Value] {
         let positional = trailing.map_or(positional, blocks => {
           [..positional, Content(blocks)]
         })
-        @talc.pure(Call(tag, positional, named))
+        @talc.pure((tag, positional, named))
       })
     })
   })
@@ -215,7 +225,7 @@ fn call_value() -> @talc.StringParser[Value] {
 fn paren_args() -> @talc.StringParser[(Array[Value], Map[String, Value])] {
   @talc.char('(')
   .then(arg().sep_by(token(@talc.char(','))))
-  .skip(token(@talc.char(')')))
+  .skip(@talc.spaces().then(@talc.char(')')))
   .map(collect_args)
 }
 
@@ -293,25 +303,23 @@ fn peek_after_ws(input : @talc.Input) -> Char? {
 ///|
 /// `content ::= "[" blocks "]"` — block-level markup inside, terminated by
 /// the first unbalanced `]` (`\]` for a literal bracket). Block constructs
-/// that consume their own `]` (`![alt](url)`, `[^label]`) are parsed by
+/// that consume their own `]` (such as `[^label]`) are parsed by
 /// their own productions before the terminator is reached.
 ///
 /// A content block is a sequence of block items: heading lines (`= Title`),
 /// list blocks (`- a` / `+ a`), and inline content (paragraph text, which
 /// keeps soft breaks). Heading lines and paragraphs share the same inline
 /// machinery ([`inline_block_item`](`inline_block_item`)), so script
-/// escapes (`#tag(...)`) work in both; list text is plain markup and does
-/// not support escapes.
+/// escapes (`#tag(...)`) work in both; list text uses the markup inline
+/// parser and supports element calls.
 ///
 /// TODO(fix): paragraph text inside a content block is a flat sequence of
 /// bare `Text`/`Element` blocks, NOT a `Paragraph` like in document scope
 /// (`note[hello]` → `[Text("hello")]` vs `hello` → `Paragraph(...)`).
 /// Consequence: paragraph-level rendering paths (`<p>` wrapping, empty
 /// paragraph elision, halfwidth punctuation conversion) do not apply to
-/// content block text. Root cause: `Paragraph` holds `Array[Inline]` and
-/// cannot contain script escapes (`Element`); unifying requires an inline
-/// representation that can express elements (e.g. an `Element` variant on
-/// `Inline`).
+/// content block text. The markup inline representation now supports element
+/// calls, but content blocks still use the original flat block flow.
 fn content_block() -> @talc.StringParser[Array[Block]] {
   @talc.char('[')
   .then(content_block_item().many())
@@ -403,7 +411,7 @@ fn escape() -> @talc.StringParser[Array[Block]] {
 
 ///|
 /// The markup inline AST as element blocks. Tag names follow the HTML backend
-/// (`strong`, `em`, `code`, `math`, `img`, `footnote-ref`); rendering
+/// (`strong`, `em`, `code`, `math`, `footnote-ref`); rendering
 /// semantics stay with the backends.
 fn desugar_inline(item : Inline) -> Array[Block] {
   match item {
@@ -419,8 +427,7 @@ fn desugar_inline(item : Inline) -> Array[Block] {
     Emph(items) =>
       [Element("em", [Content(items.map(desugar_inline).flatten())], Map([]))]
     Code(text) => [Element("code", [Content([Block::Text(text)])], Map([]))]
-    Image(alt, url) =>
-      [Element("image", [], Map([("alt", Text(alt)), ("src", Text(url))]))]
+    Element(tag, positional, named) => [Block::Element(tag, positional, named)]
     SoftBreak => [Block::Text("\n")]
     HardBreak => [Block::Text("\n")]
     InlineMath(latex) =>

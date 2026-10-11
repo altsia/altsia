@@ -340,13 +340,8 @@ fn term_render_inline(
         modifier=[@chalk.Modifier::Italic],
       )
     Code(text) => term_style(text, ansi=options.ansi, color=@chalk.Cyan)
-    Image(alt, _url) =>
-      term_style(
-        "[img: \{if convert { to_halfwidth_punct(alt) } else { alt }}]",
-        ansi=options.ansi,
-        color=@chalk.Yellow,
-        modifier=[@chalk.Modifier::Italic],
-      )
+    Element(tag, positional, named) =>
+      term_render_element({ tag, positional, named, }, options)
     SoftBreak => "\n"
     HardBreak => "\n"
     InlineMath(latex) => {

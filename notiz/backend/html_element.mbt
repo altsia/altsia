@@ -49,10 +49,9 @@ fn named_attr(pair : (String, @parsing.Value), options : HtmlOptions) -> Attr {
 }
 
 ///|
-/// `img`/`image`: `<img>` with the first positional argument as `src` and
+/// `image`: `<img>` with the first positional argument as `src` and
 /// the named `src`, `width`, `height`, `alt` arguments as attributes.
-/// Children are dropped (void element); the terminal backend ignores the
-/// parameters and renders children as usual.
+/// Children are dropped (void element).
 fn render_image(element : ElementData, options : HtmlOptions) -> Array[Node] {
   let positional_src = element.positional
     .get(0)
@@ -62,7 +61,7 @@ fn render_image(element : ElementData, options : HtmlOptions) -> Array[Node] {
     .map_or([], value => [attr("src", render_nodes(value.render(options)))])
   [
     el(
-      "image",
+      "img",
       [
         ..positional_src.map_or(named_src, src => [attr("src", src)]),
         ..["width", "height", "alt"].filter_map(name => {

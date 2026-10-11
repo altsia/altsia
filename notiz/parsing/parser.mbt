@@ -5,7 +5,7 @@ pub(all) enum Inline {
   Strong(Array[Inline])
   Emph(Array[Inline])
   Code(String)
-  Image(String, String)
+  Element(String, Array[Value], Map[String, Value])
   SoftBreak
   HardBreak
   InlineMath(String)
@@ -85,7 +85,7 @@ pub extend Value with Debug::{to_repr}
 
 ///|
 /// Inline parsers
-pub let special_chars = "*_`[\\$"
+pub let special_chars = "*_`[\\$#"
 
 ///|
 /// A zero-width guard that succeeds iff the next character is NOT `c`.
@@ -148,15 +148,16 @@ let inline_math : InlineParser = @talc.char('$')
   .map(c => InlineMath(c))
 
 ///|
-let link_url : @talc.SParser = @talc.char('(')
-  .then(@talc.many_chars(@talc.none_of(")")))
-  .skip(@talc.char(')'))
-
-///|
-let image : InlineParser = @talc.string("![")
-  .then(@talc.many_chars(@talc.none_of("]")))
-  .skip(@talc.char(']'))
-  .bind(alt => link_url.map(url => Image(alt, url)))
+/// An element call in markup. Keep following whitespace in the text flow.
+fn inline_element() -> InlineParser {
+  @talc.char('#')
+  .then(call_parts(preserve_trailing_space=true))
+  .map(parts => {
+    let (tag, positional, named) = parts
+    Inline::Element(tag, positional, named)
+  })
+  .attempt()
+}
 
 ///|
 fn footnote_ref() -> InlineParser {
@@ -212,7 +213,7 @@ fn inline() -> InlineParser {
     @talc.choice([
       hard_break,
       escaped,
-      image,
+      inline_element(),
       footnote_ref(),
       strong(),
       emph(),
@@ -221,6 +222,7 @@ fn inline() -> InlineParser {
       soft_break,
       plain_char,
       plain_bracket,
+      @talc.char('#').map(_ => Plain("#")),
     ])
   })
 }
@@ -271,9 +273,8 @@ let thematic_break : BlockParser = @talc.string("---")
 /// selects the escape semantics of the scope — in script content a bare `#`
 /// is a committed error (a failed escape cannot degrade to text), while in
 /// markup a `#` that fails to parse as a script expression stays literal
-/// text (`\#` also escapes it). The escape works at this top level only —
-/// inside `*...*`/`_..._` the content is parsed by the plain markup inline
-/// parser, which does not know the script scope.
+/// text (`\#` also escapes it). Nested `*...*`/`_..._` use the markup
+/// inline parser, which supports element calls but not other script values.
 ///
 /// The `delay` breaks the construction cycle `inline_block_item → escape →
 /// script_expr → content_block → content_block_item → content_item →
@@ -293,7 +294,6 @@ fn inline_block_item(
       @talc.char('\\')
       .then(@talc.one_of(special_chars + "]#"))
       .map(c => [Block::Text(c.to_string())]),
-      image.map(desugar_inline),
       footnote_ref().map(desugar_inline),
       strong().map(desugar_inline),
       emph().map(desugar_inline),

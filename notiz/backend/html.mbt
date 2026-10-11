@@ -337,7 +337,7 @@ fn render_inlines(
       ),
     )
   }
-  out
+  out.flatten()
 }
 
 ///|
@@ -347,42 +347,36 @@ fn render_inline(
   convert~ : Bool,
   prev~ : Char?,
   next~ : Char?,
-) -> Node {
+) -> Array[Node] {
   match inline {
     Plain(s) => {
-      guard convert else { Text(s) }
-      Text(to_halfwidth_punct(s, prev~, next~))
+      guard convert else { [Text(s)] }
+      [Text(to_halfwidth_punct(s, prev~, next~))]
     }
     Strong(inlines) =>
-      el("strong", [], render_inlines(inlines, options, prev~, next~))
+      [el("strong", [], render_inlines(inlines, options, prev~, next~))]
     Emph(inlines) =>
-      el("em", [], render_inlines(inlines, options, prev~, next~))
-    Code(s) => el("code", [], [Text(s)])
-    Image(alt, url) =>
-      el(
-        "image",
-        [
-          attr("src", url),
-          attr("alt", if convert { to_halfwidth_punct(alt) } else { alt }),
-        ],
-        [],
-      )
-    SoftBreak => Text("\n")
-    HardBreak => el("br", [], [])
+      [el("em", [], render_inlines(inlines, options, prev~, next~))]
+    Code(s) => [el("code", [], [Text(s)])]
+    Element(tag, positional, named) =>
+      render_element({ tag, positional, named, }, options)
+    SoftBreak => [Text("\n")]
+    HardBreak => [el("br", [], [])]
     InlineMath(latex) => {
-      guard !options.disable_math else { Text("$\{latex}$") }
+      guard !options.disable_math else { [Text("$\{latex}$")] }
       let rendered = render_math(latex, false, target=options.target) catch {
         // need to check
         err => err.to_repr().to_string()
       }
-      guard !rendered.is_empty() else { Raw("") }
+      guard !rendered.is_empty() else { [] }
       match options.target {
-        Unicode => el("span", [attr("class", "math-inline")], [Text(rendered)])
-        Mathml => Raw(rendered)
-        Canonical => Text("$\{rendered}$")
+        Unicode =>
+          [el("span", [attr("class", "math-inline")], [Text(rendered)])]
+        Mathml => [Raw(rendered)]
+        Canonical => [Text("$\{rendered}$")]
       }
     }
     FootnoteRef(label) =>
-      el("sup", [], [el("a", [attr("href", "#fn:\{label}")], [Text(label)])])
+      [el("sup", [], [el("a", [attr("href", "#fn:\{label}")], [Text(label)])])]
   }
 }

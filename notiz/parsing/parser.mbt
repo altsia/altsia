@@ -5,7 +5,7 @@ pub(all) enum Inline {
   Strong(Array[Inline])
   Emph(Array[Inline])
   Code(String)
-  Element(String, Array[Value], Map[String, Value])
+  Content(Array[Block])
   SoftBreak
   HardBreak
   InlineMath(String)
@@ -20,7 +20,7 @@ pub extend Inline with Debug::{to_repr}
 
 ///|
 pub(all) enum Block {
-  Heading(Int, Array[Block])
+  Heading(Int, Array[Block], Map[String, Value])
   Paragraph(Array[Inline])
   UnorderedList(Array[MdListItem])
   OrderedList(Array[MdListItem])
@@ -124,7 +124,7 @@ let soft_break : InlineParser = @talc.newline.map(_ => SoftBreak)
 
 ///|
 let escaped : InlineParser = @talc.char('\\')
-  .then(@talc.one_of(special_chars))
+  .then(@talc.one_of(special_chars + "]"))
   .map(c => Plain(c.to_string()))
 
 ///|
@@ -149,23 +149,9 @@ let inline_math : InlineParser = @talc.char('$')
   .map(c => InlineMath(c))
 
 ///|
-/// An element call in markup. Keep following whitespace in the text flow.
-fn inline_element() -> InlineParser {
-  @talc.Parser::new(input => {
-    guard input.peek() == Some('#') else {
-      return Err(@talc.ParseError::new(input, "element call"))
-    }
-    let rest = input.advance('#')
-    guard identifier().run(rest) is Ok(_) else {
-      return Err(@talc.ParseError::new(input, "element call"))
-    }
-    call_parts(preserve_trailing_space=true)
-    .run(rest)
-    .map(pair => {
-      let ((tag, positional, named), after) = pair
-      (Inline::Element(tag, positional, named), after)
-    })
-  })
+/// Evaluate a script expression without consuming following markup whitespace.
+fn inline_script() -> InlineParser {
+  escape().map(blocks => Inline::Content(blocks))
 }
 
 ///|
@@ -222,7 +208,7 @@ fn inline() -> InlineParser {
     @talc.choice([
       hard_break,
       escaped,
-      inline_element(),
+      inline_script(),
       footnote_ref(),
       strong(),
       emph(),
@@ -231,7 +217,6 @@ fn inline() -> InlineParser {
       soft_break,
       plain_char,
       plain_bracket,
-      @talc.char('#').map(_ => Plain("#")),
     ])
   })
 }
@@ -274,52 +259,36 @@ let thematic_break : BlockParser = @talc.string("---")
 
 ///|
 /// One inline item of block-level content: plain text, markup inlines, and
-/// the script escape `#tag(...)` — shared by document headings, content
+/// the script escape `#expr` — shared by document headings, content
 /// paragraphs, and content headings.
 ///
 /// `terminators` is the character set that ends the inline run: the content
-/// block's `]` in script scope, just newlines in markup. `literal_hash`
-/// selects the escape semantics of the scope — in script content a bare `#`
-/// is a committed error (a failed escape cannot degrade to text), while in
-/// markup a `#` that does not start a call can fall back to literal text
-/// (`\#` also escapes it). Malformed calls propagate errors. Nested `*...*`/`_..._` use the markup
-/// inline parser, which supports element calls but not other script values.
+/// block's `]` in script scope, just newlines in markup. Every unescaped `#`
+/// starts a script expression; a failed expression is a syntax error.
 ///
 /// The `delay` breaks the construction cycle `inline_block_item → escape →
 /// script_expr → content_block → content_block_item → content_item →
 /// inline_block_item`; without it, building the parser tree at module load
 /// recurses forever.
-fn inline_block_item(
-  terminators : String,
-  literal_hash : Bool,
-) -> @talc.StringParser[Array[Block]] {
+fn inline_block_item(terminators : String) -> @talc.StringParser[Array[Block]] {
   @talc.delay(() => {
-    let non_special = @talc.none_of(special_chars + "#" + terminators)
+    let non_special = @talc.none_of(special_chars + terminators)
     let plain = non_special.bind(c => {
       @talc.many_chars(non_special).map(rest => [Block::Text("\{c}\{rest}")])
     })
-    let escape_parser = if literal_hash {
-      inline_element().map(desugar_inline).or(escape().attempt())
-    } else {
-      escape()
-    }
-    let items = [
+    @talc.choice([
       @talc.char('\\')
-      .then(@talc.one_of(special_chars + "]#"))
+      .then(@talc.one_of(special_chars + "]"))
       .map(c => [Block::Text(c.to_string())]),
       footnote_ref().map(desugar_inline),
       strong().map(desugar_inline),
       emph().map(desugar_inline),
       inline_math.map(desugar_inline),
       code_span.map(desugar_inline),
-      escape_parser,
-    ]
-    if literal_hash {
-      items.push(@talc.char('#').map(_ => [Block::Text("#")]))
-    }
-    items.push(plain)
-    items.push(@talc.char('[').map(_ => [Block::Text("[")]))
-    @talc.choice(items)
+      escape(),
+      plain,
+      @talc.char('[').map(_ => [Block::Text("[")]),
+    ])
   })
 }
 
@@ -337,12 +306,21 @@ fn heading_prefix() -> @talc.StringParser[Int] {
 
 ///|
 let heading : BlockParser = heading_prefix().bind(level => {
-  inline_block_item("\r\n", true)
+  inline_block_item("\r\n")
   .many()
   .map(items => items.flatten())
   .skip(line_end)
-  .map(items => Heading(level, items))
+  .map(items => make_heading(level, items, Map([])))
 })
+
+///|
+fn make_heading(
+  level : Int,
+  items : Array[Block],
+  attributes : Map[String, Value],
+) -> Block {
+  Heading(level.max(1).min(6), items, attributes)
+}
 
 ///|
 let rest_of_line : @talc.SParser = @talc.many_chars1(@talc.not_newline)
@@ -452,7 +430,16 @@ let table_delimiter : @talc.StringParser[Unit] = @talc.Parser::new(input => {
 ///|
 pub fn table() -> BlockParser {
   table_row().bind(header => {
-    table_delimiter.then(table_row().many()).map(rows => Table(header, rows))
+    table_delimiter
+    .then(table_row().many())
+    .map(rows => {
+      for row in rows {
+        for _ in header.cells.length()..<row.cells.length() {
+          header.cells.push([])
+        }
+      }
+      Table(header, rows)
+    })
   })
 }
 
@@ -562,37 +549,25 @@ let display_math_block : BlockParser = @talc.string("$$")
 ///|
 /// `#expr` — a script block: the document-level escape from markup into
 /// the script scope. No whitespace is allowed between `#` and the expression.
-/// `script_expr` runs the full script grammar, so a block
-/// may be a call (`#note[...]`), a string, a content block, or a comment.
-///
-/// `#` is the escape marker and nothing else: headings are `= Title` /
-/// `== Title` (Typst style), so a `#`-line that fails to parse as a script
-/// expression is a hard error — `paragraph_line` rejects `#`-starting
-/// lines before `paragraph` is tried. Inside a heading line, `#tag(...)`
-/// also escapes to the script scope; non-call escapes may fall back to literal
-/// text, while malformed calls are errors (see [`inline_block_item`](`inline_block_item`)).
-let script_block : BlockParser = @talc.char('#')
-  .then(script_expr())
-  .attempt()
-  .bind(items => {
-    guard items.length() == 1 else { @talc.fail("a single script expression") }
-    @talc.pure(items[0])
-  })
+/// The expression's result is spliced into the document flow.
+let script_block : @talc.StringParser[Array[Block]] = escape()
 
 ///|
 /// Document
-fn block() -> BlockParser {
+fn block() -> @talc.StringParser[Array[Block]] {
   @talc.choice([
-    thematic_break,
     script_block,
-    heading,
-    fenced_code,
-    display_math_block,
-    footnote_def,
-    table(),
-    unordered_list,
-    ordered_list,
-    paragraph,
+    @talc.choice([
+      thematic_break,
+      heading,
+      fenced_code,
+      display_math_block,
+      footnote_def,
+      table(),
+      unordered_list,
+      ordered_list,
+      paragraph,
+    ]).map(item => [item]),
   ])
 }
 
@@ -600,7 +575,12 @@ fn block() -> BlockParser {
 fn blocks() -> @talc.StringParser[Array[Block]] {
   block()
   .bind(head => {
-    blank_line.many().then(block()).attempt().many().map(tail => [head, ..tail])
+    blank_line
+    .many()
+    .then(block())
+    .attempt()
+    .many()
+    .map(tail => [head, ..tail].flatten())
   })
   .or(@talc.pure([]))
 }

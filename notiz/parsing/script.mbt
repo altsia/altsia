@@ -2,9 +2,8 @@
 /// The script scope: a Typst-style call syntax layered on top of the markup
 /// scope. A script source is a sequence of expressions — calls, strings,
 /// content blocks, comments — compiled to the single block tree. Whitespace
-/// is skipped between tokens; comments are NOT whitespace — they are
-/// expressions that produce [`Comment`](`Comment`) nodes, and inside an
-/// argument list a comment is a syntax error.
+/// is skipped between tokens. Comments are values, including in argument
+/// lists, and produce [`Comment`](`Comment`) nodes in document flow.
 ///
 /// Grammar:
 ///
@@ -31,18 +30,6 @@
 /// Wraps `parser` as a token, skipping surrounding whitespace.
 fn[T] token(parser : @talc.StringParser[T]) -> @talc.StringParser[T] {
   @talc.spaces().then(parser).skip(@talc.spaces())
-}
-
-///|
-/// Non-newline whitespace: the trailing-token variant for the tail of a
-/// call. A call must not swallow the newline that follows it — the end of a
-/// line is where single-line structures (headings, script blocks) stop.
-fn inline_spaces() -> @talc.SParser {
-  @talc.many_chars(
-    @talc.satisfy("non-newline whitespace", c => {
-      Char::is_whitespace(c) && c != '\n' && c != '\r'
-    }),
-  )
 }
 
 ///|
@@ -169,12 +156,35 @@ fn script_expr() -> @talc.StringParser[Array[Block]] {
 }
 
 ///|
-/// The document-flow rendering of a value.
-fn flow_of(value : Value) -> Array[Block] {
+/// Converts a script value to document nodes before backend rendering.
+pub fn flow_of(value : Value) -> Array[Block] {
   match value {
     Text(s) => [Block::Text(s)]
     Integer(n) => [Block::Text(n.to_string())]
     Content(blocks) => blocks
+    Call("heading", positional, named) => {
+      let level = if named.get("level") is Some(Integer(level)) {
+        level
+      } else {
+        1
+      }
+      let content = positional
+        .filter_map(value => {
+          guard value is Content(blocks) else { return None }
+          Some(blocks)
+        })
+        .flatten()
+      let attributes = Map(
+        named
+        .iter()
+        .filter_map(pair => {
+          guard pair.0 != "level" else { return None }
+          Some(pair)
+        })
+        .to_array(),
+      )
+      [make_heading(level, content, attributes)]
+    }
     Call(tag, positional, named) => [Element(tag, positional, named)]
     Comment(s) => [Block::Comment(s)]
   }
@@ -184,28 +194,51 @@ fn flow_of(value : Value) -> Array[Block] {
 /// `call ::= ident ("(" args? ")")? content-block?`. The
 /// trailing content block is at most one item and becomes a positional
 /// `Content` argument, so `elem[bbb] ≡ elem([bbb])`.
-/// Markup calls preserve following whitespace; script calls keep their
-/// token whitespace behavior. Whitespace before arguments/content is shared.
-fn call_parts(
-  preserve_trailing_space? : Bool = false,
-) -> @talc.StringParser[(String, Array[Value], Map[String, Value])] {
-  let arguments = if preserve_trailing_space {
-    paren_args()
-  } else {
-    paren_args().skip(@talc.spaces())
-  }
-  let content = if preserve_trailing_space {
-    content_block()
-  } else {
-    content_block().skip(inline_spaces())
-  }
+/// Whitespace after a call belongs to the surrounding scope.
+fn call_parts() -> @talc.StringParser[
+  (String, Array[Value], Map[String, Value]),
+] {
   identifier().bind(tag => {
-    optional_call_part('(', arguments).bind(pair => {
-      optional_call_part('[', content).bind(trailing => {
+    optional_call_part('(', paren_args()).bind(pair => {
+      optional_call_part('[', content_block()).bind(trailing => {
         let (positional, named) = pair.unwrap_or(([], Map([])))
         let positional = trailing.map_or(positional, blocks => {
           [..positional, Content(blocks)]
         })
+        for pair in named.iter() {
+          let (name, value) = pair
+          match (tag, name) {
+            ("heading", "level") => {
+              guard value is Integer(_) else {
+                return @talc.fail("heading level must be an integer")
+              }
+            }
+            ("image", "width") | ("image", "height") => {
+              guard value is Text(_) || value is Integer(_) else {
+                return @talc.fail("image \{name} must be a string or integer")
+              }
+            }
+            ("quote", _) | ("draft", _) | ("pagebreak", _) => ()
+            _ => {
+              guard value is Text(_) else {
+                return @talc.fail("\{tag} attribute \{name} must be a string")
+              }
+            }
+          }
+        }
+        if tag == "image" {
+          guard positional.length() <= 1 else {
+            return @talc.fail("image accepts at most one positional argument")
+          }
+          let src = if positional.is_empty() {
+            named.get("src")
+          } else {
+            positional.get(0)
+          }
+          guard src is Some(Text(_)) else {
+            return @talc.fail("image requires a string path")
+          }
+        }
         @talc.pure((tag, positional, named))
       })
     })
@@ -315,15 +348,15 @@ fn peek_after_ws(input : @talc.Input) -> Char? {
 /// list blocks (`- a` / `+ a`), and inline content (paragraph text, which
 /// keeps soft breaks). Heading lines and paragraphs share the same inline
 /// machinery ([`inline_block_item`](`inline_block_item`)), so script
-/// escapes (`#tag(...)`) work in both; list text uses the markup inline
-/// parser and supports element calls.
+/// escapes (`#expr`) work in both; list text uses the same script expressions
+/// through the markup inline parser.
 ///
 /// TODO(fix): paragraph text inside a content block is a flat sequence of
 /// `Text`/`Inline`/`Element` blocks, NOT a `Paragraph` like in document scope
 /// (`note[hello]` → `[Text("hello")]` vs `hello` → `Paragraph(...)`).
 /// Consequently `<p>` wrapping and empty-paragraph elision do not apply.
 /// Text still supports halfwidth punctuation conversion. The inline AST can
-/// represent element calls, but content blocks still use a flat block flow.
+/// embed script results, but content blocks still use a flat block flow.
 fn content_block() -> @talc.StringParser[Array[Block]] {
   @talc.char('[')
   .then(
@@ -360,11 +393,11 @@ fn content_block_item(start : Int) -> @talc.StringParser[Array[Block]] {
 /// inside headings. The shared prefix enforces levels 1 to 6 and a separator.
 fn content_heading() -> @talc.StringParser[Array[Block]] {
   heading_prefix().bind(level => {
-    inline_block_item("\r\n]", false)
+    inline_block_item("\r\n]")
     .many()
     .map(items => items.flatten())
     .skip(@talc.newline.optional())
-    .map(items => [Heading(level, items)])
+    .map(items => [make_heading(level, items, Map([]))])
   })
 }
 
@@ -406,14 +439,13 @@ fn content_item() -> @talc.StringParser[Array[Block]] {
     @talc.choice([
       hard_break.map(desugar_inline),
       soft_break.map(desugar_inline),
-      inline_block_item("\r\n]", false),
+      inline_block_item("\r\n]"),
     ])
   })
 }
 
 ///|
-/// `#` — the markup-to-script escape inside content blocks: `#tag(...)`
-/// parses a script expression immediately after `#`, without whitespace.
+/// The shared markup-to-script escape: evaluate immediately after `#`.
 fn escape() -> @talc.StringParser[Array[Block]] {
   @talc.char('#').then(script_expr())
 }

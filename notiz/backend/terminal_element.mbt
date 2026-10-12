@@ -10,6 +10,7 @@ fn term_render_element(
   match element.tag {
     "quote" => term_render_quote(element, options)
     "image" => term_render_image(element, options)
+    "pagebreak" => "\n\n"
     "draft" => term_render_draft(options)
     _ => element.children().map(b => b.term_render(options)).join("")
   }
@@ -60,8 +61,8 @@ fn term_render_quote(
 
 ///|
 /// The terminal rendering of an argument value: text renders as its text,
-/// a `Content` value as its block flow, and a nested `Call` recurses into
-/// `term_render_element`.
+/// a `Content` value as its block flow, and a nested `Call` uses the same
+/// document-node conversion as a call in markup.
 fn @parsing.Value::term_render(
   self : @parsing.Value,
   options : TerminalOptions,
@@ -70,8 +71,8 @@ fn @parsing.Value::term_render(
     Text(s) => term_render_text(s, options)
     Integer(n) => n.to_string()
     Content(blocks) => blocks.map(b => b.term_render(options)).join("")
-    Call(tag, positional, named) =>
-      term_render_element({ tag, positional, named, }, options)
+    Call(_, _, _) =>
+      @parsing.flow_of(self).map(block => block.term_render(options)).join("")
     Comment(_) => ""
   }
 }

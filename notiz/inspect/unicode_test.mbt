@@ -108,7 +108,7 @@ test "table with empty header renders" {
 
 ///|
 test "terminal document default renders ansi" {
-  let blocks = [@parsing.Heading(1, [@parsing.Text("Title")])]
+  let blocks = [@parsing.Heading(1, [@parsing.Text("Title")], Map([]))]
   @test.assert_eq(
     @backend.render_terminal_document(blocks).contains("\u{1b}"),
     true,
@@ -117,7 +117,7 @@ test "terminal document default renders ansi" {
 
 ///|
 test "terminal document plain text has no ansi" {
-  let blocks = [@parsing.Heading(1, [@parsing.Text("Title")])]
+  let blocks = [@parsing.Heading(1, [@parsing.Text("Title")], Map([]))]
   @test.assert_eq(
     @backend.render_terminal_document(blocks, ansi=false),
     "Title",

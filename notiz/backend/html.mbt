@@ -20,7 +20,7 @@ pub fn render_document(
 ///|
 /// The document title for the HTML `<title>` element: the frontmatter
 /// `title` when set, otherwise the plain-text rendering of the first
-/// top-level `=` heading. Empty when neither exists.
+/// top-level level-1 heading. Empty when neither exists.
 ///
 /// The heading is rendered with the terminal backend (ANSI off) so that
 /// rich content such as emphasis or math degrades to a readable
@@ -32,9 +32,9 @@ pub fn page_title(
   let title = frontmatter.builtin.title
   guard title.is_empty() else { title }
   for block in blocks {
-    guard block is Heading(1, blocks) else { continue }
+    guard block is Heading(1, _, _) else { continue }
     return render_terminal_document(
-      [Heading(1, blocks)],
+      [block],
       line_style=Unicode,
       ansi=false,
       disable_math=false,
@@ -144,7 +144,8 @@ fn @parsing.Block::render(
   options : HtmlOptions,
 ) -> Array[Node] {
   match self {
-    Heading(level, blocks) => render_heading(level, blocks, options)
+    Heading(level, blocks, attributes) =>
+      render_heading(level, blocks, attributes, options)
     Paragraph(inlines) => render_paragraph(inlines, options)
     UnorderedList(items) => render_list(items, "ul", options)
     OrderedList(items) => render_list(items, "ol", options)
@@ -172,9 +173,11 @@ fn @parsing.Block::render(
 fn render_heading(
   level : Int,
   blocks : Array[@parsing.Block],
+  attributes : Map[String, @parsing.Value],
   options : HtmlOptions,
 ) -> Array[Node] {
-  [el("h\{level}", [], blocks.map(b => b.render(options)).flatten())]
+  let attrs = attributes.iter().map(named_attr).to_array()
+  [el("h\{level}", attrs, blocks.map(block => block.render(options)).flatten())]
 }
 
 ///|
@@ -366,8 +369,7 @@ fn render_inline(
     Emph(inlines) =>
       [el("em", [], render_inlines(inlines, options, prev~, next~))]
     Code(s) => [el("code", [], [Text(s)])]
-    Element(tag, positional, named) =>
-      render_element({ tag, positional, named, }, options)
+    Content(blocks) => blocks.map(block => block.render(options)).flatten()
     SoftBreak => [Text("\n")]
     HardBreak => [el("br", [], [])]
     InlineMath(latex) => render_inline_math(latex, options)

@@ -91,7 +91,7 @@ fn @parsing.Block::term_render(
   options : TerminalOptions,
 ) -> String {
   match self {
-    Heading(level, blocks) => term_render_heading(level, blocks, options)
+    Heading(level, blocks, _) => term_render_heading(level, blocks, options)
     Paragraph(inlines) => term_render_inlines(inlines, options)
     UnorderedList(items) => term_render_list(items, options)
     OrderedList(items) => term_render_ordered_list(items, options)
@@ -356,8 +356,7 @@ fn term_render_inline(
         modifier=[@chalk.Modifier::Italic],
       )
     Code(text) => term_style(text, ansi=options.ansi, color=@chalk.Cyan)
-    Element(tag, positional, named) =>
-      term_render_element({ tag, positional, named, }, options)
+    Content(blocks) => blocks.map(block => block.term_render(options)).join("")
     SoftBreak => "\n"
     HardBreak => "\n"
     InlineMath(latex) => term_render_inline_math(latex, options)

@@ -5,8 +5,7 @@
 fn render_element(element : ElementData, options : HtmlOptions) -> Array[Node] {
   match element.tag {
     "quote" => render_quote(element, options)
-    "image" => render_image(element, options)
-    "heading" => render_heading_element(element, options)
+    "image" => render_image(element)
     "pagebreak" => render_pagebreak()
     "draft" => render_draft()
     _ => render_generic_element(element, options)
@@ -43,22 +42,19 @@ fn render_draft() -> Array[Node] {
 ///|
 /// One named argument as an attribute; positional arguments are not
 /// attributes.
-fn named_attr(pair : (String, @parsing.Value), options : HtmlOptions) -> Attr {
+fn named_attr(pair : (String, @parsing.Value)) -> Attr {
   let (name, value) = pair
-  attr(name, value.attribute_value(options))
+  attr(name, value.attribute_value())
 }
 
 ///|
-/// Scalar data is escaped only by Attr::render. Structured values retain
-/// their existing serialized-content behavior until their contract is defined.
-fn @parsing.Value::attribute_value(
-  self : @parsing.Value,
-  options : HtmlOptions,
-) -> String {
+/// Attribute types are checked before rendering. Preserve data literally;
+/// escaping belongs to Attr::render, not the document text renderer.
+fn @parsing.Value::attribute_value(self : @parsing.Value) -> String {
   match self {
-    Text(s) => if options.halfwidth_punct { to_halfwidth_punct(s) } else { s }
+    Text(s) => s
     Integer(n) => n.to_string()
-    _ => render_nodes(self.render(options))
+    _ => abort("unvalidated attribute value")
   }
 }
 
@@ -66,59 +62,25 @@ fn @parsing.Value::attribute_value(
 /// `image`: `<img>` with the first positional argument as `src` and
 /// the named `src`, `width`, `height`, `alt` arguments as attributes.
 /// Children are dropped (void element).
-fn render_image(element : ElementData, options : HtmlOptions) -> Array[Node] {
+fn render_image(element : ElementData) -> Array[Node] {
   let positional_src = element.positional
     .get(0)
-    .map(value => value.attribute_value(options))
+    .map(value => value.attribute_value())
   let named_src = element.named
     .get("src")
-    .map_or([], value => [attr("src", value.attribute_value(options))])
+    .map_or([], value => [attr("src", value.attribute_value())])
   [
     el(
       "img",
       [
         ..positional_src.map_or(named_src, src => [attr("src", src)]),
         ..["width", "height", "alt"].filter_map(name => {
-          element.named
-          .get(name)
-          .map(value => attr(name, value.attribute_value(options)))
+          element.named.get(name).map(value => named_attr((name, value)))
         }),
       ],
       [],
     ),
   ]
-}
-
-///|
-/// `heading`: `<h{level}>` with named arguments as attributes. The `level`
-/// argument is consumed (an `Integer`, or an integer `Text`); missing or
-/// unparsable levels default to 1, and the level is clamped to 1..6. The
-/// children render through the normal block pipeline.
-fn render_heading_element(
-  element : ElementData,
-  options : HtmlOptions,
-) -> Array[Node] {
-  let level = element.named
-    .get("level")
-    .map_or(1, value => {
-      match value {
-        Integer(n) => n.max(1).min(6)
-        Text(s) => {
-          let n = @string.parse_int(s) catch { _ => 1 }
-          n.max(1).min(6)
-        }
-        _ => 1
-      }
-    })
-  let attrs = element.named
-    .iter()
-    .filter_map(pair => {
-      let (name, _value) = pair
-      guard name != "level" else { return None }
-      Some(named_attr(pair, options))
-    })
-    .to_array()
-  [el("h\{level}", attrs, join_blocks(element.children(), options))]
 }
 
 ///|
@@ -129,10 +91,7 @@ fn render_generic_element(
   element : ElementData,
   options : HtmlOptions,
 ) -> Array[Node] {
-  let attrs = element.named
-    .iter()
-    .map(pair => named_attr(pair, options))
-    .to_array()
+  let attrs = element.named.iter().map(named_attr).to_array()
   [
     el(
       element.tag,
@@ -165,8 +124,8 @@ fn render_quote(element : ElementData, options : HtmlOptions) -> Array[Node] {
 
 ///|
 /// The HTML rendering of an argument value: text values render as text,
-/// a `Content` value as its block flow, and a nested `Call` recurses into
-/// `render_element`.
+/// a `Content` value as its block flow, and a nested `Call` uses the same
+/// document-node conversion as a call in markup.
 fn @parsing.Value::render(
   self : @parsing.Value,
   options : HtmlOptions,
@@ -175,8 +134,8 @@ fn @parsing.Value::render(
     Text(s) => render_text(s, options)
     Integer(n) => [Text(n.to_string())]
     Content(blocks) => join_blocks(blocks, options)
-    Call(tag, positional, named) =>
-      render_element({ tag, positional, named, }, options)
+    Call(_, _, _) =>
+      @parsing.flow_of(self).map(block => block.render(options)).flatten()
     Comment(s) => render_comment(s)
   }
 }

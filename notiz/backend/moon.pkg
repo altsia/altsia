@@ -6,6 +6,5 @@ import {
   "kokic/dulox/backend/mathml",
   "kokic/dulox/backend/canonical",
   "kokic/cmark",
-  "moonbitlang/core/string",
   "moonbit-community/chalk",
 }

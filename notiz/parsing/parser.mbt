@@ -86,7 +86,7 @@ pub extend Value with Debug::{to_repr}
 
 ///|
 /// Inline parsers
-pub let special_chars = "*_`[\\$#"
+pub let special_chars = "*_`[\\$#="
 
 ///|
 /// A zero-width guard that succeeds iff the next character is NOT `c`.
@@ -324,14 +324,25 @@ fn inline_block_item(
 }
 
 ///|
-let heading : BlockParser = @talc.char('=')
+/// Heading markers have one to six equals signs followed by whitespace.
+fn heading_prefix() -> @talc.StringParser[Int] {
+  @talc.char('=')
   .some()
   .bind(equals => {
-    @talc.space
-    .then(inline_block_item("\r\n", true).many().map(items => items.flatten()))
-    .skip(line_end)
-    .map(items => Heading(equals.length(), items))
+    let level = equals.length()
+    guard level <= 6 else { @talc.fail("heading level must be 1 to 6") }
+    @talc.space.map(_ => level)
   })
+}
+
+///|
+let heading : BlockParser = heading_prefix().bind(level => {
+  inline_block_item("\r\n", true)
+  .many()
+  .map(items => items.flatten())
+  .skip(line_end)
+  .map(items => Heading(level, items))
+})
 
 ///|
 let rest_of_line : @talc.SParser = @talc.many_chars1(@talc.not_newline)
@@ -369,6 +380,7 @@ let paragraph_line : @talc.SParser = blank_line
   .then(@talc.string("---").not_followed_by("\"---\""))
   .then(@talc.string("```").not_followed_by("\"```\""))
   .then(@talc.string("$$").not_followed_by("\"$$\""))
+  .then(delim('='))
   .then(@talc.char('-').then(@talc.space).not_followed_by("'- '"))
   .then(@talc.char('+').then(@talc.space).not_followed_by("'+ '"))
   .then(delim('|'))
@@ -548,8 +560,9 @@ let display_math_block : BlockParser = @talc.string("$$")
   .attempt()
 
 ///|
-/// `# expr` — a script block: the document-level escape from markup into
-/// the script scope. `script_expr` runs the full script grammar, so a block
+/// `#expr` — a script block: the document-level escape from markup into
+/// the script scope. No whitespace is allowed between `#` and the expression.
+/// `script_expr` runs the full script grammar, so a block
 /// may be a call (`#note[...]`), a string, a content block, or a comment.
 ///
 /// `#` is the escape marker and nothing else: headings are `= Title` /

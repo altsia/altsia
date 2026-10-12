@@ -23,8 +23,9 @@
 /// A call's trailing content block is at most one item and parses exactly
 /// like a positional `Content` argument: `elem[bbb] ≡ elem([bbb])`, and
 /// `elem(...)` without a trailing block is equally legal. In the document
-/// flow a value displays as its text (`# 2` renders "2"); in an argument
-/// list it stays a typed value.
+/// flow a value displays as its text (`#2` renders "2"); in an argument
+/// list it stays a typed value. An evaluated expression must immediately
+/// follow `#`, with no intervening whitespace.
 
 ///|
 /// Wraps `parser` as a token, skipping surrounding whitespace.
@@ -162,7 +163,7 @@ fn expr_value() -> @talc.StringParser[Value] {
 ///|
 /// `expr ::= call | value`. Each expression yields a spliceable node
 /// sequence: a content block is its markup's items, a bare string or
-/// integer is one `Text` node in the flow (`# 2` displays as "2").
+/// integer is one `Text` node in the flow (`#2` displays as "2").
 fn script_expr() -> @talc.StringParser[Array[Block]] {
   expr_value().map(flow_of)
 }
@@ -356,19 +357,14 @@ fn content_block_item(start : Int) -> @talc.StringParser[Array[Block]] {
 /// `= Title` — a heading line inside a content block, terminated by the
 /// first newline or `]`. The heading text is parsed by the same inline
 /// machinery as content paragraphs, so the script escape `#tag(...)` works
-/// inside headings. The `.attempt()` lets a bare `=x` fall through to
-/// plain text.
+/// inside headings. The shared prefix enforces levels 1 to 6 and a separator.
 fn content_heading() -> @talc.StringParser[Array[Block]] {
-  @talc.char('=')
-  .some()
-  .skip(@talc.space)
-  .attempt()
-  .bind(equals => {
+  heading_prefix().bind(level => {
     inline_block_item("\r\n]", false)
     .many()
     .map(items => items.flatten())
     .skip(@talc.newline.optional())
-    .map(items => [Heading(equals.length(), items)])
+    .map(items => [Heading(level, items)])
   })
 }
 
@@ -417,7 +413,7 @@ fn content_item() -> @talc.StringParser[Array[Block]] {
 
 ///|
 /// `#` — the markup-to-script escape inside content blocks: `#tag(...)`
-/// parses a script expression from the current position.
+/// parses a script expression immediately after `#`, without whitespace.
 fn escape() -> @talc.StringParser[Array[Block]] {
   @talc.char('#').then(script_expr())
 }

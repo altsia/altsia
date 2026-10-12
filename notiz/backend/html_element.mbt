@@ -106,7 +106,7 @@ fn render_generic_element(
 /// block (`--- author`) at the tail. The attribution is a child of the
 /// blockquote, so its width is naturally bounded by it.
 fn render_quote(element : ElementData, options : HtmlOptions) -> Array[Node] {
-  let content = join_blocks(element.children(), options)
+  let content = element.children().map(block => block.render(options)).flatten()
   let tail = element.named
     .get("attribution")
     .map_or([], value => {
@@ -133,7 +133,7 @@ fn @parsing.Value::render(
   match self {
     Text(s) => render_text(s, options)
     Integer(n) => [Text(n.to_string())]
-    Content(blocks) => join_blocks(blocks, options)
+    Content(blocks) => blocks.map(block => block.render(options)).flatten()
     Call(_, _, _) =>
       @parsing.flow_of(self).map(block => block.render(options)).flatten()
     Comment(s) => render_comment(s)

@@ -152,7 +152,8 @@ fn @parsing.Block::render(
     FencedCode(_, code) => render_fenced_code(code)
     ThematicBreak => render_thematic_break()
     DisplayMath(latex) => render_display_math(latex, options)
-    Table(header, rows) => render_table(header, rows, options)
+    Table(header, rows, alignments) =>
+      render_table(header, rows, alignments, options)
     FootnoteDef(label, blocks) => render_footnote_def(label, blocks, options)
     Text(s) => render_text(s, options)
     Inline(item) =>
@@ -280,12 +281,13 @@ fn render_list_item(
 fn render_table(
   header : @parsing.TableRow,
   rows : Array[@parsing.TableRow],
+  alignments : Array[@parsing.TableAlignment],
   options : HtmlOptions,
 ) -> Array[Node] {
   [
     el("table", [], [
       Text("\n"),
-      el("thead", [], render_table_row(header, "th", options)),
+      el("thead", [], render_table_row(header, alignments, "th", options)),
       Text("\n"),
       el(
         "tbody",
@@ -293,7 +295,7 @@ fn render_table(
         [
           Text("\n"),
           ..interleave(
-            rows.map(r => render_table_row(r, "td", options)),
+            rows.map(r => render_table_row(r, alignments, "td", options)),
             Text("\n"),
           ),
           Text("\n"),
@@ -307,6 +309,7 @@ fn render_table(
 ///|
 fn render_table_row(
   row : @parsing.TableRow,
+  alignments : Array[@parsing.TableAlignment],
   cell_tag : String,
   options : HtmlOptions,
 ) -> Array[Node] {
@@ -314,7 +317,16 @@ fn render_table_row(
     el(
       "tr",
       [],
-      row.cells.map(c => render_table_cell(c, cell_tag, options)).flatten(),
+      alignments
+      .mapi((i, alignment) => {
+        render_table_cell(
+          row.cells.get(i).unwrap_or([]),
+          alignment,
+          cell_tag,
+          options,
+        )
+      })
+      .flatten(),
     ),
   ]
 }
@@ -322,10 +334,22 @@ fn render_table_row(
 ///|
 fn render_table_cell(
   cells : Array[@parsing.Inline],
+  alignment : @parsing.TableAlignment,
   cell_tag : String,
   options : HtmlOptions,
 ) -> Array[Node] {
-  [el(cell_tag, [], render_inlines(cells, options))]
+  let alignment = match alignment {
+    Left => "left"
+    Center => "center"
+    Right => "right"
+  }
+  [
+    el(
+      cell_tag,
+      [attr("style", css_props([("text-align", alignment)]))],
+      render_inlines(cells, options),
+    ),
+  ]
 }
 
 ///|

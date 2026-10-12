@@ -84,6 +84,27 @@ pub fn render_terminal_document(
 }
 
 ///|
+/// Inline fragments concatenate; paragraph and block boundaries stay visible.
+fn term_render_content(
+  blocks : Array[@parsing.Block],
+  options : TerminalOptions,
+) -> String {
+  let parts = Array()
+  let mut after_block = false
+  for block in blocks {
+    let text = block.term_render(options)
+    guard !text.is_empty() else { continue }
+    let is_block = !block.is_inline()
+    if !parts.is_empty() && (after_block || is_block) {
+      parts.push("\n\n")
+    }
+    parts.push(text)
+    after_block = is_block
+  }
+  parts.join("")
+}
+
+///|
 /// Dispatches a block to its renderer. Add a match arm and a render
 /// function here for each block variant.
 fn @parsing.Block::term_render(
@@ -98,7 +119,8 @@ fn @parsing.Block::term_render(
     FencedCode(_, code) => term_render_fenced_code(code, options)
     ThematicBreak => term_render_thematic_break(options)
     DisplayMath(latex) => term_render_display_math(latex, options)
-    Table(header, rows) => term_render_table(header, rows, options)
+    Table(header, rows, alignments) =>
+      term_render_table(header, rows, alignments, options)
     FootnoteDef(label, blocks) =>
       term_render_footnote_def(label, blocks, options)
     Text(s) => term_render_text(s, options)
@@ -128,12 +150,10 @@ fn term_render_heading(
     3 => @chalk.Green
     _ => @chalk.White
   }
-  term_style(
-    blocks.map(b => b.term_render(options)).join(""),
-    ansi=options.ansi,
-    color~,
-    modifier=[@chalk.Modifier::Bold, @chalk.Modifier::Underline],
-  )
+  term_style(term_render_content(blocks, options), ansi=options.ansi, color~, modifier=[
+    @chalk.Modifier::Bold,
+    @chalk.Modifier::Underline,
+  ])
 }
 
 ///|
@@ -239,6 +259,7 @@ fn term_render_list_item(
 fn term_render_table(
   header : @parsing.TableRow,
   rows : Array[@parsing.TableRow],
+  alignments : Array[@parsing.TableAlignment],
   options : TerminalOptions,
 ) -> String {
   let header_cells = header.cells.map(c => term_render_inlines(c, options))
@@ -246,10 +267,16 @@ fn term_render_table(
     r.cells.map(c => term_render_inlines(c, options))
   })
   let col_count = header_cells.length()
-  let widths = table_cell_widths(header_cells, body_cells, col_count)
+  let widths = table_cell_widths(
+    header_cells,
+    body_cells,
+    col_count,
+    measure=term_cell_width,
+  )
   let header_row = term_table_row_internal(
     header_cells,
     widths,
+    alignments,
     @chalk.Blue,
     @chalk.Modifier::Bold,
     options,
@@ -268,6 +295,7 @@ fn term_render_table(
       term_table_row_internal(
         r,
         widths,
+        alignments,
         @chalk.White,
         @chalk.Modifier::Reset,
         options,
@@ -287,24 +315,58 @@ fn term_render_table(
 fn term_table_row_internal(
   cells : Array[String],
   widths : Array[Int],
+  alignments : Array[@parsing.TableAlignment],
   color : @chalk.Colors,
   modifier : @chalk.Modifier,
   options : TerminalOptions,
 ) -> String {
-  let parts = Array()
-  for i in 0..<cells.length() {
-    let cell = cells[i]
-    let padding = String::repeat(" ", widths[i] - cell.length())
-    let padded = StringBuilder()
-      ..write_string(cell)
-      ..write_string(padding)
-      .to_string()
-    let styled = term_style(padded, ansi=options.ansi, color~, modifier=[
-      modifier,
-    ])
-    parts.push(styled)
+  let lines = cells.map(cell => {
+    cell.split("\n").map(line => line.to_owned()).to_array()
+  })
+  let height = lines
+    .iter()
+    .fold(init=1, (height, cell) => height.max(cell.length()))
+  Array::makei(height, line => {
+    widths
+    .mapi((i, width) => {
+      let cell = lines.get(i).map_or("", lines => lines.get(line).unwrap_or(""))
+      let padding = width - term_line_width(cell)
+      let left = match alignments[i] {
+        Left => 0
+        Center => padding / 2
+        Right => padding
+      }
+      let padded = " ".repeat(left) + cell + " ".repeat(padding - left)
+      term_style(padded, ansi=options.ansi, color~, modifier=[modifier])
+    })
+    .join(" \{line_style_v_bar(options.line_style)} ")
+  }).join("\n")
+}
+
+///|
+fn term_cell_width(cell : String) -> Int {
+  cell
+  .split("\n")
+  .fold(init=0, (width, line) => width.max(term_line_width(line.to_owned())))
+}
+
+///|
+/// ANSI SGR sequences emitted by the style renderer occupy no columns.
+fn term_line_width(line : String) -> Int {
+  let mut styling = false
+  let mut width = 0
+  for c in line.iter() {
+    if styling {
+      if c == 'm' {
+        styling = false
+      }
+    } else if c == '\u{1b}' {
+      styling = true
+    } else {
+      width += @unicode.display_width(c.to_string())
+    }
   }
-  parts.join(" \{line_style_v_bar(options.line_style)} ")
+  width
 }
 
 ///|
@@ -356,7 +418,7 @@ fn term_render_inline(
         modifier=[@chalk.Modifier::Italic],
       )
     Code(text) => term_style(text, ansi=options.ansi, color=@chalk.Cyan)
-    Content(blocks) => blocks.map(block => block.term_render(options)).join("")
+    Content(blocks) => term_render_content(blocks, options)
     SoftBreak => "\n"
     HardBreak => "\n"
     InlineMath(latex) => term_render_inline_math(latex, options)

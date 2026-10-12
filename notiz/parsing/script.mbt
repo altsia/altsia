@@ -205,6 +205,11 @@ fn call_parts() -> @talc.StringParser[
         let positional = trailing.map_or(positional, blocks => {
           [..positional, Content(blocks)]
         })
+        if tag == "draft" || tag == "pagebreak" {
+          guard positional.is_empty() && named.is_empty() else {
+            return @talc.fail("\{tag} does not accept arguments")
+          }
+        }
         for pair in named.iter() {
           let (name, value) = pair
           match (tag, name) {
@@ -218,7 +223,14 @@ fn call_parts() -> @talc.StringParser[
                 return @talc.fail("image \{name} must be a string or integer")
               }
             }
-            ("quote", _) | ("draft", _) | ("pagebreak", _) => ()
+            ("quote", "attribution") => ()
+            ("image", "src") | ("image", "alt") => {
+              guard value is Text(_) else {
+                return @talc.fail("image \{name} must be a string")
+              }
+            }
+            ("quote", _) | ("image", _) =>
+              return @talc.fail("\{tag} does not accept argument \{name}")
             _ => {
               guard value is Text(_) else {
                 return @talc.fail("\{tag} attribute \{name} must be a string")
@@ -229,6 +241,9 @@ fn call_parts() -> @talc.StringParser[
         if tag == "image" {
           guard positional.length() <= 1 else {
             return @talc.fail("image accepts at most one positional argument")
+          }
+          guard positional.is_empty() || named.get("src") is None else {
+            return @talc.fail("image path was specified more than once")
           }
           let src = if positional.is_empty() {
             named.get("src")
@@ -339,108 +354,17 @@ fn peek_after_ws(input : @talc.Input) -> Char? {
 }
 
 ///|
-/// `content ::= "[" blocks "]"` — block-level markup inside, terminated by
-/// the first unbalanced `]` (`\]` for a literal bracket). Block constructs
-/// that consume their own `]` (such as `[^label]`) are parsed by
-/// their own productions before the terminator is reached.
-///
-/// A content block is a sequence of block items: heading lines (`= Title`),
-/// list blocks (`- a` / `+ a`), and inline content (paragraph text, which
-/// keeps soft breaks). Heading lines and paragraphs share the same inline
-/// machinery ([`inline_block_item`](`inline_block_item`)), so script
-/// escapes (`#expr`) work in both; list text uses the same script expressions
-/// through the markup inline parser.
-///
-/// TODO(fix): paragraph text inside a content block is a flat sequence of
-/// `Text`/`Inline`/`Element` blocks, NOT a `Paragraph` like in document scope
-/// (`note[hello]` → `[Text("hello")]` vs `hello` → `Paragraph(...)`).
-/// Consequently `<p>` wrapping and empty-paragraph elision do not apply.
-/// Text still supports halfwidth punctuation conversion. The inline AST can
-/// embed script results, but content blocks still use a flat block flow.
+/// Content uses the document's markup grammar with `]` as its boundary.
+/// A single paragraph is an inline fragment; multiple paragraphs and other
+/// blocks retain their structure. Raw constructs and nested expressions
+/// consume their own delimiters before the enclosing `]` is considered.
 fn content_block() -> @talc.StringParser[Array[Block]] {
   @talc.char('[')
-  .then(
-    @talc.Parser::new(input => {
-      content_block_item(input.cursor()).many().run(input)
-    }),
-  )
+  .then(@talc.delay(() => blocks(closing="]")))
   .skip(@talc.char(']'))
-  .map(pieces => pieces.flatten())
-}
-
-///|
-/// One item of content: a heading line, a list block, or inline content.
-///
-/// Tried in this order because a `=`-line must be claimed by `content_heading`
-/// before plain text can misparse it, and a `- ` line must not fall
-/// through to plain text either.
-fn content_block_item(start : Int) -> @talc.StringParser[Array[Block]] {
-  @talc.Parser::new(input => {
-    if input.cursor() == start || input.position().column == 1 {
-      @talc.choice([content_heading(), content_list(), content_item()]).run(
-        input,
-      )
-    } else {
-      content_item().run(input)
-    }
-  })
-}
-
-///|
-/// `= Title` — a heading line inside a content block, terminated by the
-/// first newline or `]`. The heading text is parsed by the same inline
-/// machinery as content paragraphs, so the script escape `#tag(...)` works
-/// inside headings. The shared prefix enforces levels 1 to 6 and a separator.
-fn content_heading() -> @talc.StringParser[Array[Block]] {
-  heading_prefix().bind(level => {
-    inline_block_item("\r\n]")
-    .many()
-    .map(items => items.flatten())
-    .skip(@talc.newline.optional())
-    .map(items => [make_heading(level, items, Map([]))])
-  })
-}
-
-///|
-/// A list block inside a content block: one or more `- ` or `+ ` lines.
-/// The `.attempt()` lets a bare `-x` fall through to plain text.
-fn content_list() -> @talc.StringParser[Array[Block]] {
-  @talc.choice([
-    content_list_item('-').some().map(items => [UnorderedList(items)]),
-    content_list_item('+').some().map(items => [OrderedList(items)]),
-  ])
-}
-
-///|
-/// One `- text` line; nested lists are not supported yet.
-fn content_list_item(marker : Char) -> @talc.StringParser[MdListItem] {
-  @talc.char(marker)
-  .skip(@talc.space)
-  .attempt()
-  .bind(_ => {
-    @talc.many_chars(@talc.none_of("\r\n]"))
-    .skip(@talc.newline.optional())
-    .bind(text => {
-      inlines(text.trim().to_owned()).map(ins => {
-        checked: None,
-        content: ins,
-        children: [],
-      })
-    })
-  })
-}
-
-///|
-/// One item of inline markup inside a content block: a paragraph item, or a
-/// line break. Heading lines use [`inline_block_item`](`inline_block_item`)
-/// directly, which excludes breaks because a heading is one line.
-fn content_item() -> @talc.StringParser[Array[Block]] {
-  @talc.delay(() => {
-    @talc.choice([
-      hard_break.map(desugar_inline),
-      soft_break.map(desugar_inline),
-      inline_block_item("\r\n]"),
-    ])
+  .map(items => {
+    guard items is [Paragraph(inlines)] else { return items }
+    inlines.map(desugar_inline).flatten()
   })
 }
 
@@ -453,7 +377,11 @@ fn escape() -> @talc.StringParser[Array[Block]] {
 ///|
 /// Keep markup semantics when embedding an inline in headings or content.
 fn desugar_inline(item : Inline) -> Array[Block] {
-  [Block::Inline(item)]
+  match item {
+    Plain(text) => [Block::Text(text)]
+    Content(blocks) => blocks
+    _ => [Block::Inline(item)]
+  }
 }
 
 ///|

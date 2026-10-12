@@ -47,6 +47,7 @@ test "table unicode line style" {
     @parsing.Table(
       { cells: [[@parsing.Plain("H1")], [@parsing.Plain("H2")]], },
       [{ cells: [[@parsing.Plain("C1")], [@parsing.Plain("C2")]], }],
+      [Left, Left],
     ),
   ]
 
@@ -70,6 +71,7 @@ test "table ascii line style" {
     @parsing.Table(
       { cells: [[@parsing.Plain("H1")], [@parsing.Plain("H2")]], },
       [{ cells: [[@parsing.Plain("C1")], [@parsing.Plain("C2")]], }],
+      [Left, Left],
     ),
   ]
 
@@ -90,15 +92,19 @@ test "table ascii line style" {
 ///|
 test "table with empty header renders" {
   let blocks = [
-    @parsing.Table({ cells: [[], [], []], }, [
-      {
-        cells: [
-          [@parsing.Plain("a")],
-          [@parsing.Plain("b")],
-          [@parsing.Plain("c")],
-        ],
-      },
-    ]),
+    @parsing.Table(
+      { cells: [[], [], []], },
+      [
+        {
+          cells: [
+            [@parsing.Plain("a")],
+            [@parsing.Plain("b")],
+            [@parsing.Plain("c")],
+          ],
+        },
+      ],
+      [Left, Left, Left],
+    ),
   ]
   @test.assert_eq(
     @backend.render_terminal_document(blocks, ansi=false),

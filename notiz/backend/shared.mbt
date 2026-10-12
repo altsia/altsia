@@ -13,15 +13,16 @@ fn table_cell_widths(
   header : Array[String],
   rows : Array[Array[String]],
   count : Int,
+  measure? : (String) -> Int = String::length,
 ) -> Array[Int] {
   let widths = Array::make(count, 0)
   for i in 0..<count {
-    widths[i] = header[i].length()
+    widths[i] = measure(header[i])
   }
   for row in rows {
     for i in 0..<count {
       guard i < row.length() else { continue }
-      widths[i] = widths[i].max(row[i].length())
+      widths[i] = widths[i].max(measure(row[i]))
     }
   }
   widths

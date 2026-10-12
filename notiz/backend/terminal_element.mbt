@@ -12,7 +12,7 @@ fn term_render_element(
     "image" => term_render_image(element, options)
     "pagebreak" => "\n\n"
     "draft" => term_render_draft(options)
-    _ => element.children().map(b => b.term_render(options)).join("")
+    _ => term_render_content(element.children(), options)
   }
 }
 
@@ -46,7 +46,7 @@ fn term_render_quote(
   element : ElementData,
   options : TerminalOptions,
 ) -> String {
-  let rendered = element.children().map(b => b.term_render(options)).join("")
+  let rendered = term_render_content(element.children(), options)
   let tail = element.named
     .get("attribution")
     .map_or("", value => "\n        --- \{value.term_render(options)}")
@@ -70,9 +70,8 @@ fn @parsing.Value::term_render(
   match self {
     Text(s) => term_render_text(s, options)
     Integer(n) => n.to_string()
-    Content(blocks) => blocks.map(b => b.term_render(options)).join("")
-    Call(_, _, _) =>
-      @parsing.flow_of(self).map(block => block.term_render(options)).join("")
+    Content(blocks) => term_render_content(blocks, options)
+    Call(_, _, _) => term_render_content(@parsing.flow_of(self), options)
     Comment(_) => ""
   }
 }

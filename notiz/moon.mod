@@ -1,6 +1,6 @@
 name = "kokic/notiz"
 
-version = "0.1.3"
+version = "0.1.4"
 
 import {
   "kokic/talcparsec@0.4.0",

@@ -421,7 +421,7 @@ fn Parser::fetch_link_type_url_title(
   guard self.link_ref_expansion_limit != 0 else { return None }
 
   let found = self.allocs.refdefs
-    .get(unicase_fold(link_label))
+    .get(link_label)
     .map(matching_def => {
       (link_type, matching_def.dest, matching_def.title.unwrap_or(""))
     })

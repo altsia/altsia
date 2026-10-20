@@ -34,35 +34,3 @@ fn is_punctuation(c : Int) -> Bool {
   }
 }
 
-///|
-/// Returns the case-folded form of `c`, as an array of chars (0-3 entries).
-fn unicase_lookup(c : Char) -> Array[Char] {
-  let cp = c.to_int()
-  // The table is sorted by codepoint; binary search.
-  let mut lo = 0
-  let mut hi = unicase_fold_table.length() - 1
-  while lo <= hi {
-    let mid = (lo + hi) / 2
-    let (entry_cp, folds) = unicase_fold_table[mid]
-    guard entry_cp != cp else { return folds }
-    if entry_cp < cp {
-      lo = mid + 1
-    } else {
-      hi = mid - 1
-    }
-  }
-  // Not found: identity fold.
-  [c]
-}
-
-///|
-/// Returns the case-folded representation of the string.
-fn unicase_fold(s : String) -> String {
-  let out = StringBuilder()
-  for c in s.iter() {
-    for fc in unicase_lookup(c) {
-      out.write_char(fc)
-    }
-  }
-  out.to_string()
-}

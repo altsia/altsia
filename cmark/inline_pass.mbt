@@ -331,14 +331,13 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
             match label {
               (ReferenceLabel::Footnote(l), end) => {
                 let footref = self.allocs.allocate_cow(l)
-                let folded_label = unicase_fold(l)
-                if self.allocs.footdefs.contains(folded_label) {
-                  let def = self.allocs.footdefs[folded_label]
+                if self.allocs.footdefs.contains(l) {
+                  let def = self.allocs.footdefs[l]
                   def._use_count += 1
-                  self.allocs.footdefs[folded_label] = def
+                  self.allocs.footdefs[l] = def
                 }
                 let should_emit = !self.options.options_has_gfm_footnotes() ||
-                  self.allocs.footdefs.contains(folded_label)
+                  self.allocs.footdefs.contains(l)
                 if should_emit {
                   let footnote_ix = if tos.ty is Image {
                     self.tree.nodes[tos.node].next = Some(cur_ix)

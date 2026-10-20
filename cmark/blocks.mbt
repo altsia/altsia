@@ -437,9 +437,8 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
       is Some((bytecount, label, link_def)) else {
       break
     }
-    let folded_label = unicase_fold(label)
-    if !self.allocs.refdefs.contains(folded_label) {
-      self.allocs.refdefs[folded_label] = link_def
+    if !self.allocs.refdefs.contains(label) {
+      self.allocs.refdefs[label] = link_def
     }
     let container_start = start_ix + line_start.bytes_scanned()
     let mut ix = container_start + bytecount

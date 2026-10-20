@@ -150,7 +150,7 @@ fn FirstPass::parse_footnote(self : FirstPass, start : Int) -> Int? {
   if self.options.options_has_gfm_footnotes() {
     i += scan_whitespace_no_nl(bytes.exact_view(start=i))
   }
-  self.allocs.footdefs[unicase_fold(label)] = { _use_count: 0, }
+  self.allocs.footdefs[label] = { _use_count: 0, }
   ignore(
     self.tree.append(Item::{
       start,

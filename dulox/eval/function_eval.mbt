@@ -29,10 +29,7 @@ fn eval_handler(
       let expr = normalize(expr, options) catch {
         diag => raise eval_failure(diag)
       }
-      match render(expr) {
-        Err(diag) => raise eval_failure(diag)
-        Ok(node) => rewrap(node)
-      }
+      rewrap(render(expr))
     }
   }
 }

@@ -31,7 +31,7 @@ fn render_html(
     "\\htmlId{\{attributes["id"]}}{\{content}}"
   } else if attributes.contains("style") {
     "\\htmlStyle{\{attributes["style"]}}{\{content}}"
-  } else if attributes.keys().length() > 0 &&
+  } else if !attributes.is_empty() &&
     attributes.keys().all(key => key.has_prefix("data-")) {
     let data = attributes
       .keys()

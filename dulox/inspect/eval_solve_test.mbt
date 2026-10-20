@@ -1,8 +1,8 @@
 ///|
-test "solve cubic unity roots renders canonical zero terms" {
+test "solve cubic reduces by a rational root and renders remaining roots as radicals" {
   inspect(
     eval_render("\\solve{x^3=1}"),
-    content="x₁ = 1, x₂ = ω, x₃ = ω²",
+    content="x₁ = 1, x₂ = (√3i−1)∕2, x₃ = (−√3i−1)∕2",
   )
 }
 

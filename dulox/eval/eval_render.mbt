@@ -2,8 +2,8 @@
 /// Renders a computed expression back into a `@katex.ParseNode`, inserting grouping
 /// and parentheses according to operator precedence
 /// (`Add < Mul < Div < Pow < Atom`).
-pub fn render(expr : EvalExpr) -> Result[@katex.ParseNode, EvalDiagnostic] {
-  Ok(render_expr(expr, 0))
+pub fn render(expr : EvalExpr) -> @katex.ParseNode {
+  render_expr(expr, 0)
 }
 
 ///|

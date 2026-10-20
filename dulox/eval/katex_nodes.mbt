@@ -38,6 +38,3 @@ let complex_numbers : @katex.ParseNode = Font(
 
 ///|
 let image_unit : @katex.ParseNode = MathOrd(mode=Math, loc=None, text="i")
-
-///|
-let unknown : @katex.ParseNode = Raw(mode=Math, string="?")

@@ -101,13 +101,9 @@ fn append_number_item(
   start : Int,
   items : Array[LowerItem],
 ) -> Int raise EvalDiagnostic {
-  match scan_number(nodes, start) {
-    Err(error) => raise error
-    Ok((value, next)) => {
-      items.push(ItemNumber(value))
-      next
-    }
-  }
+  let (value, next) = scan_number(nodes, start)
+  items.push(ItemNumber(value))
+  next
 }
 
 ///|
@@ -208,10 +204,10 @@ fn push_lowered(
 fn scan_number(
   nodes : Array[@katex.ParseNode],
   start : Int,
-) -> Result[(Int, Int), EvalDiagnostic] {
+) -> (Int, Int) raise EvalDiagnostic {
   let first_text = match nodes[start] {
     MathOrd(text~, ..) | TextOrd(text~, ..) => text
-    _ => return Err(EvalDiagnostic::make(InvalidNumber))
+    _ => raise EvalDiagnostic::make(InvalidNumber)
   }
   let mut acc = first_text
   let mut j = start + 1
@@ -222,20 +218,16 @@ fn scan_number(
         j = j + 1
       }
       MathOrd(text~, ..) | TextOrd(text~, ..) if text == "." =>
-        return Err(
-          EvalDiagnostic::make(InvalidNumber, loc=node_loc(nodes[start])),
-        )
+        raise EvalDiagnostic::make(InvalidNumber, loc=node_loc(nodes[start]))
       Atom(family=Mpunct, text~, ..) if text == "." =>
-        return Err(
-          EvalDiagnostic::make(InvalidNumber, loc=node_loc(nodes[start])),
-        )
+        raise EvalDiagnostic::make(InvalidNumber, loc=node_loc(nodes[start]))
       _ => break
     }
   }
   guard parse_decimal_int(acc) is Some(value) else {
-    return Err(EvalDiagnostic::make(InvalidNumber, loc=node_loc(nodes[start])))
+    raise EvalDiagnostic::make(InvalidNumber, loc=node_loc(nodes[start]))
   }
-  Ok((value, j))
+  (value, j)
 }
 
 ///|

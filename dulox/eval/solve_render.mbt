@@ -74,15 +74,10 @@ fn render_equation(
         sub=Some(MathOrd(mode=Math, loc=None, text=index.to_string())),
       ),
       Atom(mode=Math, loc=None, family=Mrel, text="="),
-      render_root(root),
+      render(root),
     ],
     semisimple=false,
   )
-}
-
-///|
-fn render_root(expr : EvalExpr) -> @katex.ParseNode {
-  render(expr).unwrap_or(unknown)
 }
 
 ///|
@@ -100,9 +95,9 @@ fn render_relation(expr : EvalExpr, op : String) -> @katex.ParseNode {
     mode=Math,
     loc=None,
     body=[
-      render_root(expr),
+      render(expr),
       Atom(mode=Math, loc=None, family=Mrel, text=op),
-      render_root(zero),
+      render(zero),
     ],
     semisimple=false,
   )

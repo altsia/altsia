@@ -8,10 +8,10 @@ pub(all) struct HtmlOptions {
 
 ///|
 pub fn render_document(
-  blocks : Array[@parsing.Block],
+  blocks : Array[@document.Node],
   target~ : KatexTarget,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
 ) -> String {
   let options = { target, disable_math, halfwidth_punct, }
   join_blocks(blocks, options) |> render_nodes
@@ -27,7 +27,7 @@ pub fn render_document(
 /// plain-text form instead of raw markup.
 pub fn page_title(
   frontmatter : @parsing.Frontmatter,
-  blocks : Array[@parsing.Block],
+  blocks : Array[@document.Node],
 ) -> String {
   let title = frontmatter.builtin.title
   guard title.is_empty() else { title }
@@ -46,13 +46,13 @@ pub fn page_title(
 
 ///|
 pub fn render_document_page(
-  blocks : Array[@parsing.Block],
+  blocks : Array[@document.Node],
   frontmatter : @parsing.Frontmatter,
   paper~ : @parsing.Paper,
   target~ : KatexTarget,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
-  head_extra? : String = "",
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
+  head_extra~ : String = "",
 ) -> String {
   render_page(
     render_document(blocks, target~, disable_math~, halfwidth_punct~),
@@ -67,7 +67,7 @@ pub fn render_page(
   content : String,
   frontmatter : @parsing.Frontmatter,
   paper~ : @parsing.Paper,
-  head_extra? : String = "",
+  head_extra~ : String = "",
 ) -> String {
   let lang = frontmatter.builtin.lang
   let title = frontmatter.builtin.title
@@ -128,25 +128,27 @@ pub fn render_pre(s : String) -> String {
 }
 
 ///|
-/// Renders each block and joins them with blank-line separators.
+/// Renders each organized block, separated by a newline in the HTML source.
 fn join_blocks(
-  blocks : Array[@parsing.Block],
+  blocks : Array[@document.Node],
   options : HtmlOptions,
 ) -> Array[Node] {
   interleave(blocks.map(b => b.render(options)), Text("\n"))
 }
 
 ///|
-/// Dispatches a block to its renderer. Add a match arm and a render
-/// function here for each block variant.
-fn @parsing.Block::render(
-  self : @parsing.Block,
+/// Renders a node whose paragraphs and nested flows are already organized.
+fn @document.Node::render(
+  self : @document.Node,
   options : HtmlOptions,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> Array[Node] {
   match self {
     Heading(level, blocks, attributes) =>
       render_heading(level, blocks, attributes, options)
     Paragraph(inlines) => render_paragraph(inlines, options)
+    InlineRun(inlines) => render_inlines(inlines, options, prev~, next~)
     UnorderedList(items) => render_list(items, "ul", options)
     OrderedList(items) => render_list(items, "ol", options)
     FencedCode(_, code) => render_fenced_code(code)
@@ -155,26 +157,53 @@ fn @parsing.Block::render(
     Table(header, rows, alignments) =>
       render_table(header, rows, alignments, options)
     FootnoteDef(label, blocks) => render_footnote_def(label, blocks, options)
-    Text(s) => render_text(s, options)
-    Inline(item) =>
-      render_inline(
-        item,
-        options,
-        convert=options.halfwidth_punct,
-        prev=None,
-        next=None,
-      )
+    Text(s) => render_text(s, options, prev~, next~)
+    Strong(nodes) => render_emphasis("strong", nodes, options, prev~, next~)
+    Emph(nodes) => render_emphasis("em", nodes, options, prev~, next~)
+    Code(s) => [el("code", [], [Text(s)])]
+    SoftBreak => [Text("\n")]
+    HardBreak => [el("br", [], [])]
+    InlineMath(latex) => render_inline_math(latex, options)
+    FootnoteRef(label) =>
+      [el("sup", [], [el("a", [attr("href", "#fn:\{label}")], [Text(label)])])]
     Comment(c) => render_comment(c)
-    Element(tag, positional, named) =>
-      render_element({ tag, positional, named, }, options)
+    Element(element) => render_element(element, options, prev~, next~)
+  }
+}
+
+///|
+/// Emphasis around structural content is a style scope over that content; an
+/// inline HTML tag must not enclose its paragraphs or blocks.
+fn render_emphasis(
+  tag : String,
+  nodes : Array[@document.Node],
+  options : HtmlOptions,
+  prev~ : Char?,
+  next~ : Char?,
+) -> Array[Node] {
+  if nodes.all(@document.Node::is_inline) {
+    [el(tag, [], render_inlines(nodes, options, prev~, next~))]
+  } else {
+    let style = if tag == "strong" {
+      ("font-weight", "bold")
+    } else {
+      ("font-style", "italic")
+    }
+    [
+      el(
+        "div",
+        [attr("style", css_props([style]))],
+        join_blocks(nodes, options),
+      ),
+    ]
   }
 }
 
 ///|
 fn render_heading(
-  level : Int,
-  blocks : Array[@parsing.Block],
-  attributes : Map[String, @parsing.Value],
+  level : Int32,
+  blocks : Array[@document.Node],
+  attributes : Map[String, @document.Value],
   options : HtmlOptions,
 ) -> Array[Node] {
   let attrs = attributes.iter().map(named_attr).to_array()
@@ -183,7 +212,7 @@ fn render_heading(
 
 ///|
 fn render_paragraph(
-  inlines : Array[@parsing.Inline],
+  inlines : Array[@document.Node],
   options : HtmlOptions,
 ) -> Array[Node] {
   let content = render_inlines(inlines, options)
@@ -204,7 +233,7 @@ fn render_thematic_break() -> Array[Node] {
 ///|
 fn render_footnote_def(
   label : String,
-  blocks : Array[@parsing.Block],
+  blocks : Array[@document.Node],
   options : HtmlOptions,
 ) -> Array[Node] {
   [
@@ -217,9 +246,14 @@ fn render_footnote_def(
 }
 
 ///|
-fn render_text(s : String, options : HtmlOptions) -> Array[Node] {
+fn render_text(
+  s : String,
+  options : HtmlOptions,
+  prev~ : Char? = None,
+  next~ : Char? = None,
+) -> Array[Node] {
   guard options.halfwidth_punct else { [Text(s)] }
-  [Text(to_halfwidth_punct(s))]
+  [Text(to_halfwidth_punct(s, prev~, next~))]
 }
 
 ///|
@@ -229,7 +263,7 @@ fn render_comment(c : String) -> Array[Node] {
 
 ///|
 fn render_list(
-  items : Array[@parsing.MdListItem],
+  items : Array[@document.ListItem],
   kind : String,
   options : HtmlOptions,
 ) -> Array[Node] {
@@ -248,7 +282,7 @@ fn render_list(
 
 ///|
 fn render_list_item(
-  item : @parsing.MdListItem,
+  item : @document.ListItem,
   options : HtmlOptions,
 ) -> Array[Node] {
   let checkbox = item.checked.map_or([], checked => {
@@ -270,7 +304,7 @@ fn render_list_item(
   })
   let body = [
     ..checkbox,
-    ..render_inlines(item.content, options),
+    ..item.content.map(node => node.render(options)).flatten(),
     Text("\n"),
     ..item.children.map(b => b.render(options)).flatten(),
   ]
@@ -279,8 +313,8 @@ fn render_list_item(
 
 ///|
 fn render_table(
-  header : @parsing.TableRow,
-  rows : Array[@parsing.TableRow],
+  header : @document.TableRow,
+  rows : Array[@document.TableRow],
   alignments : Array[@parsing.TableAlignment],
   options : HtmlOptions,
 ) -> Array[Node] {
@@ -308,7 +342,7 @@ fn render_table(
 
 ///|
 fn render_table_row(
-  row : @parsing.TableRow,
+  row : @document.TableRow,
   alignments : Array[@parsing.TableAlignment],
   cell_tag : String,
   options : HtmlOptions,
@@ -333,7 +367,7 @@ fn render_table_row(
 
 ///|
 fn render_table_cell(
-  cells : Array[@parsing.Inline],
+  cells : Array[@document.Node],
   alignment : @parsing.TableAlignment,
   cell_tag : String,
   options : HtmlOptions,
@@ -347,57 +381,22 @@ fn render_table_cell(
     el(
       cell_tag,
       [attr("style", css_props([("text-align", alignment)]))],
-      render_inlines(cells, options),
+      cells.map(node => node.render(options)).flatten(),
     ),
   ]
 }
 
 ///|
 fn render_inlines(
-  inlines : Array[@parsing.Inline],
+  inlines : Array[@document.Node],
   options : HtmlOptions,
-  prev? : Char? = None,
-  next? : Char? = None,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> Array[Node] {
   let out = Array()
   for i in 0..<inlines.length() {
     let (prev_c, next_c) = inline_neighbors(inlines, i, prev~, next~)
-    out.push(
-      render_inline(
-        inlines[i],
-        options,
-        convert=options.halfwidth_punct,
-        prev=prev_c,
-        next=next_c,
-      ),
-    )
+    out.push(inlines[i].render(options, prev=prev_c, next=next_c))
   }
   out.flatten()
-}
-
-///|
-fn render_inline(
-  inline : @parsing.Inline,
-  options : HtmlOptions,
-  convert~ : Bool,
-  prev~ : Char?,
-  next~ : Char?,
-) -> Array[Node] {
-  match inline {
-    Plain(s) => {
-      guard convert else { [Text(s)] }
-      [Text(to_halfwidth_punct(s, prev~, next~))]
-    }
-    Strong(inlines) =>
-      [el("strong", [], render_inlines(inlines, options, prev~, next~))]
-    Emph(inlines) =>
-      [el("em", [], render_inlines(inlines, options, prev~, next~))]
-    Code(s) => [el("code", [], [Text(s)])]
-    Content(blocks) => blocks.map(block => block.render(options)).flatten()
-    SoftBreak => [Text("\n")]
-    HardBreak => [el("br", [], [])]
-    InlineMath(latex) => render_inline_math(latex, options)
-    FootnoteRef(label) =>
-      [el("sup", [], [el("a", [attr("href", "#fn:\{label}")], [Text(label)])])]
-  }
 }

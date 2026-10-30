@@ -1,33 +1,37 @@
 ///|
 /// The first/last character of an inline run, for neighbor-aware half-width
 /// conversion: text nodes contribute their boundary character, nested
-/// strong/emph recurse, and other inlines contribute nothing.
-fn inline_first_char(inline : @parsing.Inline) -> Char? {
+/// inline containers recurse, and other nodes contribute nothing.
+fn inline_first_char(inline : @document.Node) -> Char? {
   match inline {
-    Plain(text) => text.iter().next()
-    Strong(inlines) => array_first_char(inlines)
-    Emph(inlines) => array_first_char(inlines)
+    Text(text) => text.iter().next()
+    Strong(inlines) | Emph(inlines) | InlineRun(inlines) =>
+      array_first_char(inlines)
+    Element(element) if inline.is_inline() =>
+      array_first_char(element.content)
     _ => None
   }
 }
 
 ///|
-fn array_first_char(inlines : Array[@parsing.Inline]) -> Char? {
+fn array_first_char(inlines : Array[@document.Node]) -> Char? {
   inlines.filter_map(inline_first_char).get(0)
 }
 
 ///|
-fn inline_last_char(inline : @parsing.Inline) -> Char? {
+fn inline_last_char(inline : @document.Node) -> Char? {
   match inline {
-    Plain(text) => text.iter().last()
-    Strong(inlines) => array_last_char(inlines)
-    Emph(inlines) => array_last_char(inlines)
+    Text(text) => text.iter().last()
+    Strong(inlines) | Emph(inlines) | InlineRun(inlines) =>
+      array_last_char(inlines)
+    Element(element) if inline.is_inline() =>
+      array_last_char(element.content)
     _ => None
   }
 }
 
 ///|
-fn array_last_char(inlines : Array[@parsing.Inline]) -> Char? {
+fn array_last_char(inlines : Array[@document.Node]) -> Char? {
   inlines.filter_map(inline_last_char).last()
 }
 
@@ -36,8 +40,8 @@ fn array_last_char(inlines : Array[@parsing.Inline]) -> Char? {
 /// character of the preceding inline (or `prev` when `i` is first) and the
 /// first character of the following inline (or `next` when `i` is last).
 fn inline_neighbors(
-  inlines : Array[@parsing.Inline],
-  i : Int,
+  inlines : Array[@document.Node],
+  i : Int32,
   prev~ : Char?,
   next~ : Char?,
 ) -> (Char?, Char?) {

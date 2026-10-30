@@ -5,7 +5,10 @@ test "display math macro definitions render no terminal content" {
     #|\def\thm@with[#1]{\textbf{Theorem~(#1).}}
     #|\def\thm@without{\textbf{Theorem.}}
   let blocks = [@parsing.DisplayMath(macro_definition)]
-  @test.assert_eq(@backend.render_terminal_document(blocks), "")
+  @test.assert_eq(
+    @backend.render_terminal_document(@document.organize(blocks)),
+    "",
+  )
 }
 
 ///|
@@ -14,9 +17,12 @@ test "empty blocks do not add terminal document separators" {
     @parsing.DisplayMath <| (
       #|\def\empty{}
     ),
-    @parsing.Paragraph([@parsing.Plain("content")]),
+    @parsing.Text("content"),
   ]
-  @test.assert_eq(@backend.render_terminal_document(blocks), "content")
+  @test.assert_eq(
+    @backend.render_terminal_document(@document.organize(blocks)),
+    "content",
+  )
 }
 
 ///|
@@ -26,7 +32,10 @@ test "display math macro definitions render empty HTML content" {
       #|\def\empty{}
     ),
   ]
-  @test.assert_eq(@backend.render_document(blocks, target=Mathml), "")
+  @test.assert_eq(
+    @backend.render_document(@document.organize(blocks), target=Mathml),
+    "",
+  )
 }
 
 ///|
@@ -45,8 +54,8 @@ test "inline macro definition paragraphs render no empty HTML paragraphs" {
 test "table unicode line style" {
   let blocks = [
     @parsing.Table(
-      { cells: [[@parsing.Plain("H1")], [@parsing.Plain("H2")]], },
-      [{ cells: [[@parsing.Plain("C1")], [@parsing.Plain("C2")]], }],
+      { cells: [[@parsing.Text("H1")], [@parsing.Text("H2")]], },
+      [{ cells: [[@parsing.Text("C1")], [@parsing.Text("C2")]], }],
       [Left, Left],
     ),
   ]
@@ -57,7 +66,7 @@ test "table unicode line style" {
     #|C1 │ C2
   @test.assert_eq(
     @backend.render_terminal_document(
-      blocks,
+      @document.organize(blocks),
       line_style=@backend.LineStyle::Unicode,
       ansi=false,
     ),
@@ -69,8 +78,8 @@ test "table unicode line style" {
 test "table ascii line style" {
   let blocks = [
     @parsing.Table(
-      { cells: [[@parsing.Plain("H1")], [@parsing.Plain("H2")]], },
-      [{ cells: [[@parsing.Plain("C1")], [@parsing.Plain("C2")]], }],
+      { cells: [[@parsing.Text("H1")], [@parsing.Text("H2")]], },
+      [{ cells: [[@parsing.Text("C1")], [@parsing.Text("C2")]], }],
       [Left, Left],
     ),
   ]
@@ -81,7 +90,7 @@ test "table ascii line style" {
     #|C1 | C2
   @test.assert_eq(
     @backend.render_terminal_document(
-      blocks,
+      @document.organize(blocks),
       line_style=@backend.LineStyle::Ascii,
       ansi=false,
     ),
@@ -97,9 +106,9 @@ test "table with empty header renders" {
       [
         {
           cells: [
-            [@parsing.Plain("a")],
-            [@parsing.Plain("b")],
-            [@parsing.Plain("c")],
+            [@parsing.Text("a")],
+            [@parsing.Text("b")],
+            [@parsing.Text("c")],
           ],
         },
       ],
@@ -107,7 +116,7 @@ test "table with empty header renders" {
     ),
   ]
   @test.assert_eq(
-    @backend.render_terminal_document(blocks, ansi=false),
+    @backend.render_terminal_document(@document.organize(blocks), ansi=false),
     "  │   │  \n─┼─┼─\na │ b │ c",
   )
 }
@@ -116,7 +125,9 @@ test "table with empty header renders" {
 test "terminal document default renders ansi" {
   let blocks = [@parsing.Heading(1, [@parsing.Text("Title")], Map([]))]
   @test.assert_eq(
-    @backend.render_terminal_document(blocks).contains("\u{1b}"),
+    @backend.render_terminal_document(@document.organize(blocks)).contains(
+      "\u{1b}",
+    ),
     true,
   )
 }
@@ -125,16 +136,20 @@ test "terminal document default renders ansi" {
 test "terminal document plain text has no ansi" {
   let blocks = [@parsing.Heading(1, [@parsing.Text("Title")], Map([]))]
   @test.assert_eq(
-    @backend.render_terminal_document(blocks, ansi=false),
+    @backend.render_terminal_document(@document.organize(blocks), ansi=false),
     "Title",
   )
 }
 
 ///|
 test "disable_math keeps inline math literal in terminal" {
-  let blocks = [@parsing.Paragraph([@parsing.InlineMath("x^2 = 2")])]
+  let blocks = [@parsing.InlineMath("x^2 = 2")]
   @test.assert_eq(
-    @backend.render_terminal_document(blocks, ansi=false, disable_math=true),
+    @backend.render_terminal_document(
+      @document.organize(blocks),
+      ansi=false,
+      disable_math=true,
+    ),
     "$x^2 = 2$",
   )
 }
@@ -143,7 +158,11 @@ test "disable_math keeps inline math literal in terminal" {
 test "disable_math keeps display math literal in terminal" {
   let blocks = [@parsing.DisplayMath("\\sum_{i=1}^n i")]
   @test.assert_eq(
-    @backend.render_terminal_document(blocks, ansi=false, disable_math=true),
+    @backend.render_terminal_document(
+      @document.organize(blocks),
+      ansi=false,
+      disable_math=true,
+    ),
     "$$\\sum_{i=1}^n i$$",
   )
 }

@@ -23,6 +23,7 @@ test {
 
   let actual = @parsing.document.parse(@talc.Input::new(content))
     |> Result::unwrap
+    |> @document.organize
     |> @backend.render_terminal_document
   @test.assert_eq(actual, expected)
 }

@@ -4,22 +4,24 @@
 /// without a dedicated renderer fall back to rendering their content
 /// arguments.
 fn term_render_element(
-  element : ElementData,
+  element : @document.Element,
   options : TerminalOptions,
+  prev~ : Char?,
+  next~ : Char?,
 ) -> String {
   match element.tag {
     "quote" => term_render_quote(element, options)
     "image" => term_render_image(element, options)
     "pagebreak" => "\n\n"
     "draft" => term_render_draft(options)
-    _ => term_render_content(element.children(), options)
+    _ => term_render_content(element.content, options, prev~, next~)
   }
 }
 
 ///|
 /// `image`: an alt-text placeholder; image content is not rendered.
 fn term_render_image(
-  element : ElementData,
+  element : @document.Element,
   options : TerminalOptions,
 ) -> String {
   let alt = element.named
@@ -43,10 +45,10 @@ fn term_render_draft(options : TerminalOptions) -> String {
 /// attribution argument becomes a tail line indented 8 spaces (no right
 /// alignment in the terminal).
 fn term_render_quote(
-  element : ElementData,
+  element : @document.Element,
   options : TerminalOptions,
 ) -> String {
-  let rendered = term_render_content(element.children(), options)
+  let rendered = term_render_content(element.content, options)
   let tail = element.named
     .get("attribution")
     .map_or("", value => "\n        --- \{value.term_render(options)}")
@@ -61,17 +63,16 @@ fn term_render_quote(
 
 ///|
 /// The terminal rendering of an argument value: text renders as its text,
-/// a `Content` value as its block flow, and a nested `Call` uses the same
-/// document-node conversion as a call in markup.
-fn @parsing.Value::term_render(
-  self : @parsing.Value,
+/// content and nested calls contain nodes prepared before rendering.
+fn @document.Value::term_render(
+  self : @document.Value,
   options : TerminalOptions,
 ) -> String {
   match self {
     Text(s) => term_render_text(s, options)
     Integer(n) => n.to_string()
     Content(blocks) => term_render_content(blocks, options)
-    Call(_, _, _) => term_render_content(@parsing.flow_of(self), options)
+    Call(blocks) => term_render_content(blocks, options)
     Comment(_) => ""
   }
 }

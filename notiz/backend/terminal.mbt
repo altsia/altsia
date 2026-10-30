@@ -65,11 +65,11 @@ fn term_style(
 
 ///|
 pub fn render_terminal_document(
-  blocks : Array[@parsing.Block],
-  line_style? : LineStyle = Unicode,
-  ansi? : Bool = true,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
+  blocks : Array[@document.Node],
+  line_style~ : LineStyle = Unicode,
+  ansi~ : Bool = true,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
 ) -> String {
   let options : TerminalOptions = {
     line_style,
@@ -86,13 +86,17 @@ pub fn render_terminal_document(
 ///|
 /// Inline fragments concatenate; paragraph and block boundaries stay visible.
 fn term_render_content(
-  blocks : Array[@parsing.Block],
+  blocks : Array[@document.Node],
   options : TerminalOptions,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> String {
   let parts = Array()
   let mut after_block = false
-  for block in blocks {
-    let text = block.term_render(options)
+  for i in 0..<blocks.length() {
+    let block = blocks[i]
+    let (prev_c, next_c) = inline_neighbors(blocks, i, prev~, next~)
+    let text = block.term_render(options, prev=prev_c, next=next_c)
     guard !text.is_empty() else { continue }
     let is_block = !block.is_inline()
     if !parts.is_empty() && (after_block || is_block) {
@@ -105,15 +109,17 @@ fn term_render_content(
 }
 
 ///|
-/// Dispatches a block to its renderer. Add a match arm and a render
-/// function here for each block variant.
-fn @parsing.Block::term_render(
-  self : @parsing.Block,
+/// Renders a node whose paragraphs and nested flows are already organized.
+fn @document.Node::term_render(
+  self : @document.Node,
   options : TerminalOptions,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> String {
   match self {
     Heading(level, blocks, _) => term_render_heading(level, blocks, options)
     Paragraph(inlines) => term_render_inlines(inlines, options)
+    InlineRun(inlines) => term_render_inlines(inlines, options, prev~, next~)
     UnorderedList(items) => term_render_list(items, options)
     OrderedList(items) => term_render_ordered_list(items, options)
     FencedCode(_, code) => term_render_fenced_code(code, options)
@@ -123,25 +129,33 @@ fn @parsing.Block::term_render(
       term_render_table(header, rows, alignments, options)
     FootnoteDef(label, blocks) =>
       term_render_footnote_def(label, blocks, options)
-    Text(s) => term_render_text(s, options)
-    Inline(item) =>
-      term_render_inline(
-        item,
-        options,
-        convert=options.halfwidth_punct,
-        prev=None,
-        next=None,
+    Text(s) => term_render_text(s, options, prev~, next~)
+    Strong(nodes) =>
+      term_style(
+        term_render_content(nodes, options, prev~, next~),
+        ansi=options.ansi,
+        modifier=[@chalk.Modifier::Bold],
       )
+    Emph(nodes) =>
+      term_style(
+        term_render_content(nodes, options, prev~, next~),
+        ansi=options.ansi,
+        modifier=[@chalk.Modifier::Italic],
+      )
+    Code(text) => term_style(text, ansi=options.ansi, color=@chalk.Cyan)
+    SoftBreak | HardBreak => "\n"
+    InlineMath(latex) => term_render_inline_math(latex, options)
+    FootnoteRef(label) =>
+      term_style("[\{label}]", ansi=options.ansi, color=@chalk.Yellow)
     Comment(_) => ""
-    Element(tag, positional, named) =>
-      term_render_element({ tag, positional, named, }, options)
+    Element(element) => term_render_element(element, options, prev~, next~)
   }
 }
 
 ///|
 fn term_render_heading(
-  level : Int,
-  blocks : Array[@parsing.Block],
+  level : Int32,
+  blocks : Array[@document.Node],
   options : TerminalOptions,
 ) -> String {
   let color = match level {
@@ -191,7 +205,7 @@ fn term_render_display_math(
 ///|
 fn term_render_footnote_def(
   label : String,
-  blocks : Array[@parsing.Block],
+  blocks : Array[@document.Node],
   options : TerminalOptions,
 ) -> String {
   let defined = blocks.map(b => b.term_render(options)).join("\n\n")
@@ -199,14 +213,19 @@ fn term_render_footnote_def(
 }
 
 ///|
-fn term_render_text(s : String, options : TerminalOptions) -> String {
+fn term_render_text(
+  s : String,
+  options : TerminalOptions,
+  prev~ : Char? = None,
+  next~ : Char? = None,
+) -> String {
   guard options.halfwidth_punct else { s }
-  to_halfwidth_punct(s)
+  to_halfwidth_punct(s, prev~, next~)
 }
 
 ///|
 fn term_render_list(
-  items : Array[@parsing.MdListItem],
+  items : Array[@document.ListItem],
   options : TerminalOptions,
 ) -> String {
   items.map(i => term_render_list_item(i, "•", options)).join("\n")
@@ -214,7 +233,7 @@ fn term_render_list(
 
 ///|
 fn term_render_ordered_list(
-  items : Array[@parsing.MdListItem],
+  items : Array[@document.ListItem],
   options : TerminalOptions,
 ) -> String {
   let rendered = Array()
@@ -226,7 +245,7 @@ fn term_render_ordered_list(
 
 ///|
 fn term_render_list_item(
-  item : @parsing.MdListItem,
+  item : @document.ListItem,
   marker : String,
   options : TerminalOptions,
 ) -> String {
@@ -239,7 +258,7 @@ fn term_render_list_item(
       term_style("○", ansi=options.ansi, color=@chalk.WhiteBright)
     }
   })
-  let content = term_render_inlines(item.content, options)
+  let content = term_render_content(item.content, options)
   let children = item.children.map(b => b.term_render(options)).join("\n\n")
   let indented_children = children
     .split("\n")
@@ -257,14 +276,14 @@ fn term_render_list_item(
 
 ///|
 fn term_render_table(
-  header : @parsing.TableRow,
-  rows : Array[@parsing.TableRow],
+  header : @document.TableRow,
+  rows : Array[@document.TableRow],
   alignments : Array[@parsing.TableAlignment],
   options : TerminalOptions,
 ) -> String {
-  let header_cells = header.cells.map(c => term_render_inlines(c, options))
+  let header_cells = header.cells.map(c => term_render_content(c, options))
   let body_cells = rows.map(r => {
-    r.cells.map(c => term_render_inlines(c, options))
+    r.cells.map(c => term_render_content(c, options))
   })
   let col_count = header_cells.length()
   let widths = table_cell_widths(
@@ -314,7 +333,7 @@ fn term_render_table(
 ///|
 fn term_table_row_internal(
   cells : Array[String],
-  widths : Array[Int],
+  widths : Array[Int32],
   alignments : Array[@parsing.TableAlignment],
   color : @chalk.Colors,
   modifier : @chalk.Modifier,
@@ -344,7 +363,7 @@ fn term_table_row_internal(
 }
 
 ///|
-fn term_cell_width(cell : String) -> Int {
+fn term_cell_width(cell : String) -> Int32 {
   cell
   .split("\n")
   .fold(init=0, (width, line) => width.max(term_line_width(line.to_owned())))
@@ -352,7 +371,7 @@ fn term_cell_width(cell : String) -> Int {
 
 ///|
 /// ANSI SGR sequences emitted by the style renderer occupy no columns.
-fn term_line_width(line : String) -> Int {
+fn term_line_width(line : String) -> Int32 {
   let mut styling = false
   let mut width = 0
   for c in line.iter() {
@@ -371,58 +390,15 @@ fn term_line_width(line : String) -> Int {
 
 ///|
 fn term_render_inlines(
-  inlines : Array[@parsing.Inline],
+  inlines : Array[@document.Node],
   options : TerminalOptions,
-  prev? : Char? = None,
-  next? : Char? = None,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> String {
   let buf = StringBuilder()
   for i in 0..<inlines.length() {
     let (prev_c, next_c) = inline_neighbors(inlines, i, prev~, next~)
-    buf.write_string(
-      term_render_inline(
-        inlines[i],
-        options,
-        convert=options.halfwidth_punct,
-        prev=prev_c,
-        next=next_c,
-      ),
-    )
+    buf.write_string(inlines[i].term_render(options, prev=prev_c, next=next_c))
   }
   buf.to_string()
-}
-
-///|
-fn term_render_inline(
-  inline : @parsing.Inline,
-  options : TerminalOptions,
-  convert~ : Bool,
-  prev~ : Char?,
-  next~ : Char?,
-) -> String {
-  match inline {
-    Plain(text) => {
-      guard convert else { text }
-      to_halfwidth_punct(text, prev~, next~)
-    }
-    Strong(inlines) =>
-      term_style(
-        term_render_inlines(inlines, options, prev~, next~),
-        ansi=options.ansi,
-        modifier=[@chalk.Modifier::Bold],
-      )
-    Emph(inlines) =>
-      term_style(
-        term_render_inlines(inlines, options, prev~, next~),
-        ansi=options.ansi,
-        modifier=[@chalk.Modifier::Italic],
-      )
-    Code(text) => term_style(text, ansi=options.ansi, color=@chalk.Cyan)
-    Content(blocks) => term_render_content(blocks, options)
-    SoftBreak => "\n"
-    HardBreak => "\n"
-    InlineMath(latex) => term_render_inline_math(latex, options)
-    FootnoteRef(label) =>
-      term_style("[\{label}]", ansi=options.ansi, color=@chalk.Yellow)
-  }
 }

@@ -1,17 +1,18 @@
 ///|
 pub fn compile(
   source : String,
-  target? : CompileTarget = Text,
-  line_style? : @backend.LineStyle = @backend.LineStyle::Ascii,
-  ansi? : Bool = false,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
+  target~ : CompileTarget = Text,
+  line_style~ : @backend.LineStyle = @backend.LineStyle::Ascii,
+  ansi~ : Bool = false,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
 ) -> String raise @parsing.SyntaxError {
-  let (frontmatter, blocks) = match
+  let (frontmatter, content) = match
     @parsing.document_with_metadata.parse(source |> @talc.Input::new) {
     Ok(result) => result
     Err(err) => raise @parsing.SyntaxError::of_parse_error(err)
   }
+  let blocks = @document.organize(content)
   let frontmatter = {
     ..frontmatter,
     builtin: {
@@ -81,10 +82,10 @@ pub fn compile(
 pub fn compile_cmark(
   source : String,
   options : @cmark.Options,
-  line_style? : @backend.LineStyle = @backend.LineStyle::Ascii,
-  ansi? : Bool = false,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
+  line_style~ : @backend.LineStyle = @backend.LineStyle::Ascii,
+  ansi~ : Bool = false,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
 ) -> String {
   @backend.render_terminal_events(
     @cmark.parse(source, options),

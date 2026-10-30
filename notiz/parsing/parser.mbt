@@ -1,55 +1,34 @@
 ///|
-/// AST types
-pub(all) enum Inline {
-  Plain(String)
-  Strong(Array[Inline])
-  Emph(Array[Inline])
+/// Parsed content preserves source nesting and paragraph separators. Paragraphs
+/// are assembled after parsing, not represented in this tree.
+pub(all) enum Content {
+  Text(String)
+  Strong(Array[Content])
+  Emph(Array[Content])
   Code(String)
-  Content(Array[Block])
+  Sequence(Array[Content])
   SoftBreak
   HardBreak
+  ParagraphBreak
   InlineMath(String)
   FootnoteRef(String)
-} derive(Eq, Debug)
-
-///|
-pub extend Inline with Eq::{not_equal, equal}
-
-///|
-pub extend Inline with Debug::{to_repr}
-
-///|
-pub(all) enum Block {
-  Heading(Int, Array[Block], Map[String, Value])
-  Paragraph(Array[Inline])
+  Heading(Int32, Array[Content], Map[String, Value])
   UnorderedList(Array[MdListItem])
   OrderedList(Array[MdListItem])
   FencedCode(String?, String)
   DisplayMath(String)
   ThematicBreak
   Table(TableRow, Array[TableRow], Array[TableAlignment])
-  FootnoteDef(String, Array[Block])
-  Text(String)
-  Inline(Inline)
+  FootnoteDef(String, Array[Content])
   Comment(String)
   Element(String, Array[Value], Map[String, Value])
 } derive(Eq, Debug)
 
 ///|
-pub extend Block with Eq::{not_equal, equal}
+pub extend Content with Eq::{not_equal, equal}
 
 ///|
-pub extend Block with Debug::{to_repr}
-
-///|
-/// Structural nodes interrupt paragraphs; inline values compose within them.
-pub fn Block::is_inline(self : Block) -> Bool {
-  match self {
-    Text(_) | Inline(_) | Comment(_) => true
-    Element(tag, _, _) => tag != "quote" && tag != "pagebreak"
-    _ => false
-  }
-}
+pub extend Content with Debug::{to_repr}
 
 ///|
 pub(all) enum TableAlignment {
@@ -66,7 +45,7 @@ pub extend TableAlignment with Debug::{to_repr}
 
 ///|
 pub(all) struct TableRow {
-  cells : Array[Array[Inline]]
+  cells : Array[Array[Content]]
 } derive(Eq, Debug)
 
 ///|
@@ -78,8 +57,8 @@ pub extend TableRow with Debug::{to_repr}
 ///|
 pub(all) struct MdListItem {
   checked : Bool?
-  content : Array[Inline]
-  children : Array[Block]
+  content : Array[Content]
+  children : Array[Content]
 } derive(Eq, Debug)
 
 ///|
@@ -95,8 +74,8 @@ pub extend MdListItem with Debug::{to_repr}
 /// nested call expression.
 pub(all) enum Value {
   Text(String)
-  Integer(Int)
-  Content(Array[Block])
+  Integer(Int32)
+  Content(Array[Content])
   Call(String, Array[Value], Map[String, Value])
   Comment(String)
 } derive(Eq, Debug)
@@ -121,7 +100,7 @@ pub let special_chars = "*_`[\\$#=|"
 ///   soon as the item would start with the delimiter, which ends the
 ///   repetition and lets the closing delimiter match — this is what makes
 ///   the FIRST `*`/`_` close the span;
-/// - in `paragraph_start`, a chain of guards rejects lines that start with a
+/// - in `text_line_start`, a chain of guards rejects lines that start with a
 ///   block marker.
 ///
 /// It is a 1-character absence check, not a 2-character
@@ -131,27 +110,24 @@ pub fn delim(c : Char) -> @talc.StringParser[Unit] {
 }
 
 ///|
-pub type InlineParser = @talc.StringParser[Inline]
+type ContentParser = @talc.StringParser[Content]
 
 ///|
-pub type BlockParser = @talc.StringParser[Block]
-
-///|
-let hard_break : InlineParser = @talc.char('\\')
+let hard_break : ContentParser = @talc.char('\\')
   .then(@talc.newline)
   .attempt()
   .map(_ => HardBreak)
 
 ///|
-let soft_break : InlineParser = @talc.newline.map(_ => SoftBreak)
+let soft_break : ContentParser = @talc.newline.map(_ => SoftBreak)
 
 ///|
-let escaped : InlineParser = @talc.char('\\')
+let escaped : ContentParser = @talc.char('\\')
   .then(@talc.one_of(special_chars + "]"))
-  .map(c => Plain(c.to_string()))
+  .map(c => Text(c.to_string()))
 
 ///|
-let code_span : InlineParser = @talc.char('`')
+let code_span : ContentParser = @talc.char('`')
   .then(@talc.many_chars(@talc.none_of("`")))
   .skip(@talc.char('`'))
   .map(c => Code(c))
@@ -165,7 +141,7 @@ let code_span : InlineParser = @talc.char('`')
 /// Content must be non-empty (`many_chars1`): `$$` inside a paragraph is an
 /// error, not an empty math node. `$$` at line start is display math and
 /// never reaches this parser.
-let inline_math : InlineParser = @talc.char('$')
+let inline_math : ContentParser = @talc.char('$')
   .then(@talc.many_chars1(@talc.none_of("$")))
   .skip(@talc.char('$'))
   .attempt()
@@ -173,12 +149,17 @@ let inline_math : InlineParser = @talc.char('$')
 
 ///|
 /// Evaluate a script expression without consuming following markup whitespace.
-fn inline_script() -> InlineParser {
-  escape().map(blocks => Inline::Content(blocks))
+fn inline_script() -> ContentParser {
+  escape().map(items => {
+    match items {
+      [item] => item
+      _ => Sequence(items)
+    }
+  })
 }
 
 ///|
-fn footnote_ref() -> InlineParser {
+fn footnote_ref() -> ContentParser {
   @talc.string("[^")
   .then(@talc.many_chars1(@talc.none_of("]")))
   .skip(@talc.char(']'))
@@ -195,9 +176,9 @@ fn footnote_ref() -> InlineParser {
 /// content closes the span (`*a *b* c*` = strong "a ", plain "b", strong
 /// " c"). A `*` that cannot close anything is a parse error (strict mode);
 /// write `\*` for a literal star.
-fn strong(terminators : String, paragraph~ : Bool) -> InlineParser {
+fn strong(terminators : String, stop_at_blocks~ : Bool) -> ContentParser {
   @talc.char('*')
-  .then(delim('*').then(inline(terminators~, paragraph~)).some())
+  .then(delim('*').then(inline(terminators~, stop_at_blocks~)).some())
   .skip(@talc.char('*'))
   .map(c => Strong(c))
 }
@@ -205,26 +186,26 @@ fn strong(terminators : String, paragraph~ : Bool) -> InlineParser {
 ///|
 /// `_content_` emph: same shape as `strong`, with the same first-`_`-closes
 /// rule and the same nesting property (strong can appear inside emph).
-fn emph(terminators : String, paragraph~ : Bool) -> InlineParser {
+fn emph(terminators : String, stop_at_blocks~ : Bool) -> ContentParser {
   @talc.char('_')
-  .then(delim('_').then(inline(terminators~, paragraph~)).some())
+  .then(delim('_').then(inline(terminators~, stop_at_blocks~)).some())
   .skip(@talc.char('_'))
   .map(c => Emph(c))
 }
 
 ///|
-fn plain_char(terminators : String) -> InlineParser {
+fn plain_char(terminators : String) -> ContentParser {
   let non_special = @talc.none_of(special_chars + "\n\r" + terminators)
   non_special.bind(c => {
-    @talc.many_chars(non_special).map(rest => Plain("\{c}\{rest}"))
+    @talc.many_chars(non_special).map(rest => Text("\{c}\{rest}"))
   })
 }
 
 ///|
 fn inline(
-  terminators? : String = "",
-  paragraph? : Bool = false,
-) -> InlineParser {
+  terminators~ : String = "",
+  stop_at_blocks~ : Bool = false,
+) -> ContentParser {
   @talc.delay(() => {
     let breaks = if terminators.contains("\n") {
       []
@@ -238,17 +219,17 @@ fn inline(
         escaped,
         inline_script(),
         footnote_ref(),
-        strong(terminators, paragraph~),
-        emph(terminators, paragraph~),
+        strong(terminators, stop_at_blocks~),
+        emph(terminators, stop_at_blocks~),
         inline_math,
         code_span,
         plain_char(terminators),
-        @talc.one_of(brackets).map(c => Plain(c.to_string())),
+        @talc.one_of(brackets).map(c => Text(c.to_string())),
       ],
     )
     @talc.Parser::new(input => {
-      if paragraph && input.position().column == 1 {
-        paragraph_start.then(item).run(input)
+      if stop_at_blocks && input.position().column == 1 {
+        text_line_start.then(item).run(input)
       } else {
         item.run(input)
       }
@@ -257,39 +238,8 @@ fn inline(
 }
 
 ///|
-pub fn parse_inlines(text : String) -> Result[Array[Inline], @talc.ParseError] {
+pub fn parse_inlines(text : String) -> Result[Array[Content], @talc.ParseError] {
   inline().many().parse(@talc.Input::new(text))
-}
-
-///|
-/// Trim paragraph/cell edges without changing code, math, or hard breaks.
-fn trim_inlines(items : Array[Inline]) -> Array[Inline] {
-  let start = for i = 0; i < items.length(); {
-    match items[i] {
-      SoftBreak => continue i + 1
-      Plain(text) if text.trim().is_empty() => continue i + 1
-      _ => break i
-    }
-  } nobreak {
-    items.length()
-  }
-  let end = for i = items.length(); i > start; {
-    match items[i - 1] {
-      SoftBreak => continue i - 1
-      Plain(text) if text.trim().is_empty() => continue i - 1
-      _ => break i
-    }
-  } nobreak {
-    start
-  }
-  let trimmed = items[start:end].to_owned()
-  if trimmed.get(0) is Some(Plain(text)) {
-    trimmed[0] = Plain(text.trim_start().to_owned())
-  }
-  if trimmed.last() is Some(Plain(text)) {
-    trimmed[trimmed.length() - 1] = Plain(text.trim_end().to_owned())
-  }
-  trimmed
 }
 
 ///|
@@ -322,7 +272,7 @@ let blank_line : @talc.StringParser[Unit] = {
 }
 
 ///|
-fn thematic_break(closing : String) -> BlockParser {
+fn thematic_break(closing : String) -> ContentParser {
   @talc.string("---")
   .then(@talc.char('-').many())
   .skip(markup_line_end(closing))
@@ -331,7 +281,7 @@ fn thematic_break(closing : String) -> BlockParser {
 
 ///|
 /// Heading markers have one to six equals signs followed by whitespace.
-fn heading_prefix() -> @talc.StringParser[Int] {
+fn heading_prefix() -> @talc.StringParser[Int32] {
   @talc.char('=')
   .some()
   .bind(equals => {
@@ -342,11 +292,10 @@ fn heading_prefix() -> @talc.StringParser[Int] {
 }
 
 ///|
-fn heading(closing : String) -> BlockParser {
+fn heading(closing : String) -> ContentParser {
   heading_prefix().bind(level => {
     inline(terminators="\r\n" + closing)
     .many()
-    .map(items => items.map(desugar_inline).flatten())
     .skip(markup_line_end(closing))
     .map(items => make_heading(level, items, Map([])))
   })
@@ -354,10 +303,10 @@ fn heading(closing : String) -> BlockParser {
 
 ///|
 fn make_heading(
-  level : Int,
-  items : Array[Block],
+  level : Int32,
+  items : Array[Content],
   attributes : Map[String, Value],
-) -> Block {
+) -> Content {
   Heading(level.max(1).min(6), items, attributes)
 }
 
@@ -367,7 +316,7 @@ let rest_of_line : @talc.SParser = @talc.many_chars1(@talc.not_newline)
   .or(@talc.newline.map(_ => "\n"))
 
 ///|
-fn fenced_code(closing : String) -> BlockParser {
+fn fenced_code(closing : String) -> ContentParser {
   let not_nl = @talc.not_newline
   @talc.string("```")
   .then(@talc.many_chars1(not_nl).optional())
@@ -381,17 +330,11 @@ fn fenced_code(closing : String) -> BlockParser {
 }
 
 ///|
-/// Paragraph
-///
-/// A paragraph line may not start with any block marker. These guards are
-/// the runtime form of disjoint FIRST sets: every line-starting character
-/// maps to exactly one block production, leaving `paragraph` as the
-/// "anything else" branch. In particular the `$$` guard means a line
-/// starting with `$$` is display math or a hard error — it can never fall
-/// back to a paragraph. A line starting with a single `$` is NOT rejected
-/// here: it is a paragraph whose leading `$` is parsed as inline math by
-/// the inline layer.
-let paragraph_start : @talc.StringParser[Unit] = blank_line
+/// Stop reading text at a blank line or structural markup prefix. This
+/// selects the syntax parser for the next item; it does not form paragraphs.
+/// A line starting with `$$` must be display math or an error, while a
+/// single `$` is parsed as inline math.
+let text_line_start : @talc.StringParser[Unit] = blank_line
   .not_followed_by("blank line")
   .then(@talc.string("---").not_followed_by("\"---\""))
   .then(@talc.string("```").not_followed_by("\"```\""))
@@ -402,56 +345,14 @@ let paragraph_start : @talc.StringParser[Unit] = blank_line
   .then(delim('|'))
 
 ///|
-fn paragraph(closing : String) -> @talc.StringParser[Array[Block]] {
-  paragraph_start
-  .then(inline(terminators=closing, paragraph=true).some())
-  .map(items => paragraph_flow(trim_inlines(items)))
-}
-
-///|
-/// Script values join the surrounding inline flow. Block values interrupt it
-/// just as their markup syntax does, without nesting blocks inside paragraphs.
-fn paragraph_flow(items : Array[Inline]) -> Array[Block] {
-  if items is [Content(blocks)] {
-    return blocks
-  }
-  let flow = Array()
-  let pending = Array()
-  for item in items {
-    guard item is Content(blocks) else {
-      pending.push(item)
-      continue
-    }
-    for block in blocks {
-      guard block.is_inline() else {
-        append_paragraph(flow, pending)
-        flow.push(block)
-        continue
-      }
-      match block {
-        Text(text) => pending.push(Plain(text))
-        Inline(inline) => pending.push(inline)
-        _ => pending.push(Content([block]))
-      }
-    }
-  }
-  append_paragraph(flow, pending)
-  flow
-}
-
-///|
-fn append_paragraph(flow : Array[Block], pending : Array[Inline]) -> Unit {
-  let content = trim_inlines(pending)
-  if !content.is_empty() {
-    flow.push(Paragraph(content))
-  }
-  pending.clear()
+fn text_run(closing : String) -> @talc.StringParser[Array[Content]] {
+  text_line_start.then(inline(terminators=closing, stop_at_blocks=true).some())
 }
 
 ///|
 /// Table
-fn table_cell(closing : String) -> @talc.StringParser[Array[Inline]] {
-  inline(terminators="|\r\n" + closing).many().map(trim_inlines)
+fn table_cell(closing : String) -> @talc.StringParser[Array[Content]] {
+  inline(terminators="|\r\n" + closing).many()
 }
 
 ///|
@@ -523,7 +424,7 @@ fn table_delimiter(
 }
 
 ///|
-pub fn table(closing? : String = "") -> BlockParser {
+pub fn table(closing~ : String = "") -> ContentParser {
   table_row(closing).bind(header => {
     table_delimiter(closing).bind(alignments => {
       table_row(closing)
@@ -558,7 +459,7 @@ fn task_marker() -> @talc.StringParser[Bool] {
 ///|
 fn list_item(
   marker : Char,
-  indent : Int,
+  indent : Int32,
   closing : String,
 ) -> @talc.StringParser[MdListItem] {
   let istr = String::repeat(" ", indent)
@@ -575,16 +476,15 @@ fn list_item(
 ///
 /// Sub-lists are looked for at exactly `indent + 2` spaces — a fixed
 /// 2-space indentation per nesting level, not a variable-length prefix
-/// scan. The `.attempt()` in `list_item` is what lets a failed item body
-/// fall back to `paragraph`, unrelated to indentation probing.
+/// scan. The `.attempt()` in `list_item` only probes the indentation and
+/// marker; it does not allow a malformed item body to become plain text.
 fn list_item_body(
   checked : Bool?,
-  indent : Int,
+  indent : Int32,
   closing : String,
 ) -> @talc.StringParser[MdListItem] {
   inline(terminators="\r\n" + closing)
   .many()
-  .map(trim_inlines)
   .skip(markup_line_end(closing))
   .bind(content => {
     sub_list(indent + 2, closing)
@@ -594,17 +494,17 @@ fn list_item_body(
 }
 
 ///|
-fn unordered_list_at(indent : Int, closing : String) -> BlockParser {
+fn unordered_list_at(indent : Int32, closing : String) -> ContentParser {
   list_item('-', indent, closing).some().map(items => UnorderedList(items))
 }
 
 ///|
-fn ordered_list_at(indent : Int, closing : String) -> BlockParser {
+fn ordered_list_at(indent : Int32, closing : String) -> ContentParser {
   list_item('+', indent, closing).some().map(items => OrderedList(items))
 }
 
 ///|
-fn sub_list(indent : Int, closing : String) -> BlockParser {
+fn sub_list(indent : Int32, closing : String) -> ContentParser {
   @talc.choice([
     unordered_list_at(indent, closing),
     ordered_list_at(indent, closing),
@@ -613,7 +513,7 @@ fn sub_list(indent : Int, closing : String) -> BlockParser {
 
 ///|
 /// Footnote definition
-fn footnote_def(closing : String) -> BlockParser {
+fn footnote_def(closing : String) -> ContentParser {
   @talc.char('[')
   .then(@talc.char('^'))
   .then(@talc.many_chars1(@talc.none_of("]")))
@@ -622,9 +522,8 @@ fn footnote_def(closing : String) -> BlockParser {
   .bind(label => {
     inline(terminators="\r\n" + closing)
     .many()
-    .map(trim_inlines)
     .skip(markup_line_end(closing))
-    .map(inlines => FootnoteDef(label, [Paragraph(inlines)]))
+    .map(items => FootnoteDef(label, items))
   })
   .attempt()
 }
@@ -635,11 +534,11 @@ fn footnote_def(closing : String) -> BlockParser {
 /// The trailing `.attempt()` is load-bearing, not cleanup: `bind`/`then`
 /// commit a failure once input has been consumed, so without it a line
 /// starting with a single `$` would die with a committed error and never
-/// fall through to `paragraph`. The block-level `$` decision is effectively
-/// 2-character lookahead: `$$` → display math; single `$` → paragraph
-/// (where the leading `$` is inline math). An unclosed `$$` line is a hard
-/// error — the `$$` paragraph guard rejects it before `paragraph` is tried.
-let display_math_block : BlockParser = @talc.string("$$")
+/// reach the inline math parser in `text_run`. The line-start `$` decision
+/// uses two characters: `$$` starts display math; a single `$` starts inline
+/// math. An unclosed `$$` line is an error because `text_line_start` also
+/// rejects that prefix.
+let display_math_block : ContentParser = @talc.string("$$")
   .bind(_ => {
     @talc.choice([
       @talc.newline.bind(_ => {
@@ -659,10 +558,10 @@ let display_math_block : BlockParser = @talc.string("$$")
 ///|
 /// Shared markup grammar. The opening `[` acts as a virtual line start;
 /// subsequent block markers must occur at a physical line start.
-fn block(closing : String, start : Int) -> @talc.StringParser[Array[Block]] {
+fn block(closing : String, start : Int32) -> @talc.StringParser[Array[Content]] {
   @talc.Parser::new(input => {
     guard input.cursor() == start || input.position().column == 1 else {
-      return paragraph(closing).run(input)
+      return text_run(closing).run(input)
     }
     @talc.choice([
       @talc.choice([
@@ -675,41 +574,55 @@ fn block(closing : String, start : Int) -> @talc.StringParser[Array[Block]] {
         unordered_list_at(0, closing),
         ordered_list_at(0, closing),
       ]).map(item => [item]),
-      paragraph(closing),
+      text_run(closing),
     ]).run(input)
   })
 }
 
 ///|
-fn blocks(closing? : String = "") -> @talc.StringParser[Array[Block]] {
-  blank_line
-  .many()
-  .then(
-    @talc.Parser::new(input => {
-      block(closing, input.cursor()).skip(blank_line.many()).many().run(input)
-    }),
-  )
-  .map(items => items.flatten())
+fn blocks(closing~ : String = "") -> @talc.StringParser[Array[Content]] {
+  @talc.Parser::new(input => {
+    @talc.choice([
+      blank_line.some().map(_ => [ParagraphBreak]),
+      block(closing, input.cursor()),
+    ])
+    .many()
+    .map(items => items.flatten())
+    .run(input)
+  })
 }
 
 ///|
-/// The full document: optional leading blank lines, optional frontmatter,
-/// then the blocks. Returns the frontmatter (the default one when the
-/// document has no frontmatter block) alongside the blocks.
-pub let document_with_metadata : @talc.StringParser[(Frontmatter, Array[Block])] = blank_line
+/// Parse metadata separately from content. Leading blank lines before
+/// frontmatter belong to the metadata preamble; without frontmatter they
+/// remain a paragraph separator in the content tree.
+pub let document_with_metadata : @talc.StringParser[
+  (Frontmatter, Array[Content]),
+] = blank_line
   .many()
-  .then(frontmatter.or(@talc.pure(default_frontmatter)))
-  .skip(blank_line.many())
-  .bind(metadata => blocks().map(blocks => (metadata, blocks)))
-  .skip(blank_line.many())
+  .bind(leading => {
+    frontmatter
+    .optional()
+    .bind(metadata => {
+      blocks().map(content => {
+        let content = [
+          ..if metadata is None && !leading.is_empty() {
+            [ParagraphBreak]
+          },
+          ..content,
+        ]
+        (metadata.unwrap_or(default_frontmatter), content)
+      })
+    })
+  })
   .skip(@talc.eof())
 
 ///|
-/// The full document: optional leading blank lines, optional frontmatter,
-/// then the blocks. The frontmatter itself is discarded; parse it with
+/// The document's content tree, with paragraph separators and source nesting.
+/// The frontmatter itself is discarded; parse it with
 /// [`document_with_metadata`](`document_with_metadata`) if the metadata is
 /// needed.
-pub let document : @talc.StringParser[Array[Block]] = document_with_metadata.map(pair => {
+pub let document : @talc.StringParser[Array[Content]] = document_with_metadata.map(pair => {
     pair.1
   },
 )

@@ -3,6 +3,7 @@ import {
   "kokic/talcparsec" @talc,
   "kokic/notiz",
   "kokic/notiz/parsing",
+  "kokic/notiz/document",
   "kokic/notiz/backend",
   "kokic/cmark",
 } for "test"

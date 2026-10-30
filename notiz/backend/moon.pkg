@@ -1,5 +1,6 @@
 import {
   "kokic/notiz/parsing",
+  "kokic/notiz/document",
   "kokic/katex-parser" @katex,
   "kokic/katex-parser/unicode",
   "kokic/dulox/eval",

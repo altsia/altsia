@@ -1,7 +1,7 @@
 ///|
 /// The script scope: a Typst-style call syntax layered on top of the markup
 /// scope. A script source is a sequence of expressions — calls, strings,
-/// content blocks, comments — compiled to the single block tree. Whitespace
+/// content blocks, comments — compiled to a content tree. Whitespace
 /// is skipped between tokens. Comments are values, including in argument
 /// lists, and produce [`Comment`](`Comment`) nodes in document flow.
 ///
@@ -151,16 +151,16 @@ fn expr_value() -> @talc.StringParser[Value] {
 /// `expr ::= call | value`. Each expression yields a spliceable node
 /// sequence: a content block is its markup's items, a bare string or
 /// integer is one `Text` node in the flow (`#2` displays as "2").
-fn script_expr() -> @talc.StringParser[Array[Block]] {
+fn script_expr() -> @talc.StringParser[Array[Content]] {
   expr_value().map(flow_of)
 }
 
 ///|
-/// Converts a script value to document nodes before backend rendering.
-pub fn flow_of(value : Value) -> Array[Block] {
+/// Converts a script value to parsed content, without organizing paragraphs.
+pub fn flow_of(value : Value) -> Array[Content] {
   match value {
-    Text(s) => [Block::Text(s)]
-    Integer(n) => [Block::Text(n.to_string())]
+    Text(s) => [Content::Text(s)]
+    Integer(n) => [Content::Text(n.to_string())]
     Content(blocks) => blocks
     Call("heading", positional, named) => {
       let level = if named.get("level") is Some(Integer(level)) {
@@ -186,7 +186,7 @@ pub fn flow_of(value : Value) -> Array[Block] {
       [make_heading(level, content, attributes)]
     }
     Call(tag, positional, named) => [Element(tag, positional, named)]
-    Comment(s) => [Block::Comment(s)]
+    Comment(s) => [Content::Comment(s)]
   }
 }
 
@@ -355,33 +355,19 @@ fn peek_after_ws(input : @talc.Input) -> Char? {
 
 ///|
 /// Content uses the document's markup grammar with `]` as its boundary.
-/// A single paragraph is an inline fragment; multiple paragraphs and other
-/// blocks retain their structure. Raw constructs and nested expressions
-/// consume their own delimiters before the enclosing `]` is considered.
-fn content_block() -> @talc.StringParser[Array[Block]] {
+/// Preserve the same content and paragraph separators as in a document.
+/// Raw constructs and nested expressions consume their own delimiters before
+/// the enclosing `]` is considered.
+fn content_block() -> @talc.StringParser[Array[Content]] {
   @talc.char('[')
   .then(@talc.delay(() => blocks(closing="]")))
   .skip(@talc.char(']'))
-  .map(items => {
-    guard items is [Paragraph(inlines)] else { return items }
-    inlines.map(desugar_inline).flatten()
-  })
 }
 
 ///|
 /// The shared markup-to-script escape: evaluate immediately after `#`.
-fn escape() -> @talc.StringParser[Array[Block]] {
+fn escape() -> @talc.StringParser[Array[Content]] {
   @talc.char('#').then(script_expr())
-}
-
-///|
-/// Keep markup semantics when embedding an inline in headings or content.
-fn desugar_inline(item : Inline) -> Array[Block] {
-  match item {
-    Plain(text) => [Block::Text(text)]
-    Content(blocks) => blocks
-    _ => [Block::Inline(item)]
-  }
 }
 
 ///|
@@ -389,14 +375,14 @@ fn desugar_inline(item : Inline) -> Array[Block] {
 /// only when nothing but whitespace matched: without it, a run of trailing
 /// whitespace would commit the "no expression here" failure and kill the
 /// whole document.
-fn spaced_expr() -> @talc.StringParser[Array[Block]] {
+fn spaced_expr() -> @talc.StringParser[Array[Content]] {
   @talc.spaces().then(script_expr()).attempt().skip(@talc.spaces())
 }
 
 ///|
 /// A script source: a sequence of expressions with whitespace and comments
 /// between them.
-pub let script_document : @talc.StringParser[Array[Block]] = @talc.spaces()
+pub let script_document : @talc.StringParser[Array[Content]] = @talc.spaces()
   .then(spaced_expr().many())
   .skip(@talc.spaces())
   .skip(@talc.eof())
@@ -404,7 +390,9 @@ pub let script_document : @talc.StringParser[Array[Block]] = @talc.spaces()
 
 ///|
 /// Parses `source` as a script-scope document — the script-default entry
-/// point into the block tree.
-pub fn parse_script(source : String) -> Result[Array[Block], @talc.ParseError] {
+/// point into the content tree.
+pub fn parse_script(
+  source : String,
+) -> Result[Array[Content], @talc.ParseError] {
   script_document.parse(@talc.Input::new(source))
 }

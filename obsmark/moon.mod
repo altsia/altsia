@@ -1,12 +1,12 @@
 name = "kokic/obsmark"
 
-version = "0.1.2"
+version = "0.1.3"
 
 import {
-  "moonbitlang/async@0.21.0",
+  "moonbitlang/async@0.22.5",
   "kokic/notiz@0.1.2",
   "kokic/cmark@0.1.1",
-  "kokic/talcparsec@0.3.0",
+  "kokic/talcparsec@0.4.0",
 }
 
 readme = "README.md"

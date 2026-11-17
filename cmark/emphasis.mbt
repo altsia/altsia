@@ -18,19 +18,21 @@ struct InlineStack {
 }
 
 ///|
-fn extension_delim_index(c : Byte) -> Int32 {
+// Single- and double-tilde runs need separate bounds so matching one
+// cannot hide an unmatched opener of the other length.
+fn extension_delim_index(c : Byte, count : Int32) -> Int32 {
   if c == b'~' {
-    0
+    count - 1
   } else if c == b'^' {
-    1
-  } else {
     2
+  } else {
+    3
   }
 }
 
 ///|
 fn inline_stack_new() -> InlineStack {
-  { stack: [], lower_bounds: Array::make(3, 0), }
+  { stack: [], lower_bounds: Array::make(4, 0), }
 }
 
 ///|
@@ -41,7 +43,7 @@ fn InlineStack::pop_all(self : InlineStack, tree : Tree[Item]) -> Unit {
     }
   }
   self.stack.clear()
-  for i in 0..<3 {
+  for i in 0..<4 {
     self.lower_bounds[i] = 0
   }
 }
@@ -49,7 +51,7 @@ fn InlineStack::pop_all(self : InlineStack, tree : Tree[Item]) -> Unit {
 ///|
 fn InlineStack::truncate(self : InlineStack, new_bound : Int32) -> Unit {
   self.stack.truncate(new_bound)
-  for i in 0..<3 {
+  for i in 0..<4 {
     if self.lower_bounds[i] > new_bound {
       self.lower_bounds[i] = new_bound
     }
@@ -67,7 +69,7 @@ fn InlineStack::find_match(
   let lowerbound = if is_emphasis {
     0
   } else {
-    self.lower_bounds[extension_delim_index(c)]
+    self.lower_bounds[extension_delim_index(c, count)]
   }
   // search from the end
   let mut i = self.stack.length() - 1
@@ -93,7 +95,7 @@ fn InlineStack::find_match(
   }
 
   if !is_emphasis {
-    self.lower_bounds[extension_delim_index(c)] = self.stack.length()
+    self.lower_bounds[extension_delim_index(c, count)] = self.stack.length()
   }
   None
 }
@@ -101,7 +103,7 @@ fn InlineStack::find_match(
 ///|
 fn InlineStack::push(self : InlineStack, el : InlineEl) -> Unit {
   if el.c != b'*' && el.c != b'_' {
-    let ix = extension_delim_index(el.c)
+    let ix = extension_delim_index(el.c, el.count)
     self.lower_bounds[ix] = self.lower_bounds[ix].min(self.stack.length())
   }
   self.stack.push(el)

@@ -159,11 +159,11 @@ fn FirstPass::handle_special_byte_inner(
     }
     b'*' | b'_' | b'~' | b'^' | b'=' => {
       let count = 1 + scan_ch_repeat(bytes.exact_view(start=ix + 1), byte)
-      let is_emphasis = byte == b'*' || byte == b'_'
-      let can_open = is_emphasis ||
+      let unrestricted = byte == b'*' || byte == b'_' || byte == b'~'
+      let can_open = unrestricted ||
         delim_run_can_open(self.text, start, ix, count, mode, self.options)
-      let can_close = is_emphasis ||
-        delim_run_can_close(self.text, start, ix, count, mode, self.options)
+      let can_close = unrestricted ||
+        delim_run_can_close(self.text, start, ix, count, mode)
       let is_valid_seq = match byte {
         b'~' => count <= 2
         b'=' => count == 2
@@ -384,14 +384,7 @@ fn FirstPass::handle_special_byte_inner(
         mode,
         self.options,
       )
-      let can_close = delim_run_can_close(
-        self.text,
-        start,
-        ix,
-        1,
-        mode,
-        self.options,
-      )
+      let can_close = delim_run_can_close(self.text, start, ix, 1, mode)
 
       self.tree.append_text(state.begin_text, ix)
       ignore(

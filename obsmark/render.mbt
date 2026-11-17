@@ -82,7 +82,6 @@ fn cmark_options() -> @cmark.Options {
     @cmark.enable_wikilinks(),
     @cmark.enable_container_extensions(),
     @cmark.enable_highlight(),
-    @cmark.enable_cjk_friendly_emphasis(),
   ].each(flag => options.insert(flag))
   options
 }

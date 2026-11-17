@@ -185,3 +185,26 @@ test "KFC emphasis composes with optional inline extensions" {
   )
   @test.assert_raise(() => @cmark.parse("*a ~~b* c~~*", options))
 }
+
+///|
+test "KFC tilde delimiters ignore boundaries and retain nested meanings" {
+  let options = @cmark.enable_subscript()
+  options.insert(@cmark.enable_strikethrough())
+  @test.assert_eq(
+    @cmark.parse("文~~ ~ + ~ ~~字", options)
+    is [
+      Start(Paragraph),
+      Text("文"),
+      Start(Strikethrough),
+      Text(" "),
+      Start(Subscript),
+      Text(" + "),
+      End(Subscript),
+      Text(" "),
+      End(Strikethrough),
+      Text("字"),
+      End(Paragraph),
+    ],
+    true,
+  )
+}

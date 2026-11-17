@@ -2,16 +2,8 @@
 //! byte lookup table.
 
 ///|
-/// A `~` delimiter run may be intraword when it is a `~~` strikethrough
-/// or a subscript `~`.
-fn is_intraword_tilde(delim : Byte, run_len : Int32, options : Options) -> Bool {
-  delim == b'~' && (run_len > 1 || options.contains(enable_subscript()))
-}
-
-///|
-/// Determines whether the delimiter run starting at given index is
-/// left-flanking, as defined by the commonmark spec (and isn't intraword
-/// for _ delims).
+/// Boundary rules for superscript, highlight, and smart quotes.
+/// KFC emphasis and tilde delimiters bypass these checks.
 fn delim_run_can_open(
   s : Bytes,
   start : Int32,
@@ -48,27 +40,9 @@ fn delim_run_can_open(
     guard !ends_with_pipe(s, ix) else { return true }
     guard next_char != '|' else { return false }
   }
-  let is_cjk_delim = options.contains(enable_cjk_friendly_emphasis()) &&
-    is_cjk_friendly_delim(delim, run_len, options)
-  guard !is_cjk_delim else {
-    return cjk_friendly_delim_run_flanking(
-        prev_char,
-        () => decode_char(s, prev_char_ix(s, prev_char_ix(s, ix))),
-        next_char,
-        delim,
-      ).can_open
-  }
-  // `*`, `~~`, and `^` can be intraword, `~` can only be interword if it's subscript
-  guard !(delim == b'*' && !is_punctuation(next_char.to_int())) else {
-    return true
-  }
   // `^` with non-punctuation content can open intraword
   guard delim != b'^' else { return true }
-  guard !(delim == b'~' && run_len > 1) else { return true }
   guard !(delim == b'=' && run_len == 2) else { return true }
-  let can_open_tilde = is_intraword_tilde(delim, run_len, options) &&
-    !is_punctuation(next_char.to_int())
-  guard !can_open_tilde else { return true }
 
   prev_char.is_whitespace() ||
   (
@@ -86,7 +60,6 @@ fn delim_run_can_close(
   ix : Int32,
   run_len : Int32,
   mode : TableParseMode,
-  options : Options,
 ) -> Bool {
   guard ix - start != 0 else { return false }
   guard decode_char(s, prev_char_ix(s, ix)) is Some(prev_char) else {
@@ -100,133 +73,14 @@ fn delim_run_can_close(
     guard next_char != '|' else { return true }
   }
   let delim = s.exact_view(start=ix).unsafe_get(0)
-  let is_cjk_delim = options.contains(enable_cjk_friendly_emphasis()) &&
-    is_cjk_friendly_delim(delim, run_len, options)
-  guard !is_cjk_delim else {
-    return cjk_friendly_delim_run_flanking(
-        prev_char,
-        () => decode_char(s, prev_char_ix(s, prev_char_ix(s, ix))),
-        next_char,
-        delim,
-      ).can_close
-  }
-  // `*`, `~~`, and `^` can be intraword, `~` can only be interword if it's subscript
-  let is_intraword = (
-      delim == b'*' ||
-      is_intraword_tilde(delim, run_len, options) ||
-      (delim == b'=' && run_len == 2)
-    ) &&
+  let is_intraword = (delim == b'=' && run_len == 2) &&
     !is_punctuation(prev_char.to_int())
   guard !is_intraword else { return true }
   guard !(delim == b'^' && !is_punctuation(prev_char.to_int())) else {
     return true
   }
-  guard !is_intraword_tilde(delim, run_len, options) else { return true }
 
   next_char.is_whitespace() || is_punctuation(next_char.to_int())
-}
-
-///|
-fn is_cjk_friendly_delim(
-  delim : Byte,
-  run_len : Int32,
-  options : Options,
-) -> Bool {
-  // two-tilde strikethrough, subscripts, superscript, and highlighter don't use flanking
-  delim == b'*' ||
-  delim == b'_' ||
-  (delim == b'~' && run_len == 1 && !options.contains(enable_subscript()))
-}
-
-///|
-priv struct CjkFriendlyDelimiterRunFlanking {
-  can_open : Bool
-  can_close : Bool
-}
-
-///|
-fn cjk_friendly_delim_run_flanking(
-  prev_char : Char,
-  get_prev_prev_char : () -> Char?,
-  next_char : Char,
-  delim : Byte,
-) -> CjkFriendlyDelimiterRunFlanking {
-  if delim == b'_' || delim == b'~' {
-    return cjk_friendly_underscore_delim_run_flanking(
-      prev_char, get_prev_prev_char, next_char,
-    )
-  }
-
-  let prev_sequence = classify_preceding_cjk_friendly_sequence(
-    prev_char, get_prev_prev_char,
-  )
-  let before_cjk_or_ivs = prev_sequence.is_cjk ||
-    prev_sequence.is_ideographic_variation_selector
-  let before_space_or_punctuation = prev_char.is_whitespace() ||
-    prev_sequence.is_punctuation
-
-  let after_cjk = next_char.is_cjk_character()
-  let after_punctuation = is_punctuation(next_char.to_int())
-  let after_space_or_punctuation = next_char.is_whitespace() ||
-    after_punctuation
-
-  let open = !next_char.is_whitespace() &&
-    (
-      !after_punctuation ||
-      before_space_or_punctuation ||
-      before_cjk_or_ivs ||
-      after_cjk ||
-      next_char == '*' ||
-      next_char == '_'
-    )
-  let close = !prev_char.is_whitespace() &&
-    (
-      !prev_sequence.is_punctuation ||
-      after_space_or_punctuation ||
-      prev_sequence.is_cjk ||
-      after_cjk ||
-      prev_char == '*' ||
-      prev_char == '_'
-    )
-
-  { can_open: open, can_close: close, }
-}
-
-///|
-fn cjk_friendly_underscore_delim_run_flanking(
-  prev_char : Char,
-  get_prev_prev_char : () -> Char?,
-  next_char : Char,
-) -> CjkFriendlyDelimiterRunFlanking {
-  let before_punctuation = is_preceding_cjk_friendly_punctuation(
-    prev_char, get_prev_prev_char,
-  )
-  let before_space_or_punctuation = prev_char.is_whitespace() ||
-    before_punctuation
-
-  let after_punctuation = is_punctuation(next_char.to_int())
-  let after_space_or_punctuation = next_char.is_whitespace() ||
-    after_punctuation
-
-  let open = !next_char.is_whitespace() &&
-    (
-      !after_punctuation ||
-      before_space_or_punctuation ||
-      next_char == '*' ||
-      next_char == '_'
-    )
-  let close = !prev_char.is_whitespace() &&
-    (
-      !before_punctuation ||
-      after_space_or_punctuation ||
-      prev_char == '*' ||
-      prev_char == '_'
-    )
-
-  {
-    can_open: open && (before_space_or_punctuation || !close),
-    can_close: close && (after_space_or_punctuation || !open),
-  }
 }
 
 ///|

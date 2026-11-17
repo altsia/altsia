@@ -129,12 +129,6 @@ pub fn enable_highlight() -> Options {
 }
 
 ///|
-/// Enables CJK-friendly flanking for single-tilde strikethrough.
-pub fn enable_cjk_friendly_emphasis() -> Options {
-  { flags: 1 << 18, }
-}
-
-///|
 /// True when GFM-style footnotes are enabled (and old footnotes are not).
 fn Options::options_has_gfm_footnotes(self : Options) -> Bool {
   self.contains(enable_footnotes()) && !self.contains(enable_old_footnotes())

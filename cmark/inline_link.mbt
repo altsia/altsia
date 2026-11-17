@@ -181,7 +181,7 @@ fn Parser::make_math_span(self : Parser, open : Int32, close : Int32) -> Unit {
   } else {
     if self.tree.nodes[open].item.end == self.tree.nodes[close].item.start {
       // inline math spans cannot be empty
-      self.tree.nodes[open].item.body = Text(false)
+      self.tree.nodes[open].item.body = Text
       return
     }
     self.tree.nodes[open].next = Some(close)
@@ -361,7 +361,7 @@ fn Parser::make_code_span(
   }
 
   if preceding_backslash {
-    self.tree.nodes[open].item.body = Text(true)
+    self.tree.nodes[open].item.body = Text
     self.tree.nodes[open].item.end = self.tree.nodes[open].item.start + 1
     self.tree.nodes[open].next = Some(close)
     self.tree.nodes[close].item.body = Code(self.allocs.allocate_cow(cow))
@@ -484,7 +484,7 @@ fn Parser::handle_wikilink(
         let body_node = self.tree.create_node(Item::{
           start: rest,
           end: rest,
-          body: Text(false),
+          body: Text,
         })
         Some((true, body_node, wikitext))
       } else {
@@ -504,7 +504,7 @@ fn Parser::handle_wikilink(
       let body_node = self.tree.create_node(Item::{
         start: start_ix,
         end: end_ix,
-        body: Text(false),
+        body: Text,
       })
       if wikitext.contains("\u0000") {
         self.tree.nodes[body_node].item.body = SynthesizeText(

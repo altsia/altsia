@@ -256,7 +256,7 @@ fn FirstPass::parse_paragraph(
       let suffix = bytes.exact_view(start=ix_new)
       if self.scan_paragraph_interrupt(suffix, current_container, tree_position) {
         if trailing_backslash_pos is Some(pos) {
-          self.tree.append_text(pos, pos + 1, false)
+          self.tree.append_text(pos, pos + 1)
         }
         break
       }
@@ -268,7 +268,7 @@ fn FirstPass::parse_paragraph(
     line_start.scan_all_space()
     if line_start.is_at_eol() {
       if trailing_backslash_pos is Some(pos) {
-        self.tree.append_text(pos, pos + 1, false)
+        self.tree.append_text(pos, pos + 1)
       }
       break
     }
@@ -313,7 +313,6 @@ priv struct LineState {
   mut pipes : Int32
   mut last_pipe_ix : Int32
   mut begin_text : Int32
-  mut backslash_escaped : Bool
 }
 
 ///|
@@ -332,7 +331,6 @@ fn FirstPass::parse_line(
     pipes: 0,
     last_pipe_ix: start,
     begin_text: start,
-    backslash_escaped: false,
   }
 
   let mut final_ix = limit
@@ -366,11 +364,7 @@ fn FirstPass::parse_line(
       c => c.is_ascii_whitespace_no_nl(),
     )
     // need to close text at eof
-    self.tree.append_text(
-      state.begin_text,
-      final_ix - trailing_whitespace,
-      state.backslash_escaped,
-    )
+    self.tree.append_text(state.begin_text, final_ix - trailing_whitespace)
   }
   (final_ix, brk)
 }

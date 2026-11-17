@@ -42,8 +42,7 @@ fn FirstPass::handle_special_byte_inner(
       )
       if trailing_backslashes % 2 == 1 && end_ix < bytes_len {
         i -= 1
-        self.tree.append_text(state.begin_text, i, state.backslash_escaped)
-        state.backslash_escaped = false
+        self.tree.append_text(state.begin_text, i)
         return (
           ParseLineAction::BreakWith(
             end_ix,
@@ -100,8 +99,7 @@ fn FirstPass::handle_special_byte_inner(
       )
       if trailing_whitespace >= 2 {
         i -= trailing_whitespace
-        self.tree.append_text(state.begin_text, i, state.backslash_escaped)
-        state.backslash_escaped = false
+        self.tree.append_text(state.begin_text, i)
         return (
           ParseLineAction::BreakWith(
             end_ix,
@@ -111,12 +109,7 @@ fn FirstPass::handle_special_byte_inner(
         )
       }
 
-      self.tree.append_text(
-        state.begin_text,
-        ix - trailing_whitespace,
-        state.backslash_escaped,
-      )
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix - trailing_whitespace)
 
       (
         ParseLineAction::BreakWith(
@@ -130,7 +123,7 @@ fn FirstPass::handle_special_byte_inner(
       let is_escape = ix + 1 < limit &&
         is_ascii_punctuation(bytes.unsafe_get(ix + 1).to_int())
       guard is_escape else { return (ParseLineAction::Continue(0), state) }
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
+      self.tree.append_text(state.begin_text, ix)
       if bytes.unsafe_get(ix + 1) == b'`' {
         let count = 1 + scan_ch_repeat(bytes.exact_view(start=ix + 2), b'`')
         ignore(
@@ -141,14 +134,12 @@ fn FirstPass::handle_special_byte_inner(
           }),
         )
         state.begin_text = ix + 1 + count
-        state.backslash_escaped = false
         (ParseLineAction::Continue(count), state)
       } else {
         let in_table = is_active_mode(mode)
         if bytes.unsafe_get(ix + 1) == b'|' && in_table {
           // backslash escaped pipes in tables aren't "real" backslash escapes
           state.begin_text = ix + 1
-          state.backslash_escaped = false
           (ParseLineAction::Continue(1), state)
         } else {
           let is_double_escape = ix + 2 < limit &&
@@ -158,11 +149,9 @@ fn FirstPass::handle_special_byte_inner(
           if is_double_escape {
             // To parse `\\|`, discard the backslashes and parse the `|` that follows it.
             state.begin_text = ix + 2
-            state.backslash_escaped = true
             (ParseLineAction::Continue(2), state)
           } else {
             state.begin_text = ix + 1
-            state.backslash_escaped = true
             (ParseLineAction::Continue(1), state)
           }
         }
@@ -182,8 +171,7 @@ fn FirstPass::handle_special_byte_inner(
       }
 
       if (can_open || can_close) && is_valid_seq {
-        self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-        state.backslash_escaped = false
+        self.tree.append_text(state.begin_text, ix)
         for k in 0..<count {
           ignore(
             self.tree.append(Item::{
@@ -211,7 +199,7 @@ fn FirstPass::handle_special_byte_inner(
         })
       }
 
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{
           start: ix,
@@ -255,8 +243,7 @@ fn FirstPass::handle_special_byte_inner(
       (ParseLineAction::Continue(0), state)
     }
     b'`' => {
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       let count = 1 + scan_ch_repeat(bytes.exact_view(start=ix + 1), b'`')
       ignore(
         self.tree.append(Item::{
@@ -271,8 +258,7 @@ fn FirstPass::handle_special_byte_inner(
     b'<' => {
       let not_backslash = limit <= ix + 1 || bytes.unsafe_get(ix + 1) != b'\\'
       guard not_backslash else { return (ParseLineAction::Continue(0), state) }
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{ start: ix, end: ix + 1, body: MaybeHtml, }),
       )
@@ -283,8 +269,7 @@ fn FirstPass::handle_special_byte_inner(
       guard ix + 1 < limit && bytes.unsafe_get(ix + 1) == b'[' else {
         return (ParseLineAction::Continue(0), state)
       }
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{ start: ix, end: ix + 2, body: MaybeImage, }),
       )
@@ -292,8 +277,7 @@ fn FirstPass::handle_special_byte_inner(
       (ParseLineAction::Continue(1), state)
     }
     b'[' => {
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{ start: ix, end: ix + 1, body: MaybeLinkOpen, }),
       )
@@ -301,8 +285,7 @@ fn FirstPass::handle_special_byte_inner(
       (ParseLineAction::Continue(0), state)
     }
     b']' => {
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{
           start: ix,
@@ -317,8 +300,7 @@ fn FirstPass::handle_special_byte_inner(
       guard scan_entity(bytes.exact_view(start=ix)) is (n, Some(value)) else {
         return (ParseLineAction::Continue(0), state)
       }
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{
           start: ix,
@@ -347,8 +329,7 @@ fn FirstPass::handle_special_byte_inner(
         bytes.unsafe_get(ix + 1) == b'.' &&
         bytes.unsafe_get(ix + 2) == b'.'
       guard is_ellipsis else { return (ParseLineAction::Continue(0), state) }
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{
           start: ix,
@@ -386,8 +367,7 @@ fn FirstPass::handle_special_byte_inner(
           SynthesizeText(self.allocs.allocate_cow(buf.to_string()))
         }
 
-        self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-        state.backslash_escaped = false
+        self.tree.append_text(state.begin_text, ix)
         ignore(
           self.tree.append(Item::{ start: ix, end: ix + count, body: itembody, }),
         )
@@ -413,8 +393,7 @@ fn FirstPass::handle_special_byte_inner(
         self.options,
       )
 
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{
           start: ix,
@@ -428,8 +407,7 @@ fn FirstPass::handle_special_byte_inner(
     }
     b'\x00' => {
       // U+0000 must be replaced with U+FFFD
-      self.tree.append_text(state.begin_text, ix, state.backslash_escaped)
-      state.backslash_escaped = false
+      self.tree.append_text(state.begin_text, ix)
       ignore(
         self.tree.append(Item::{
           start: ix,

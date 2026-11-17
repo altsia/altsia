@@ -145,7 +145,7 @@ fn body_to_tag_end(body : ItemBody) -> TagEnd {
 ///|
 fn item_to_event(item : Item, text : Bytes, allocs : Allocations) -> Event {
   let tag = match item.body {
-    Text(_) =>
+    Text =>
       return Text(
         @utf8.decode_lossy(text.exact_view(start=item.start, end=item.end)),
       )

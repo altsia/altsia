@@ -233,7 +233,7 @@ fn FirstPass::append_code_text(
     guard bytes_find_byte(self.text, start, end, 0) is Some(offset) else {
       break
     }
-    self.tree.append_text(start, start + offset, false)
+    self.tree.append_text(start, start + offset)
     ignore(
       self.tree.append(Item::{
         start: start + offset,
@@ -245,10 +245,10 @@ fn FirstPass::append_code_text(
   }
   if self.text.unsafe_get(end - 2) == b'\r' {
     // Normalize CRLF to LF
-    self.tree.append_text(start, end - 2, false)
-    self.tree.append_text(end - 1, end, false)
+    self.tree.append_text(start, end - 2)
+    self.tree.append_text(end - 1, end)
   } else {
-    self.tree.append_text(start, end, false)
+    self.tree.append_text(start, end)
   }
 }
 

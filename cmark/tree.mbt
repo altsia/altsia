@@ -147,22 +147,17 @@ fn[T] Tree::truncate_to_parent(self : Tree[T], child_ix : Int32) -> Unit {
 }
 
 ///|
-fn Tree::append_text(
-  self : Tree[Item],
-  start : Int32,
-  end : Int32,
-  backslash_escaped : Bool,
-) -> Unit {
+fn Tree::append_text(self : Tree[Item], start : Int32, end : Int32) -> Unit {
   if end > start {
     if self.cur() is Some(ix) {
-      let merges = self.nodes[ix].item.body is Text(_) &&
+      let merges = self.nodes[ix].item.body is Text &&
         self.nodes[ix].item.end == start
       if merges {
         self.nodes[ix].item.end = end
         return
       }
     }
-    ignore(self.append(Item::{ start, end, body: Text(backslash_escaped), }))
+    ignore(self.append(Item::{ start, end, body: Text, }))
   }
 }
 

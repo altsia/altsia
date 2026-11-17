@@ -33,7 +33,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
             let text_node = self.tree.create_node(Item::{
               start: self.tree.nodes[cur_ix].item.start + 1,
               end: ix - 1,
-              body: Text(false),
+              body: Text,
             })
             let link_ix = self.allocs.allocate_link(link_type, uri, "", "")
             self.tree.nodes[cur_ix].item.body = Link(link_ix)
@@ -80,7 +80,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
             continue
           }
         }
-        self.tree.nodes[cur_ix].item.body = Text(false)
+        self.tree.nodes[cur_ix].item.body = Text
       }
       MaybeMath(brace_context) => {
         let is_display = self.tree.nodes[cur_ix].next.map_or(false, next_ix => {
@@ -130,7 +130,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
         if result is Some(scan_ix) {
           self.make_math_span(cur_ix, scan_ix)
         } else {
-          self.tree.nodes[cur_ix].item.body = Text(false)
+          self.tree.nodes[cur_ix].item.body = Text
         }
       }
       MaybeCode(search_count, preceded_by_backslash) => {
@@ -138,7 +138,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
         if preceded_by_backslash {
           search_count -= 1
           guard search_count != 0 else {
-            self.tree.nodes[cur_ix].item.body = Text(false)
+            self.tree.nodes[cur_ix].item.body = Text
             prev = cur
             cur = self.tree.nodes[cur_ix].next
             continue
@@ -150,7 +150,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
           if self.code_delims.find(cur_ix, search_count) is Some(scan_ix) {
             self.make_code_span(cur_ix, scan_ix, preceded_by_backslash)
           } else {
-            self.tree.nodes[cur_ix].item.body = Text(false)
+            self.tree.nodes[cur_ix].item.body = Text
           }
         } else {
           // we haven't previously scanned all codeblock delimiters
@@ -175,12 +175,12 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
             scan = self.tree.nodes[scan_ix].next
           }
           if scan is None {
-            self.tree.nodes[cur_ix].item.body = Text(false)
+            self.tree.nodes[cur_ix].item.body = Text
           }
         }
       }
       MaybeLinkOpen => {
-        self.tree.nodes[cur_ix].item.body = Text(false)
+        self.tree.nodes[cur_ix].item.body = Text
         let link_open_doubled = self.tree.nodes[cur_ix].next.map_or(false, ix => {
           self.tree.nodes[ix].item.body is MaybeLinkOpen
         })
@@ -190,7 +190,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
         self.link_stack.push(LinkStackEl::{ node: cur_ix, ty: Link, })
       }
       MaybeImage => {
-        self.tree.nodes[cur_ix].item.body = Text(false)
+        self.tree.nodes[cur_ix].item.body = Text
         let link_open_doubled = self.tree.nodes[cur_ix].next.map_or(false, ix => {
           self.tree.nodes[ix].item.body is MaybeLinkOpen
         })
@@ -200,7 +200,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
         self.link_stack.push(LinkStackEl::{ node: cur_ix, ty: Image, })
       }
       MaybeLinkClose(could_be_ref) => {
-        self.tree.nodes[cur_ix].item.body = Text(false)
+        self.tree.nodes[cur_ix].item.body = Text
         let tos_link = self.link_stack.pop()
         let next_is_link_close = self.tree.nodes[cur_ix].next.map_or(false, ix => {
           self.tree.nodes[ix].item.body is MaybeLinkClose(_)

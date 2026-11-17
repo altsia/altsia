@@ -45,7 +45,7 @@ fn FirstPass::parse_atx_heading(
     // Backslash at end is actually hard line break
     if line_brk is Some(brk_item) {
       if brk_item.body is HardBreak(true) {
-        self.tree.append_text(brk_item.start, brk_item.end, false)
+        self.tree.append_text(brk_item.start, brk_item.end)
       }
     }
     (ix, ix, None)

@@ -37,7 +37,7 @@ fn inline_stack_new() -> InlineStack {
 fn InlineStack::pop_all(self : InlineStack, tree : Tree[Item]) -> Unit {
   for el in self.stack {
     for i in 0..<el.count {
-      tree.nodes[el.start + i].item.body = Text(false)
+      tree.nodes[el.start + i].item.body = Text
     }
   }
   self.stack.clear()
@@ -79,7 +79,7 @@ fn InlineStack::find_match(
       for j in (i + 1)..<self.stack.length() {
         let el = self.stack[j]
         for k in 0..<el.count {
-          tree.nodes[el.start + k].item.body = Text(false)
+          tree.nodes[el.start + k].item.body = Text
         }
       }
       self.truncate(i)
@@ -276,7 +276,7 @@ fn Parser::apply_emphasis_inner(
     }
 
     guard ty is Some(ty) else {
-      self.tree.nodes[el.start].item.body = Text(false)
+      self.tree.nodes[el.start].item.body = Text
       return false
     }
     // have a match!
@@ -364,7 +364,7 @@ fn Parser::handle_emphasis_and_hard_break(
           }
         } else {
           for i in 0..<count {
-            self.tree.nodes[cur_ix + i].item.body = Text(false)
+            self.tree.nodes[cur_ix + i].item.body = Text
           }
         }
         let prev_ix = cur_ix + count - 1

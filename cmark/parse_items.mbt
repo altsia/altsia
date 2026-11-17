@@ -56,7 +56,7 @@ priv enum ItemBody {
   SynthesizeText(Int32)
   SynthesizeChar(Char)
   Html
-  Text(Bool) // backslash_escaped
+  Text
   SoftBreak
   // true = is backlash
   HardBreak(Bool)
@@ -132,7 +132,7 @@ fn item_body_is_inline(body : ItemBody) -> Bool {
     | SynthesizeText(_)
     | SynthesizeChar(_)
     | Html
-    | Text(_)
+    | Text
     | SoftBreak
     | HardBreak(_) => true
     _ => false

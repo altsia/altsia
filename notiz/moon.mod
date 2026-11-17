@@ -12,7 +12,7 @@ import {
 
 readme = "README.md"
 
-repository = "https://codeberg.org/kokic/obsmark"
+repository = "https://github.com/altsia/altsia"
 
 license = "AGPL-3.0"
 

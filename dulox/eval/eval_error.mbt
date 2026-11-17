@@ -1,4 +1,5 @@
 ///|
+#derive(Eq, Debug)
 pub(all) enum EvalFailureKind {
   UnsupportedNode
   InvalidNumber
@@ -18,17 +19,18 @@ pub(all) enum EvalFailureKind {
   NoRealSolution
   NoClosedForm
   NumericUnavailable
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) suberror EvalDiagnostic {
   Fail(EvalFailureKind, @katex.SourceLocation?)
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn EvalDiagnostic::make(
   kind : EvalFailureKind,
-  loc? : @katex.SourceLocation? = None,
+  loc~ : @katex.SourceLocation? = None,
 ) -> EvalDiagnostic {
   EvalDiagnostic::Fail(kind, loc)
 }
@@ -70,25 +72,26 @@ pub fn EvalDiagnostic::message(self : EvalDiagnostic) -> String {
 
 ///|
 /// How unsupported subtrees are treated during lowering.
+#derive(Eq, Debug)
 pub(all) enum EvalMode {
   /// Unsupported subtrees abort with an `UnsupportedNode` diagnostic.
   Strict
   /// Unsupported subtrees are kept as opaque `Residual` nodes.
   Partial
-} derive(Eq, Debug)
+}
 
 ///|
 pub(all) struct EvalOptions {
   mode : EvalMode
-  max_terms : Int
-  max_rewrite_steps : Int
+  max_terms : Int32
+  max_rewrite_steps : Int32
 }
 
 ///|
 pub fn EvalOptions::make(
-  mode? : EvalMode = Partial,
-  max_terms? : Int = 256,
-  max_rewrite_steps? : Int = 256,
+  mode~ : EvalMode = Partial,
+  max_terms~ : Int32 = 256,
+  max_rewrite_steps~ : Int32 = 256,
 ) -> EvalOptions {
   { mode, max_terms, max_rewrite_steps, }
 }

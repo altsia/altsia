@@ -19,12 +19,12 @@ fn get_entity(bytes : BytesView) -> String? {
 }
 
 ///|
-fn is_ascii_punctuation(c : Int) -> Bool {
+fn is_ascii_punctuation(c : Int32) -> Bool {
   c < 128 && (punct_masks_ascii[c / 16] & (1 << (c & 15))) != 0
 }
 
 ///|
-fn is_punctuation(c : Int) -> Bool {
+fn is_punctuation(c : Int32) -> Bool {
   guard c >= 128 else { return is_ascii_punctuation(c) }
   guard c <= 0x1FBCA else { return false }
   let high = c / 16
@@ -33,4 +33,3 @@ fn is_punctuation(c : Int) -> Bool {
     Err(_) => false
   }
 }
-

@@ -1,13 +1,13 @@
 ///|
-fn normalize_poly_one() -> Polynomial[Int] {
+fn normalize_poly_one() -> Polynomial[Int32] {
   Polynomial::one([])
 }
 
 ///|
 fn normalize_poly_from_expr(
   expr : EvalExpr,
-  max_terms : Int,
-) -> Polynomial[Int] raise EvalDiagnostic {
+  max_terms : Int32,
+) -> Polynomial[Int32] raise EvalDiagnostic {
   match expr {
     Integer(value) => Polynomial::from_constant([], value)
     Symbol(symbol) => algebra_from_factor_term([SymbolFactor(symbol)], [1], 1)
@@ -47,16 +47,16 @@ fn normalize_poly_from_expr(
 }
 
 ///|
-fn normalize_opaque_term(expr : EvalExpr) -> Polynomial[Int] {
+fn normalize_opaque_term(expr : EvalExpr) -> Polynomial[Int32] {
   algebra_from_factor_term([OpaqueFactor(expr)], [1], 1)
 }
 
 ///|
 fn normalize_add_polynomials(
-  a : Polynomial[Int],
-  b : Polynomial[Int],
-  max_terms : Int,
-) -> Polynomial[Int] raise EvalDiagnostic {
+  a : Polynomial[Int32],
+  b : Polynomial[Int32],
+  max_terms : Int32,
+) -> Polynomial[Int32] raise EvalDiagnostic {
   let (a, b) = algebra_align(a, b)
   let builder = NormalizePolynomialBuilder::make(a.axes, max_terms)
   builder.add_all(a.terms)
@@ -66,10 +66,10 @@ fn normalize_add_polynomials(
 
 ///|
 fn normalize_mul_polynomials(
-  a : Polynomial[Int],
-  b : Polynomial[Int],
-  max_terms : Int,
-) -> Polynomial[Int] raise EvalDiagnostic {
+  a : Polynomial[Int32],
+  b : Polynomial[Int32],
+  max_terms : Int32,
+) -> Polynomial[Int32] raise EvalDiagnostic {
   let (a, b) = algebra_align(a, b)
   let builder = NormalizePolynomialBuilder::make(a.axes, max_terms)
   for _, left in a.terms {
@@ -85,10 +85,10 @@ fn normalize_mul_polynomials(
 
 ///|
 fn normalize_pow_polynomial(
-  base : Polynomial[Int],
-  exponent : Int,
-  max_terms : Int,
-) -> Polynomial[Int] raise EvalDiagnostic {
+  base : Polynomial[Int32],
+  exponent : Int32,
+  max_terms : Int32,
+) -> Polynomial[Int32] raise EvalDiagnostic {
   guard exponent >= 0 else { raise EvalDiagnostic::make(InvalidPower) }
   let mut result = normalize_poly_one()
   let mut factor = base
@@ -107,9 +107,9 @@ fn normalize_pow_polynomial(
 
 ///|
 fn normalize_divide_polynomial(
-  polynomial : Polynomial[Int],
-  divisor : Int,
-) -> Polynomial[Int]? {
+  polynomial : Polynomial[Int32],
+  divisor : Int32,
+) -> Polynomial[Int32]? {
   let terms = @hashmap.HashMap([])
   for _, term in polynomial.terms {
     guard term.coeff % divisor == 0 else { return None }
@@ -125,14 +125,14 @@ fn normalize_divide_polynomial(
 ///|
 priv struct NormalizePolynomialBuilder {
   axes : Array[MonomialFactor]
-  terms : @hashmap.HashMap[String, Term[Int]]
-  max_terms : Int
+  terms : @hashmap.HashMap[String, Term[Int32]]
+  max_terms : Int32
 }
 
 ///|
 fn NormalizePolynomialBuilder::make(
   axes : Array[MonomialFactor],
-  max_terms : Int,
+  max_terms : Int32,
 ) -> NormalizePolynomialBuilder {
   { axes, terms: @hashmap.HashMap([]), max_terms, }
 }
@@ -140,7 +140,7 @@ fn NormalizePolynomialBuilder::make(
 ///|
 fn NormalizePolynomialBuilder::add(
   self : NormalizePolynomialBuilder,
-  term : Term[Int],
+  term : Term[Int32],
 ) -> Unit raise EvalDiagnostic {
   guard term.coeff != 0 else { return }
   let key = algebra_monomial_key(term.exps)
@@ -164,7 +164,7 @@ fn NormalizePolynomialBuilder::add(
 ///|
 fn NormalizePolynomialBuilder::add_all(
   self : NormalizePolynomialBuilder,
-  terms : @hashmap.HashMap[String, Term[Int]],
+  terms : @hashmap.HashMap[String, Term[Int32]],
 ) -> Unit raise EvalDiagnostic {
   for _, term in terms {
     self.add(term)
@@ -174,6 +174,6 @@ fn NormalizePolynomialBuilder::add_all(
 ///|
 fn NormalizePolynomialBuilder::finish(
   self : NormalizePolynomialBuilder,
-) -> Polynomial[Int] {
+) -> Polynomial[Int32] {
   Polynomial::{ axes: self.axes, terms: self.terms, }
 }

@@ -1,10 +1,11 @@
 ///|
 /// Code block kind.
+#derive(Debug)
 pub(all) enum CodeBlockKind {
   Indented
   /// The `String` describes the language of the code, which may be empty.
   Fenced(String)
-} derive(Debug)
+}
 
 ///|
 pub extend CodeBlockKind with Debug::{to_repr}
@@ -21,39 +22,43 @@ pub fn CodeBlockKind::is_fenced(self : CodeBlockKind) -> Bool {
 
 ///|
 /// Block quote kind (Note, Tip, Important, Warning, Caution).
+#derive(Debug)
 pub(all) enum BlockQuoteKind {
   Note
   Tip
   Important
   Warning
   Caution
-} derive(Debug)
+}
 
 ///|
 pub extend BlockQuoteKind with Debug::{to_repr}
 
 ///|
 /// Container block kind (Spoiler only).
+#derive(Debug)
 pub(all) enum ContainerKind {
   Default
   Spoiler
-} derive(Debug)
+}
 
 ///|
 pub extend ContainerKind with Debug::{to_repr}
 
 ///|
 /// Metadata block kind.
+#derive(Debug)
 pub(all) enum MetadataBlockKind {
   YamlStyle
   PlusesStyle
-} derive(Debug)
+}
 
 ///|
 pub extend MetadataBlockKind with Debug::{to_repr}
 
 ///|
 /// Tags for elements that can contain other elements.
+#derive(Debug)
 pub(all) enum Tag {
   /// A paragraph of text and other inline elements.
   Paragraph
@@ -115,13 +120,14 @@ pub(all) enum Tag {
   )
   /// A metadata block.
   MetadataBlock(MetadataBlockKind)
-} derive(Debug)
+}
 
 ///|
 pub extend Tag with Debug::{to_repr}
 
 ///|
 /// The end of a `Tag`.
+#derive(Debug)
 pub(all) enum TagEnd {
   Paragraph
   Heading(HeadingLevel)
@@ -149,13 +155,14 @@ pub(all) enum TagEnd {
   Link
   Image
   MetadataBlock(MetadataBlockKind)
-} derive(Debug)
+}
 
 ///|
 pub extend TagEnd with Debug::{to_repr}
 
 ///|
 /// Heading levels.
+#derive(Debug)
 pub(all) enum HeadingLevel {
   H1
   H2
@@ -163,13 +170,13 @@ pub(all) enum HeadingLevel {
   H4
   H5
   H6
-} derive(Debug)
+}
 
 ///|
 pub extend HeadingLevel with Debug::{to_repr}
 
 ///|
-fn HeadingLevel::to_int(self : HeadingLevel) -> Int {
+fn HeadingLevel::to_int(self : HeadingLevel) -> Int32 {
   match self {
     H1 => 1
     H2 => 2
@@ -181,7 +188,7 @@ fn HeadingLevel::to_int(self : HeadingLevel) -> Int {
 }
 
 ///|
-fn int_to_heading_level(v : Int) -> HeadingLevel? {
+fn int_to_heading_level(v : Int32) -> HeadingLevel? {
   match v {
     1 => Some(H1)
     2 => Some(H2)
@@ -199,6 +206,7 @@ fn int_to_heading_level(v : Int) -> HeadingLevel? {
 // API fidelity.
 
 ///|
+#derive(Debug)
 #warnings("-unused_constructor")
 pub(all) enum LinkType {
   /// Inline link like `[foo](bar)`
@@ -221,13 +229,14 @@ pub(all) enum LinkType {
   Email
   /// Wikilink link like `[[foo]]` or `[[foo|bar]]`
   WikiLink(Bool)
-} derive(Debug)
+}
 
 ///|
 pub extend LinkType with Debug::{to_repr}
 
 ///|
 /// Markdown events generated in a preorder traversal of the document tree.
+#derive(Debug)
 pub(all) enum Event {
   /// Start of a tagged element.
   Start(Tag)
@@ -255,19 +264,20 @@ pub(all) enum Event {
   Rule
   /// A task list marker, `true` when checked.
   TaskListMarker(Bool)
-} derive(Debug)
+}
 
 ///|
 pub extend Event with Debug::{to_repr}
 
 ///|
 /// Table column text alignment.
+#derive(Debug)
 pub(all) enum Alignment {
   None
   Left
   Center
   Right
-} derive(Debug)
+}
 
 ///|
 pub extend Alignment with Debug::{to_repr}

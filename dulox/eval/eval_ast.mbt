@@ -1,9 +1,10 @@
 ///|
 /// A symbolic variable. The key is the canonical TeX spelling of the symbol
 /// as it appears in the parsed AST, e.g. `"x"` or `"\\alpha"`.
+#derive(Eq, Compare, Debug)
 pub(all) struct SymbolKey {
   text : String
-} derive(Eq, Compare, Debug)
+}
 
 ///|
 pub fn SymbolKey::make(text : String) -> SymbolKey {

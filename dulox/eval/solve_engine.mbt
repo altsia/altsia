@@ -1,10 +1,11 @@
 ///|
 /// The mathematical shape of a solution set for one variable.
+#derive(Eq, Debug)
 pub(all) enum SolutionKind {
   Finite(Array[EvalExpr])
   Empty
   Universal
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn SolutionKind::merge(a : SolutionKind, b : SolutionKind) -> SolutionKind {
@@ -19,25 +20,28 @@ pub fn SolutionKind::merge(a : SolutionKind, b : SolutionKind) -> SolutionKind {
 
 ///|
 /// One branch of a symbolic solution, valid under its side conditions.
+#derive(Eq, Debug)
 pub(all) struct SolutionCase {
   conditions : Array[Condition]
   solution : SolutionKind
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct SolveRequest {
   expr : EvalExpr
   variable : SymbolKey
   domain : Domain
   assumptions : Array[Condition]
-} derive(Eq, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct SolveResult {
   variable : SymbolKey
   domain : Domain
   cases : Array[SolutionCase]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Solves `expr = 0` for `variable`. The expression is assumed to be a

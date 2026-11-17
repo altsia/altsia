@@ -8,7 +8,7 @@ fn Char::is_cjk_character(self : Char) -> Bool {
 }
 
 ///|
-fn is_cjk_codepoint(cp : Int) -> Bool {
+fn is_cjk_codepoint(cp : Int32) -> Bool {
   guard !(cp >= 0x1100 && cp <= 0x11ff) else { return true }
   match cp {
     0x20a9 | 0x1b132 | 0x1b155 | 0x1f200 | 0x1f202 | 0x1f237 | 0x1f23b => true
@@ -19,7 +19,7 @@ fn is_cjk_codepoint(cp : Int) -> Bool {
 }
 
 ///|
-fn cjk_in_ranges(cp : Int) -> Bool {
+fn cjk_in_ranges(cp : Int32) -> Bool {
   cjk_in_range(cp, 0x2329, 0x232a) ||
   cjk_in_range(cp, 0x2630, 0x2637) ||
   cjk_in_range(cp, 0x268a, 0x268f) ||
@@ -75,7 +75,7 @@ fn cjk_in_ranges(cp : Int) -> Bool {
 }
 
 ///|
-fn cjk_in_range(cp : Int, lo : Int, hi : Int) -> Bool {
+fn cjk_in_range(cp : Int32, lo : Int32, hi : Int32) -> Bool {
   cp >= lo && cp <= hi
 }
 

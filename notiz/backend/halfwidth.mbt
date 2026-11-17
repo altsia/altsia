@@ -19,8 +19,8 @@
 /// unchanged.
 fn to_halfwidth_punct(
   s : String,
-  prev? : Char? = None,
-  next? : Char? = None,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> String {
   let chars = s.iter().to_array()
   let buf = StringBuilder()

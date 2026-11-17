@@ -1,5 +1,6 @@
 ///|
 /// AST types
+#derive(Eq, Debug)
 pub(all) enum Inline {
   Plain(String)
   Strong(Array[Inline])
@@ -10,7 +11,7 @@ pub(all) enum Inline {
   HardBreak
   InlineMath(String)
   FootnoteRef(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Inline with Eq::{not_equal, equal}
@@ -19,8 +20,9 @@ pub extend Inline with Eq::{not_equal, equal}
 pub extend Inline with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum Block {
-  Heading(Int, Array[Block], Map[String, Value])
+  Heading(Int32, Array[Block], Map[String, Value])
   Paragraph(Array[Inline])
   UnorderedList(Array[MdListItem])
   OrderedList(Array[MdListItem])
@@ -33,7 +35,7 @@ pub(all) enum Block {
   Inline(Inline)
   Comment(String)
   Element(String, Array[Value], Map[String, Value])
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Block with Eq::{not_equal, equal}
@@ -52,11 +54,12 @@ pub fn Block::is_inline(self : Block) -> Bool {
 }
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum TableAlignment {
   Left
   Center
   Right
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend TableAlignment with Eq::{not_equal, equal}
@@ -65,9 +68,10 @@ pub extend TableAlignment with Eq::{not_equal, equal}
 pub extend TableAlignment with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct TableRow {
   cells : Array[Array[Inline]]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend TableRow with Eq::{not_equal, equal}
@@ -76,11 +80,12 @@ pub extend TableRow with Eq::{not_equal, equal}
 pub extend TableRow with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct MdListItem {
   checked : Bool?
   content : Array[Inline]
   children : Array[Block]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend MdListItem with Eq::{not_equal, equal}
@@ -93,13 +98,14 @@ pub extend MdListItem with Debug::{to_repr}
 /// value. `Content` is a `[ ... ]` content block (a call's trailing content
 /// block is the same value as a positional `Content` argument), `Call` a
 /// nested call expression.
+#derive(Eq, Debug)
 pub(all) enum Value {
   Text(String)
-  Integer(Int)
+  Integer(Int32)
   Content(Array[Block])
   Call(String, Array[Value], Map[String, Value])
   Comment(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Value with Eq::{not_equal, equal}
@@ -222,8 +228,8 @@ fn plain_char(terminators : String) -> InlineParser {
 
 ///|
 fn inline(
-  terminators? : String = "",
-  paragraph? : Bool = false,
+  terminators~ : String = "",
+  paragraph~ : Bool = false,
 ) -> InlineParser {
   @talc.delay(() => {
     let breaks = if terminators.contains("\n") {
@@ -331,7 +337,7 @@ fn thematic_break(closing : String) -> BlockParser {
 
 ///|
 /// Heading markers have one to six equals signs followed by whitespace.
-fn heading_prefix() -> @talc.StringParser[Int] {
+fn heading_prefix() -> @talc.StringParser[Int32] {
   @talc.char('=')
   .some()
   .bind(equals => {
@@ -354,7 +360,7 @@ fn heading(closing : String) -> BlockParser {
 
 ///|
 fn make_heading(
-  level : Int,
+  level : Int32,
   items : Array[Block],
   attributes : Map[String, Value],
 ) -> Block {
@@ -523,7 +529,7 @@ fn table_delimiter(
 }
 
 ///|
-pub fn table(closing? : String = "") -> BlockParser {
+pub fn table(closing~ : String = "") -> BlockParser {
   table_row(closing).bind(header => {
     table_delimiter(closing).bind(alignments => {
       table_row(closing)
@@ -558,7 +564,7 @@ fn task_marker() -> @talc.StringParser[Bool] {
 ///|
 fn list_item(
   marker : Char,
-  indent : Int,
+  indent : Int32,
   closing : String,
 ) -> @talc.StringParser[MdListItem] {
   let istr = String::repeat(" ", indent)
@@ -579,7 +585,7 @@ fn list_item(
 /// fall back to `paragraph`, unrelated to indentation probing.
 fn list_item_body(
   checked : Bool?,
-  indent : Int,
+  indent : Int32,
   closing : String,
 ) -> @talc.StringParser[MdListItem] {
   inline(terminators="\r\n" + closing)
@@ -594,17 +600,17 @@ fn list_item_body(
 }
 
 ///|
-fn unordered_list_at(indent : Int, closing : String) -> BlockParser {
+fn unordered_list_at(indent : Int32, closing : String) -> BlockParser {
   list_item('-', indent, closing).some().map(items => UnorderedList(items))
 }
 
 ///|
-fn ordered_list_at(indent : Int, closing : String) -> BlockParser {
+fn ordered_list_at(indent : Int32, closing : String) -> BlockParser {
   list_item('+', indent, closing).some().map(items => OrderedList(items))
 }
 
 ///|
-fn sub_list(indent : Int, closing : String) -> BlockParser {
+fn sub_list(indent : Int32, closing : String) -> BlockParser {
   @talc.choice([
     unordered_list_at(indent, closing),
     ordered_list_at(indent, closing),
@@ -659,7 +665,7 @@ let display_math_block : BlockParser = @talc.string("$$")
 ///|
 /// Shared markup grammar. The opening `[` acts as a virtual line start;
 /// subsequent block markers must occur at a physical line start.
-fn block(closing : String, start : Int) -> @talc.StringParser[Array[Block]] {
+fn block(closing : String, start : Int32) -> @talc.StringParser[Array[Block]] {
   @talc.Parser::new(input => {
     guard input.cursor() == start || input.position().column == 1 else {
       return paragraph(closing).run(input)
@@ -681,7 +687,7 @@ fn block(closing : String, start : Int) -> @talc.StringParser[Array[Block]] {
 }
 
 ///|
-fn blocks(closing? : String = "") -> @talc.StringParser[Array[Block]] {
+fn blocks(closing~ : String = "") -> @talc.StringParser[Array[Block]] {
   blank_line
   .many()
   .then(

@@ -1,18 +1,20 @@
 ///|
 /// A machine-precision complex approximation. A zero imaginary part is
 /// represented as `ApproxValue::Real` by the public evaluator.
+#derive(Eq, Debug)
 pub(all) struct ApproxComplex {
   real : Double
   imaginary : Double
-} derive(Eq, Debug)
+}
 
 ///|
 /// The fixed-precision approximation result used until an arbitrary-precision
 /// numeric backend is introduced.
+#derive(Eq, Debug)
 pub(all) enum ApproxValue {
   Real(Double)
   Complex(ApproxComplex)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Approximates a closed exact expression using machine `Double` precision.
@@ -82,7 +84,7 @@ fn approximate_mul(
 ///|
 fn approximate_integer_power(
   base : EvalExpr,
-  exponent : Int,
+  exponent : Int32,
 ) -> ApproxValue raise EvalDiagnostic {
   guard exponent != 0 else { Real(1.0) }
   let value = base.approximate()
@@ -132,7 +134,7 @@ fn approximate_divide(
 }
 
 ///|
-fn approximate_root(index : Int, radicand : ApproxValue) -> ApproxValue {
+fn approximate_root(index : Int32, radicand : ApproxValue) -> ApproxValue {
   guard index != 1 else { radicand }
   match radicand {
     Real(value) if value >= 0.0 =>
@@ -145,7 +147,7 @@ fn approximate_root(index : Int, radicand : ApproxValue) -> ApproxValue {
 }
 
 ///|
-fn approximate_root_of_unity(order : Int, power : Int) -> ApproxValue {
+fn approximate_root_of_unity(order : Int32, power : Int32) -> ApproxValue {
   let reduced = power % order
   let angle = 2.0 *
     @math.PI *
@@ -155,7 +157,7 @@ fn approximate_root_of_unity(order : Int, power : Int) -> ApproxValue {
 }
 
 ///|
-fn complex_root(value : ApproxComplex, index : Int) -> ApproxValue {
+fn complex_root(value : ApproxComplex, index : Int32) -> ApproxValue {
   let magnitude = (value.real * value.real + value.imaginary * value.imaginary).sqrt()
   guard magnitude != 0.0 else { Real(0.0) }
   let angle = @math.atan2(value.imaginary, value.real)

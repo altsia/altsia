@@ -10,8 +10,8 @@ pub(all) struct HtmlOptions {
 pub fn render_document(
   blocks : Array[@parsing.Block],
   target~ : KatexTarget,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
 ) -> String {
   let options = { target, disable_math, halfwidth_punct, }
   join_blocks(blocks, options) |> render_nodes
@@ -50,9 +50,9 @@ pub fn render_document_page(
   frontmatter : @parsing.Frontmatter,
   paper~ : @parsing.Paper,
   target~ : KatexTarget,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
-  head_extra? : String = "",
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
+  head_extra~ : String = "",
 ) -> String {
   render_page(
     render_document(blocks, target~, disable_math~, halfwidth_punct~),
@@ -67,7 +67,7 @@ pub fn render_page(
   content : String,
   frontmatter : @parsing.Frontmatter,
   paper~ : @parsing.Paper,
-  head_extra? : String = "",
+  head_extra~ : String = "",
 ) -> String {
   let lang = frontmatter.builtin.lang
   let title = frontmatter.builtin.title
@@ -172,7 +172,7 @@ fn @parsing.Block::render(
 
 ///|
 fn render_heading(
-  level : Int,
+  level : Int32,
   blocks : Array[@parsing.Block],
   attributes : Map[String, @parsing.Value],
   options : HtmlOptions,
@@ -356,8 +356,8 @@ fn render_table_cell(
 fn render_inlines(
   inlines : Array[@parsing.Inline],
   options : HtmlOptions,
-  prev? : Char? = None,
-  next? : Char? = None,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> Array[Node] {
   let out = Array()
   for i in 0..<inlines.length() {

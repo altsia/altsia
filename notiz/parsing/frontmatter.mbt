@@ -24,6 +24,7 @@
 /// The builtin frontmatter attributes. Every field has a stable value:
 /// attributes not present in the source keep their default, so backends
 /// read plain strings instead of options.
+#derive(Eq, Debug)
 pub(all) struct Builtin {
   /// The document language tag; defaults to `"en"`.
   lang : String
@@ -31,7 +32,7 @@ pub(all) struct Builtin {
   paper : Paper
   /// The document title; empty when absent.
   title : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Builtin with Eq::{not_equal, equal}

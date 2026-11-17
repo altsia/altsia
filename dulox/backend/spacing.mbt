@@ -8,12 +8,13 @@
 ///|
 /// Concrete space representations for a rendering backend.
 /// Different backends (unicode text, HTML/CSS, LaTeX) provide their own spec.
+#derive(Eq)
 pub(all) struct SpacingSpec {
   thick : String
   medium : String
   thin : String
   operator : String
-} derive(Eq)
+}
 
 ///|
 /// Converts AtomFamily to the corresponding spacing type string.
@@ -113,7 +114,7 @@ pub fn math_spacing(
 pub(all) struct SpacableItem {
   atom_type : String?
   text : String
-  baseline : Int
+  baseline : Int32
 }
 
 ///|

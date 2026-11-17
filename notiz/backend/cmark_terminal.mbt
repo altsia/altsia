@@ -15,17 +15,17 @@ priv struct CommonMarkOptions {
 ///|
 priv struct ListContext {
   start : Int64?
-  index : Int
+  index : Int32
 }
 
 ///|
 /// Renders a cmark event stream as terminal text.
 pub fn render_terminal_events(
   events : Array[@cmark.Event],
-  line_style? : LineStyle = Unicode,
-  ansi? : Bool = true,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
+  line_style~ : LineStyle = Unicode,
+  ansi~ : Bool = true,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
 ) -> String {
   let options = CommonMarkOptions::{
     line_style,
@@ -71,11 +71,11 @@ pub fn render_terminal_events(
 ///|
 fn cm_render_block(
   events : Array[@cmark.Event],
-  start_ix : Int,
+  start_ix : Int32,
   tag : @cmark.Tag,
   list_ctx : ListContext,
   options : CommonMarkOptions,
-) -> (String, Int) {
+) -> (String, Int32) {
   match tag {
     Table(alignments) => cm_render_table(events, start_ix, alignments, options)
     List(start) => cm_render_list(events, start_ix, start, options)
@@ -86,11 +86,11 @@ fn cm_render_block(
 ///|
 fn cm_render_generic_block(
   events : Array[@cmark.Event],
-  start_ix : Int,
+  start_ix : Int32,
   tag : @cmark.Tag,
   list_ctx : ListContext,
   options : CommonMarkOptions,
-) -> (String, Int) {
+) -> (String, Int32) {
   let (content, blocks, task, next) = cm_collect(
     events,
     start_ix,
@@ -108,10 +108,10 @@ fn cm_is_raw_text_block(tag : @cmark.Tag) -> Bool {
 ///|
 fn cm_collect(
   events : Array[@cmark.Event],
-  start_ix : Int,
+  start_ix : Int32,
   options : CommonMarkOptions,
   raw_text : Bool,
-) -> (Array[String], Array[String], Bool?, Int) {
+) -> (Array[String], Array[String], Bool?, Int32) {
   let content = Array()
   let blocks = Array()
   let mut task : Bool? = None
@@ -332,10 +332,10 @@ fn cm_item_marker(list_ctx : ListContext, task : Bool?, ansi : Bool) -> String {
 ///|
 fn cm_render_list(
   events : Array[@cmark.Event],
-  start_ix : Int,
+  start_ix : Int32,
   start : Int64?,
   options : CommonMarkOptions,
-) -> (String, Int) {
+) -> (String, Int32) {
   let items = Array()
   let mut i = start_ix + 1
   while i < events.length() {
@@ -363,10 +363,10 @@ fn cm_render_list(
 ///|
 fn cm_render_table(
   events : Array[@cmark.Event],
-  start_ix : Int,
+  start_ix : Int32,
   alignments : Array[@cmark.Alignment],
   options : CommonMarkOptions,
-) -> (String, Int) {
+) -> (String, Int32) {
   let mut header : Array[String] = Array()
   let rows : Array[Array[String]] = Array()
   let mut i = start_ix + 1
@@ -391,9 +391,9 @@ fn cm_render_table(
 ///|
 fn cm_render_table_row(
   events : Array[@cmark.Event],
-  start_ix : Int,
+  start_ix : Int32,
   options : CommonMarkOptions,
-) -> (Array[String], Int) {
+) -> (Array[String], Int32) {
   let cells = Array()
   let mut cell : Array[String] = Array()
   let mut last_char : Char? = None
@@ -463,7 +463,7 @@ fn cm_render_table_str(
 ///|
 fn cm_render_table_row_str(
   cells : Array[String],
-  widths : Array[Int],
+  widths : Array[Int32],
   alignments : Array[@cmark.Alignment],
   v_bar : String,
   options : CommonMarkOptions,
@@ -493,7 +493,7 @@ fn cm_render_table_row_str(
 ///|
 fn cm_pad_cell(
   cell : String,
-  width : Int,
+  width : Int32,
   alignment : @cmark.Alignment,
 ) -> String {
   let pad = width - cell.length()
@@ -524,11 +524,11 @@ fn cm_is_inline_tag(tag : @cmark.Tag) -> Bool {
 ///|
 fn cm_render_inline(
   events : Array[@cmark.Event],
-  start_ix : Int,
+  start_ix : Int32,
   tag : @cmark.Tag,
   options : CommonMarkOptions,
-  prev? : Char? = None,
-) -> (String, Int) {
+  prev~ : Char? = None,
+) -> (String, Int32) {
   let content = Array()
   let mut last_char : Char? = prev
   let mut i = start_ix + 1
@@ -565,7 +565,7 @@ fn cm_render_inline(
 
 ///|
 /// Index of the event right after the `End` matching the `Start` at `start_ix`.
-fn cm_skip_subtree(events : Array[@cmark.Event], start_ix : Int) -> Int {
+fn cm_skip_subtree(events : Array[@cmark.Event], start_ix : Int32) -> Int32 {
   let mut depth = 0
   let mut i = start_ix
   while i < events.length() {
@@ -584,7 +584,10 @@ fn cm_skip_subtree(events : Array[@cmark.Event], start_ix : Int) -> Int {
 
 ///|
 /// The first raw text character inside the subtree starting at `start_ix`.
-fn cm_subtree_first_char(events : Array[@cmark.Event], start_ix : Int) -> Char? {
+fn cm_subtree_first_char(
+  events : Array[@cmark.Event],
+  start_ix : Int32,
+) -> Char? {
   let mut i = start_ix + 1
   while i < events.length() {
     match events[i] {
@@ -605,7 +608,10 @@ fn cm_subtree_first_char(events : Array[@cmark.Event], start_ix : Int) -> Char? 
 
 ///|
 /// The last raw text character inside the subtree starting at `start_ix`.
-fn cm_subtree_last_char(events : Array[@cmark.Event], start_ix : Int) -> Char? {
+fn cm_subtree_last_char(
+  events : Array[@cmark.Event],
+  start_ix : Int32,
+) -> Char? {
   let mut last : Char? = None
   let mut i = start_ix + 1
   while i < events.length() {
@@ -629,7 +635,7 @@ fn cm_subtree_last_char(events : Array[@cmark.Event], start_ix : Int) -> Char? {
 
 ///|
 /// The first raw text character of the inline content starting at event `ix`.
-fn cm_event_first_char(events : Array[@cmark.Event], ix : Int) -> Char? {
+fn cm_event_first_char(events : Array[@cmark.Event], ix : Int32) -> Char? {
   guard ix < events.length() else { return None }
   match events[ix] {
     Text(s) => s.iter().next()
@@ -640,7 +646,7 @@ fn cm_event_first_char(events : Array[@cmark.Event], ix : Int) -> Char? {
 
 ///|
 /// The last raw text character of the inline content starting at event `ix`.
-fn cm_event_last_char(events : Array[@cmark.Event], ix : Int) -> Char? {
+fn cm_event_last_char(events : Array[@cmark.Event], ix : Int32) -> Char? {
   guard ix < events.length() else { return None }
   match events[ix] {
     Text(s) => s.iter().last()
@@ -651,7 +657,7 @@ fn cm_event_last_char(events : Array[@cmark.Event], ix : Int) -> Char? {
 
 ///|
 /// The first raw text character of the event following `ix`, if any.
-fn cm_next_char(events : Array[@cmark.Event], ix : Int) -> Char? {
+fn cm_next_char(events : Array[@cmark.Event], ix : Int32) -> Char? {
   guard ix + 1 < events.length() else { None }
   cm_event_first_char(events, ix + 1)
 }
@@ -679,8 +685,8 @@ fn cm_render_inline_leaf(
 fn cm_halfwidth_text(
   s : String,
   options : CommonMarkOptions,
-  prev? : Char? = None,
-  next? : Char? = None,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> String {
   guard !options.halfwidth_punct else { to_halfwidth_punct(s, prev~, next~) }
   s

@@ -4,7 +4,7 @@
 pub fn split_equation(
   nodes : Array[@katex.ParseNode],
 ) -> (Array[@katex.ParseNode], Array[@katex.ParseNode]) raise EvalDiagnostic {
-  let mut separator : Int? = None
+  let mut separator : Int32? = None
   for i, node in nodes {
     guard node
       is @katex.ParseNode::Atom(family=@katex.AtomFamily::Mrel, text="=", ..) else {

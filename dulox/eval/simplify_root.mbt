@@ -40,7 +40,7 @@ fn EvalExpr::simplify_square_root(
 
 ///|
 fn simplify_negative_square_root(
-  value : Int,
+  value : Int32,
   domain : Domain,
 ) -> EvalExpr raise EvalDiagnostic {
   match domain {
@@ -65,8 +65,8 @@ fn simplify_rational_square_root(
 
 ///|
 fn simplify_integer_division_square_root(
-  numer : Int,
-  denom : Int,
+  numer : Int32,
+  denom : Int32,
   original : EvalExpr,
   domain : Domain,
 ) -> EvalExpr raise EvalDiagnostic {
@@ -98,7 +98,7 @@ fn rebuild_square_root_quotient(numer : EvalExpr, denom : EvalExpr) -> EvalExpr 
 /// Applies integer-root rules that are shared by square roots and higher roots.
 fn EvalExpr::simplify_integer_root(
   inner : EvalExpr,
-  index : Int,
+  index : Int32,
   domain : Domain,
 ) -> EvalExpr raise EvalDiagnostic {
   match inner {
@@ -119,7 +119,7 @@ fn EvalExpr::simplify_integer_root(
 
 ///|
 fn simplify_rational_value_root(
-  index : Int,
+  index : Int32,
   value : @rational.BigRational,
   original : EvalExpr,
   domain : Domain,
@@ -134,8 +134,8 @@ fn simplify_rational_value_root(
 
 ///|
 fn simplify_nested_root(
-  outer_index : Int,
-  inner_index : Int,
+  outer_index : Int32,
+  inner_index : Int32,
   radicand : EvalExpr,
   original : EvalExpr,
   domain : Domain,
@@ -153,7 +153,7 @@ fn simplify_nested_root(
 /// real factor. No root-of-a-product rule is applied to arbitrary factors.
 fn simplify_integer_root_product(
   children : Array[EvalExpr],
-  index : Int,
+  index : Int32,
 ) -> EvalExpr raise EvalDiagnostic {
   let factors = flatten_mul(children)
   let (coefficient, rest) = collect_positive_integer_factors(factors)
@@ -168,7 +168,10 @@ fn simplify_integer_root_product(
 }
 
 ///|
-fn extract_root_coefficient(coefficient : Int, index : Int) -> (Int, Int)? {
+fn extract_root_coefficient(
+  coefficient : Int32,
+  index : Int32,
+) -> (Int32, Int32)? {
   let extracted = nth_root_factor(coefficient, index)
   guard extracted > 1 else { None }
   guard checked_pow(extracted, index) is Some(power) else { None }
@@ -178,7 +181,7 @@ fn extract_root_coefficient(coefficient : Int, index : Int) -> (Int, Int)? {
 ///|
 fn collect_positive_integer_factors(
   factors : Array[EvalExpr],
-) -> (Int, Array[EvalExpr]) {
+) -> (Int32, Array[EvalExpr]) {
   let mut coefficient = 1
   let rest : Array[EvalExpr] = []
   for factor in factors {
@@ -198,7 +201,7 @@ fn collect_positive_integer_factors(
 
 ///|
 fn rebuild_extracted_radicand(
-  coefficient : Int,
+  coefficient : Int32,
   rest : Array[EvalExpr],
 ) -> EvalExpr {
   let factors : Array[EvalExpr] = []
@@ -214,7 +217,7 @@ fn rebuild_extracted_radicand(
 }
 
 ///|
-fn simplify_positive_integer_root(index : Int, radicand : Int) -> EvalExpr {
+fn simplify_positive_integer_root(index : Int32, radicand : Int32) -> EvalExpr {
   guard perfect_nth_root(radicand, index) is Some(root) else {
     let factor = nth_root_factor(radicand, index)
     guard factor > 1 else { Root(index=Integer(index), Integer(radicand)) }
@@ -231,9 +234,9 @@ fn simplify_positive_integer_root(index : Int, radicand : Int) -> EvalExpr {
 
 ///|
 fn simplify_rational_integer_root(
-  index : Int,
-  numer : Int,
-  denom : Int,
+  index : Int32,
+  numer : Int32,
+  denom : Int32,
   domain : Domain,
 ) -> EvalExpr raise EvalDiagnostic {
   guard numer != 0 else { zero }

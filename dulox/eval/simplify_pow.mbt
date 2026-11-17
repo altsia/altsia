@@ -5,7 +5,7 @@
 /// bound at 16 limits the simplifier to a small, predictable amount of work
 /// and prevents large expression trees; it is a performance bound, not a
 /// mathematical restriction on complex exponentiation.
-const COMPLEX_POW_MAX_EXPONENT : Int = 16
+const COMPLEX_POW_MAX_EXPONENT : Int32 = 16
 
 ///|
 /// Simplifies an integer power when doing so preserves exactness and keeps
@@ -13,7 +13,7 @@ const COMPLEX_POW_MAX_EXPONENT : Int = 16
 /// semantics, or grow too large remain as `IntPow`.
 fn EvalExpr::simplify_pow(
   base : EvalExpr,
-  exp : Int,
+  exp : Int32,
 ) -> EvalExpr raise EvalDiagnostic {
   // Zero and first powers have canonical, constant-size forms.
   guard exp != 0 else { one }
@@ -66,7 +66,7 @@ fn simplify_complex_power(
   original : EvalExpr,
   real : EvalExpr,
   imaginary : EvalExpr,
-  exponent : Int,
+  exponent : Int32,
 ) -> EvalExpr raise EvalDiagnostic {
   guard exponent <= COMPLEX_POW_MAX_EXPONENT else { IntPow(original, exponent) }
   let mut result = complex(one, zero)

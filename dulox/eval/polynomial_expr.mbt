@@ -1,5 +1,5 @@
 ///|
-fn[E] Term::degree(self : Term[E]) -> Int {
+fn[E] Term::degree(self : Term[E]) -> Int32 {
   self.exps.iter().fold(init=0, (total, exp) => total + exp)
 }
 
@@ -23,7 +23,7 @@ fn[E] algebra_term_compare(
   left : Term[E],
   right : Term[E],
   axes : Array[MonomialFactor],
-) -> Int {
+) -> Int32 {
   let left_degree = left.degree()
   let right_degree = right.degree()
   guard left_degree == right_degree else {
@@ -50,7 +50,7 @@ fn[E] algebra_sorted_terms(poly : Polynomial[E]) -> Array[Term[E]] {
 /// Non-polynomial nodes are rejected instead of being made opaque axes.
 pub fn expr_to_polynomial(
   expr : EvalExpr,
-) -> Polynomial[Int] raise EvalDiagnostic {
+) -> Polynomial[Int32] raise EvalDiagnostic {
   match expr {
     Integer(value) => Polynomial::from_constant([], value)
     Symbol(symbol) => algebra_from_factor_term([SymbolFactor(symbol)], [1], 1)
@@ -92,7 +92,7 @@ fn algebra_factor_to_expr(factor : MonomialFactor) -> EvalExpr {
 
 ///|
 fn algebra_term_to_expr(
-  term : Term[Int],
+  term : Term[Int32],
   axes : Array[MonomialFactor],
 ) -> EvalExpr {
   let factors : Array[EvalExpr] = []
@@ -118,7 +118,7 @@ fn algebra_term_to_expr(
 ///|
 /// Converts an integer sparse polynomial back into an evaluator expression in
 /// graded lexicographic order.
-pub fn Polynomial::to_expr(poly : Polynomial[Int]) -> EvalExpr {
+pub fn Polynomial::to_expr(poly : Polynomial[Int32]) -> EvalExpr {
   let terms = algebra_sorted_terms(poly)
   match terms.length() {
     0 => zero

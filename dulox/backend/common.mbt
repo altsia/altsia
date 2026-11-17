@@ -29,7 +29,7 @@ pub fn command_name(label : String) -> String {
 /// The KaTeX font-size multiplier table (`\tiny` .. `\Huge`, including
 /// `\sixptsize`), indexed by the 1-based `Sizing.size` field. Sizes outside
 /// the table fall back to 1.0 (`\normalsize`).
-pub fn katex_size_multiplier(size : Int) -> Double {
+pub fn katex_size_multiplier(size : Int32) -> Double {
   let sizes : FixedArray[Double] = [
     0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.44, 1.728, 2.074, 2.488,
   ]

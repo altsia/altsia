@@ -37,7 +37,7 @@ fn array_last_char(inlines : Array[@parsing.Inline]) -> Char? {
 /// first character of the following inline (or `next` when `i` is last).
 fn inline_neighbors(
   inlines : Array[@parsing.Inline],
-  i : Int,
+  i : Int32,
   prev~ : Char?,
   next~ : Char?,
 ) -> (Char?, Char?) {

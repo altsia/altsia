@@ -3,9 +3,9 @@
 /// computed in the current macro scope and replaced by the result.
 pub fn parse(
   input : String,
-  settings? : @katex.Settings = Default::default(),
-  extra_specs? : Array[@katex.FunctionSpec] = [],
-  extra_env_specs? : Array[@katex.EnvironmentSpec] = [],
+  settings~ : @katex.Settings = Default::default(),
+  extra_specs~ : Array[@katex.FunctionSpec] = [],
+  extra_env_specs~ : Array[@katex.EnvironmentSpec] = [],
   allow_degenerate~ : Bool,
 ) -> Array[@katex.ParseNode] raise @katex.ParseFailure {
   @katex.parse(

@@ -309,7 +309,7 @@ fn render_lap(
 }
 
 ///|
-fn render_sizing(size : Int, body : Array[@katex.ParseNode]) -> String {
+fn render_sizing(size : Int32, body : Array[@katex.ParseNode]) -> String {
   let commands = [
     "\\tiny", "\\sixptsize", "\\scriptsize", "\\footnotesize", "\\small", "\\normalsize",
     "\\large", "\\Large", "\\LARGE", "\\huge", "\\Huge",

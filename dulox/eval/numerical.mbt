@@ -13,14 +13,14 @@ fn to_exact_rational(expr : EvalExpr) -> @rational.BigRational? {
 }
 
 ///|
-fn exact_rational_from_int(value : Int) -> @rational.BigRational {
+fn exact_rational_from_int(value : Int32) -> @rational.BigRational {
   @rational.new(@bigint.BigInt::from_int(value), @bigint.BigInt::from_int(1)).unwrap()
 }
 
 ///|
 fn exact_rational_from_pair(
-  numerator : Int,
-  denominator : Int,
+  numerator : Int32,
+  denominator : Int32,
 ) -> @rational.BigRational {
   @rational.new(
     @bigint.BigInt::from_int(numerator),
@@ -63,7 +63,7 @@ fn rational_is_one(value : @rational.BigRational) -> Bool {
 ///|
 fn exact_rational_pow(
   base : @rational.BigRational,
-  exponent : Int,
+  exponent : Int32,
 ) -> @rational.BigRational {
   guard exponent >= 0 else { exact_rational_pow(base.reciprocal(), -exponent) }
   let mut result = exact_rational_from_int(1)
@@ -82,7 +82,7 @@ fn exact_rational_pow(
 }
 
 ///|
-fn exact_integer(expr : EvalExpr) -> Int? {
+fn exact_integer(expr : EvalExpr) -> Int32? {
   match expr {
     Integer(value) => Some(value)
     Rational(value) if value.denominator() == @bigint.BigInt::from_int(1) =>
@@ -92,7 +92,7 @@ fn exact_integer(expr : EvalExpr) -> Int? {
 }
 
 ///|
-fn bigint_to_int(value : @bigint.BigInt) -> Int? {
+fn bigint_to_int(value : @bigint.BigInt) -> Int32? {
   guard value.compare_int(-2147483648) >= 0 &&
     value.compare_int(2147483647) <= 0 else {
     None
@@ -101,7 +101,7 @@ fn bigint_to_int(value : @bigint.BigInt) -> Int? {
 }
 
 ///|
-fn positive_mod(value : Int, modulus : Int) -> Int {
+fn positive_mod(value : Int32, modulus : Int32) -> Int32 {
   let remainder = value % modulus
   if remainder < 0 {
     remainder + modulus
@@ -158,7 +158,7 @@ fn exact_rational_to_double(
 }
 
 ///|
-fn gcd_int(a : Int, b : Int) -> Int {
+fn gcd_int(a : Int32, b : Int32) -> Int32 {
   let mut x = a
   let mut y = b
   while y != 0 {
@@ -171,7 +171,7 @@ fn gcd_int(a : Int, b : Int) -> Int {
 
 ///|
 /// Adds two `Int` values when the result fits in the evaluator's Int range.
-fn checked_int_add(a : Int, b : Int) -> Int? {
+fn checked_int_add(a : Int32, b : Int32) -> Int32? {
   let sum = a.to_int64() + b.to_int64()
   if sum > 2147483647L || sum < -2147483648L {
     None
@@ -182,7 +182,7 @@ fn checked_int_add(a : Int, b : Int) -> Int? {
 
 ///|
 /// Multiplies two `Int` values when the result fits in the evaluator's Int range.
-fn checked_int_mul(a : Int, b : Int) -> Int? {
+fn checked_int_mul(a : Int32, b : Int32) -> Int32? {
   let product = a.to_int64() * b.to_int64()
   if product > 2147483647L || product < -2147483648L {
     None
@@ -194,7 +194,7 @@ fn checked_int_mul(a : Int, b : Int) -> Int? {
 ///|
 /// Computes a non-negative integer power with overflow detection.
 /// Binary exponentiation keeps the number of multiplications logarithmic.
-fn checked_pow(base : Int, exp : Int) -> Int? {
+fn checked_pow(base : Int32, exp : Int32) -> Int32? {
   guard exp >= 0 else { return None }
   let mut result = 1
   let mut factor = base
@@ -214,7 +214,7 @@ fn checked_pow(base : Int, exp : Int) -> Int? {
 }
 
 ///|
-fn perfect_nth_root(radicand : Int, index : Int) -> Int? {
+fn perfect_nth_root(radicand : Int32, index : Int32) -> Int32? {
   guard radicand >= 0 && index > 0 else { None }
   guard radicand > 1 else { Some(radicand) }
   guard index <= 30 else { None }
@@ -226,7 +226,7 @@ fn perfect_nth_root(radicand : Int, index : Int) -> Int? {
 }
 
 ///|
-fn nth_root_factor(radicand : Int, index : Int) -> Int {
+fn nth_root_factor(radicand : Int32, index : Int32) -> Int32 {
   guard radicand > 1 && index > 1 && index <= 30 else { 1 }
   let mut factor = floor_nth_root(radicand, index)
   while factor > 1 {
@@ -239,7 +239,7 @@ fn nth_root_factor(radicand : Int, index : Int) -> Int {
 }
 
 ///|
-fn floor_nth_root(radicand : Int, index : Int) -> Int {
+fn floor_nth_root(radicand : Int32, index : Int32) -> Int32 {
   let mut low = 1
   let mut high = radicand
   while low < high {

@@ -5,20 +5,21 @@ using @rational {type BigRational}
 /// A computed mathematical expression. Canonicalized by `normalize`:
 /// addition/multiplication are flattened, like terms are combined, and
 /// children are sorted by total degree. Numbers are exact `Int` values.
+#derive(Eq, Debug)
 pub(all) enum EvalExpr {
-  Integer(Int)
+  Integer(Int32)
   Rational(BigRational)
   Symbol(SymbolKey)
   Add(Array[EvalExpr])
   Mul(Array[EvalExpr])
-  IntPow(EvalExpr, Int)
+  IntPow(EvalExpr, Int32)
   Pow(EvalExpr, EvalExpr)
   Div(EvalExpr, EvalExpr)
   Root(index~ : EvalExpr, EvalExpr)
   RootOfUnity(order~ : EvalExpr, power~ : EvalExpr)
   Complex(EvalExpr, EvalExpr)
   Residual(@katex.ParseNode)
-} derive(Eq, Debug)
+}
 
 ///|
 pub let neg_one : EvalExpr = Integer(-1)

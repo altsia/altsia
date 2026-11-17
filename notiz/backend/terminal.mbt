@@ -1,9 +1,10 @@
 ///|
 /// Line style for drawn table borders.
+#derive(Eq)
 pub(all) enum LineStyle {
   Ascii
   Unicode
-} derive(Eq)
+}
 
 ///|
 pub extend LineStyle with Eq::{not_equal, equal}
@@ -66,10 +67,10 @@ fn term_style(
 ///|
 pub fn render_terminal_document(
   blocks : Array[@parsing.Block],
-  line_style? : LineStyle = Unicode,
-  ansi? : Bool = true,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
+  line_style~ : LineStyle = Unicode,
+  ansi~ : Bool = true,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
 ) -> String {
   let options : TerminalOptions = {
     line_style,
@@ -140,7 +141,7 @@ fn @parsing.Block::term_render(
 
 ///|
 fn term_render_heading(
-  level : Int,
+  level : Int32,
   blocks : Array[@parsing.Block],
   options : TerminalOptions,
 ) -> String {
@@ -314,7 +315,7 @@ fn term_render_table(
 ///|
 fn term_table_row_internal(
   cells : Array[String],
-  widths : Array[Int],
+  widths : Array[Int32],
   alignments : Array[@parsing.TableAlignment],
   color : @chalk.Colors,
   modifier : @chalk.Modifier,
@@ -344,7 +345,7 @@ fn term_table_row_internal(
 }
 
 ///|
-fn term_cell_width(cell : String) -> Int {
+fn term_cell_width(cell : String) -> Int32 {
   cell
   .split("\n")
   .fold(init=0, (width, line) => width.max(term_line_width(line.to_owned())))
@@ -352,7 +353,7 @@ fn term_cell_width(cell : String) -> Int {
 
 ///|
 /// ANSI SGR sequences emitted by the style renderer occupy no columns.
-fn term_line_width(line : String) -> Int {
+fn term_line_width(line : String) -> Int32 {
   let mut styling = false
   let mut width = 0
   for c in line.iter() {
@@ -373,8 +374,8 @@ fn term_line_width(line : String) -> Int {
 fn term_render_inlines(
   inlines : Array[@parsing.Inline],
   options : TerminalOptions,
-  prev? : Char? = None,
-  next? : Char? = None,
+  prev~ : Char? = None,
+  next~ : Char? = None,
 ) -> String {
   let buf = StringBuilder()
   for i in 0..<inlines.length() {

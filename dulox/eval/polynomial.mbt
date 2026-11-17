@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub struct Term[E] {
-  exps : Array[Int]
+  exps : Array[Int32]
   coeff : E
-} derive(Debug)
+}
 
 ///|
 pub extend Term with Debug::{to_repr}
@@ -10,10 +11,11 @@ pub extend Term with Debug::{to_repr}
 ///|
 /// A sparse polynomial whose axes may be symbols or opaque evaluator
 /// expressions. Each term's exponent vector is indexed by `axes`.
+#derive(Debug)
 pub struct Polynomial[E] {
   axes : Array[MonomialFactor]
   terms : @hashmap.HashMap[String, Term[E]]
-} derive(Debug)
+}
 
 ///|
 pub extend Polynomial with Debug::{to_repr}
@@ -31,7 +33,7 @@ pub extend Polynomial with Sub::{sub}
 pub extend Polynomial with Mul::{mul}
 
 ///|
-fn algebra_monomial_key(exps : Array[Int]) -> String {
+fn algebra_monomial_key(exps : Array[Int32]) -> String {
   exps.map(exp => exp.to_string()).join(",")
 }
 
@@ -55,7 +57,7 @@ fn algebra_sort_axes(axes : Array[MonomialFactor]) -> Array[MonomialFactor] {
 ///|
 fn[E : PolynomialSemiring] algebra_add_term(
   terms : @hashmap.HashMap[String, Term[E]],
-  exps : Array[Int],
+  exps : Array[Int32],
   coeff : E,
 ) -> Unit {
   guard !coeff.is_zero() else { return }
@@ -106,7 +108,7 @@ fn[E] algebra_align_to_axes(
 fn algebra_axis_indices(
   old_axes : Array[MonomialFactor],
   new_axes : Array[MonomialFactor],
-) -> Array[Int] {
+) -> Array[Int32] {
   old_axes.map(axis => algebra_find_axis(new_axes, axis))
 }
 
@@ -114,7 +116,7 @@ fn algebra_axis_indices(
 fn algebra_find_axis(
   axes : Array[MonomialFactor],
   axis : MonomialFactor,
-) -> Int {
+) -> Int32 {
   for i, candidate in axes {
     if candidate == axis {
       return i
@@ -125,10 +127,10 @@ fn algebra_find_axis(
 
 ///|
 fn algebra_relocate_exponents(
-  exps : Array[Int],
-  index_map : Array[Int],
-  width : Int,
-) -> Array[Int] {
+  exps : Array[Int32],
+  index_map : Array[Int32],
+  width : Int32,
+) -> Array[Int32] {
   let relocated = Array::makei(width, _ => 0)
   for i in 0..<index_map.length() {
     relocated[index_map[i]] = exps[i]
@@ -158,7 +160,7 @@ fn[E] algebra_zero_with_axes(axes : Array[MonomialFactor]) -> Polynomial[E] {
 ///|
 fn[E : PolynomialSemiring] algebra_from_factor_term(
   axes : Array[MonomialFactor],
-  exps : Array[Int],
+  exps : Array[Int32],
   coeff : E,
 ) -> Polynomial[E] {
   let terms = @hashmap.HashMap([])
@@ -185,7 +187,7 @@ pub fn[E : PolynomialSemiring] Polynomial::one(
 ///|
 pub fn[E : PolynomialSemiring] Polynomial::from_term(
   symbols : Array[String],
-  exps : Array[Int],
+  exps : Array[Int32],
   coeff : E,
 ) -> Polynomial[E] {
   algebra_from_factor_term(algebra_axes_from_symbols(symbols), exps, coeff)
@@ -202,7 +204,7 @@ pub fn[E : PolynomialSemiring] Polynomial::from_constant(
 ///|
 pub fn[E : PolynomialSemiring] Polynomial::coeff(
   poly : Polynomial[E],
-  exps : Array[Int],
+  exps : Array[Int32],
 ) -> E {
   poly.terms
   .get(algebra_monomial_key(exps))
@@ -258,7 +260,10 @@ pub impl[E : PolynomialSemiring] Mul for Polynomial[E] with fn mul(a, b) {
 }
 
 ///|
-fn algebra_add_exponents(left : Array[Int], right : Array[Int]) -> Array[Int] {
+fn algebra_add_exponents(
+  left : Array[Int32],
+  right : Array[Int32],
+) -> Array[Int32] {
   Array::makei(left.length(), i => left[i] + right[i])
 }
 
@@ -278,7 +283,7 @@ pub fn[E] Polynomial::variables(self : Polynomial[E]) -> Array[String] {
 fn algebra_find_symbol_axis(
   axes : Array[MonomialFactor],
   variable : String,
-) -> Int? {
+) -> Int32? {
   for i, axis in axes {
     match axis {
       SymbolFactor(symbol) => if symbol.text == variable { return Some(i) }
@@ -314,7 +319,7 @@ pub fn[E : PolynomialSemiring] Polynomial::coefficients_in(
     algebra_zero_with_axes(remaining_axes.copy())
   })
   for _, term in self.terms {
-    let exps : Array[Int] = []
+    let exps : Array[Int32] = []
     for i in 0..<term.exps.length() {
       if i != target {
         exps.push(term.exps[i])
@@ -335,7 +340,7 @@ pub fn[E : PolynomialSemiring] Polynomial::coefficients_in(
 /// exponentiation.
 pub fn[E : PolynomialSemiring] Polynomial::pow(
   self : Polynomial[E],
-  exp : Int,
+  exp : Int32,
 ) -> Polynomial[E] {
   let unit_exps = Array::makei(self.axes.length(), _ => 0)
   guard exp > 0 else {

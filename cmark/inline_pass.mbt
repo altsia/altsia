@@ -3,7 +3,7 @@
 
 ///|
 /// Handle inline markup.
-fn Parser::handle_inline(self : Parser) -> Unit {
+fn Parser::handle_inline(self : Parser) -> Unit raise SyntaxError {
   self.handle_inline_pass1()
   self.handle_emphasis_and_hard_break()
 }
@@ -11,8 +11,8 @@ fn Parser::handle_inline(self : Parser) -> Unit {
 ///|
 /// Handle inline HTML, code spans, and links.
 fn Parser::handle_inline_pass1(self : Parser) -> Unit {
-  let mut cur : Int? = self.tree.cur()
-  let mut prev : Int? = None
+  let mut cur : Int32? = self.tree.cur()
+  let mut prev : Int32? = None
 
   let block_end = self.tree.nodes[self.tree.peek_up().unwrap()].item.end
   let block_text = self.text.exact_view(start=0, end=block_end)
@@ -82,15 +82,9 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
         }
         self.tree.nodes[cur_ix].item.body = Text(false)
       }
-      MaybeMath(can_open, _can_close, brace_context) => {
-        guard can_open else {
-          self.tree.nodes[cur_ix].item.body = Text(false)
-          prev = cur
-          cur = self.tree.nodes[cur_ix].next
-          continue
-        }
+      MaybeMath(brace_context) => {
         let is_display = self.tree.nodes[cur_ix].next.map_or(false, next_ix => {
-          self.tree.nodes[next_ix].item.body is MaybeMath(_, _, _)
+          self.tree.nodes[next_ix].item.body is MaybeMath(_)
         })
         let result = if self.math_delims.is_populated() {
           // we have previously scanned all math environment delimiters
@@ -106,17 +100,14 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
           while true {
             guard scan is Some(scan_ix) else { break }
             match self.tree.nodes[scan_ix].item.body {
-              MaybeMath(_can_open, can_close, delim_brace_context) => {
+              MaybeMath(delim_brace_context) => {
                 let delim_is_display = self.tree.nodes[scan_ix].next.map_or(
                   false,
-                  next_ix => {
-                    self.tree.nodes[next_ix].item.body is MaybeMath(_, _, _)
-                  },
+                  next_ix => self.tree.nodes[next_ix].item.body is MaybeMath(_),
                 )
                 let use_it = !invalid && delim_brace_context == brace_context
                 if use_it {
-                  if (!is_display && can_close) ||
-                    (is_display && delim_is_display) {
+                  if !is_display || delim_is_display {
                     // This will skip ahead past everything we just inserted.
                     self.math_delims.clear()
                     break
@@ -126,7 +117,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
                   }
                 }
                 self.math_delims.insert(
-                  delim_is_display, delim_brace_context, scan_ix, can_close,
+                  delim_is_display, delim_brace_context, scan_ix,
                 )
               }
               _ => ()
@@ -298,7 +289,7 @@ fn Parser::handle_inline_pass1(self : Parser) -> Unit {
               }
             }
 
-            let label : (ReferenceLabel, Int)? = match scan_result {
+            let label : (ReferenceLabel, Int32)? = match scan_result {
               RefScan::LinkLabel(l, end_ix) =>
                 Some((ReferenceLabel::Link(l), end_ix))
               RefScan::Collapsed(_)
@@ -426,9 +417,9 @@ priv enum ReferenceLabel {
 ///|
 priv enum RefScan {
   // label, source ix of label end
-  LinkLabel(String, Int)
+  LinkLabel(String, Int32)
   // contains next node index
-  Collapsed(Int?)
+  Collapsed(Int32?)
   UnexpectedFootnote
   Failed
 }
@@ -436,7 +427,7 @@ priv enum RefScan {
 ///|
 /// Skips forward within a block to a node which spans (ends inclusive) the given
 /// index into the source.
-fn scan_nodes_to_ix(tree : Tree[Item], node : Int?, ix : Int) -> Int? {
+fn scan_nodes_to_ix(tree : Tree[Item], node : Int32?, ix : Int32) -> Int32? {
   for node = node {
     guard node is Some(node_ix) && tree.nodes[node_ix].item.end <= ix else {
       break node
@@ -451,7 +442,7 @@ fn scan_link_label(
   tree : Tree[Item],
   text : BytesView,
   options : Options,
-) -> (Int, ReferenceLabel)? {
+) -> (Int32, ReferenceLabel)? {
   let bytes = text
   guard bytes.length() >= 2 && bytes.unsafe_get(0) == b'[' else { return None }
   let is_footnote = options.contains(enable_footnotes()) &&
@@ -459,7 +450,7 @@ fn scan_link_label(
     bytes.unsafe_get(1) == b'^' &&
     bytes.unsafe_get(2) != b']'
   if is_footnote {
-    let handler : ((BytesView) -> Int?)? = if options.options_has_gfm_footnotes() {
+    let handler : ((BytesView) -> Int32?)? = if options.options_has_gfm_footnotes() {
       None
     } else {
       Some((bytes : BytesView) => {
@@ -472,7 +463,7 @@ fn scan_link_label(
     }
     return Some((byte_index + 2, ReferenceLabel::Footnote(cow)))
   }
-  let handler : ((BytesView) -> Int?)? = Some((bytes : BytesView) => {
+  let handler : ((BytesView) -> Int32?)? = Some((bytes : BytesView) => {
     Some(skip_container_prefixes(tree, bytes, options))
   })
   scan_link_label_rest(text, 1, handler, tree.is_in_table()).map(label => {
@@ -485,7 +476,7 @@ fn scan_link_label(
 fn scan_reference(
   tree : Tree[Item],
   text : BytesView,
-  cur_ix : Int,
+  cur_ix : Int32,
   options : Options,
 ) -> RefScan {
   let start = tree.nodes[cur_ix].item.end
@@ -519,7 +510,7 @@ fn replace_nuls(s : String) -> String {
 
 ///|
 priv struct LinkStackEl {
-  node : Int
+  node : Int32
   mut ty : LinkStackTy
 }
 
@@ -533,7 +524,7 @@ priv enum LinkStackTy {
 ///|
 struct LinkStack {
   inner : Array[LinkStackEl]
-  mut disabled_ix : Int
+  mut disabled_ix : Int32
 }
 
 ///|

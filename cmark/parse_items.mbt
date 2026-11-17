@@ -8,8 +8,8 @@
 
 struct Item {
   /// A tree node item; spans a byte range of the source.
-  mut start : Int
-  mut end : Int
+  mut start : Int32
+  mut end : Int32
   mut body : ItemBody
 }
 
@@ -24,12 +24,12 @@ priv enum ItemBody {
   // These are possible inline items, need to be resolved in second pass.
 
   // repeats, can_open, can_close
-  MaybeEmphasis(Int, Bool, Bool)
-  // can_open, can_close, brace context
-  MaybeMath(Bool, Bool, Int)
+  MaybeEmphasis(Int32, Bool, Bool)
+  // brace context
+  MaybeMath(Int32)
   // quote byte, can_open, can_close
   MaybeSmartQuote(Byte, Bool, Bool)
-  MaybeCode(Int, Bool) // number of backticks, preceded by backslash
+  MaybeCode(Int32, Bool) // number of backticks, preceded by backslash
   MaybeHtml
   MaybeLinkOpen
   // bool indicates whether or not the preceding section could be a reference
@@ -43,17 +43,17 @@ priv enum ItemBody {
   Highlight
   Superscript
   Subscript
-  Math(Int, Bool) // true for display math
-  Code(Int)
-  Link(Int)
-  Image(Int)
-  FootnoteReference(Int)
+  Math(Int32, Bool) // true for display math
+  Code(Int32)
+  Link(Int32)
+  Image(Int32)
+  FootnoteReference(Int32)
   TaskListMarker(Bool)
 
   // These are also inline items.
   InlineHtml
-  OwnedInlineHtml(Int)
-  SynthesizeText(Int)
+  OwnedInlineHtml(Int32)
+  SynthesizeText(Int32)
   SynthesizeChar(Char)
   Html
   Text(Bool) // backslash_escaped
@@ -68,25 +68,24 @@ priv enum ItemBody {
   Paragraph
   TightParagraph
   Rule
-  Heading(HeadingLevel, Int?) // heading level
-  FencedCodeBlock(Int)
-  IndentCodeBlock
+  Heading(HeadingLevel, Int32?) // heading level
+  FencedCodeBlock(Int32)
   HtmlBlock
   BlockQuote(BlockQuoteKind?)
-  Container(Int, ContainerKind, Int) // (fence length, kind, descriptor)
+  Container(Int32, ContainerKind, Int32) // (fence length, kind, descriptor)
   List(Bool, Byte, Int64) // is_tight, list character, list start index
-  ListItem(Int) // indent level
-  FootnoteDefinition(Int)
+  ListItem(Int32) // indent level
+  FootnoteDefinition(Int32)
   MetadataBlock(MetadataBlockKind)
 
   // Definition lists
   DefinitionList(Bool) // is_tight
   MaybeDefinitionListTitle
   DefinitionListTitle
-  DefinitionListDefinition(Int)
+  DefinitionListDefinition(Int32)
 
   // Tables
-  Table(Int)
+  Table(Int32)
   TableHead
   TableRow
   TableCell
@@ -96,7 +95,7 @@ priv enum ItemBody {
 fn item_body_is_maybe_inline(body : ItemBody) -> Bool {
   match body {
     MaybeEmphasis(_, _, _)
-    | MaybeMath(_, _, _)
+    | MaybeMath(_)
     | MaybeSmartQuote(_, _, _)
     | MaybeCode(_, _)
     | MaybeHtml
@@ -111,7 +110,7 @@ fn item_body_is_maybe_inline(body : ItemBody) -> Bool {
 fn item_body_is_inline(body : ItemBody) -> Bool {
   match body {
     MaybeEmphasis(_, _, _)
-    | MaybeMath(_, _, _)
+    | MaybeMath(_)
     | MaybeSmartQuote(_, _, _)
     | MaybeCode(_, _)
     | MaybeHtml
@@ -145,13 +144,13 @@ fn item_body_is_inline(body : ItemBody) -> Bool {
 priv struct LinkDef {
   dest : String
   title : String?
-  _span : (Int, Int)
+  _span : (Int32, Int32)
 }
 
 ///|
 /// Contains the destination URL, title and source span of a footnote definition.
 priv struct FootnoteDef {
-  mut _use_count : Int
+  mut _use_count : Int32
 }
 
 ///|
@@ -186,7 +185,7 @@ fn allocations_new() -> Allocations {
 }
 
 ///|
-fn Allocations::allocate_cow(self : Allocations, cow : String) -> Int {
+fn Allocations::allocate_cow(self : Allocations, cow : String) -> Int32 {
   let ix = self.cows.length()
   self.cows.push(cow)
   ix
@@ -199,7 +198,7 @@ fn Allocations::allocate_link(
   url : String,
   title : String,
   id : String,
-) -> Int {
+) -> Int32 {
   let ix = self.links.length()
   self.links.push((ty, url, title, id))
   ix
@@ -209,7 +208,7 @@ fn Allocations::allocate_link(
 fn Allocations::allocate_alignment(
   self : Allocations,
   alignment : Array[Alignment],
-) -> Int {
+) -> Int32 {
   let ix = self.alignments.length()
   self.alignments.push(alignment)
   ix
@@ -219,14 +218,14 @@ fn Allocations::allocate_alignment(
 fn Allocations::allocate_heading(
   self : Allocations,
   attrs : HeadingAttributes,
-) -> Int {
+) -> Int32 {
   let ix = self.headings.length()
   self.headings.push(attrs)
   ix + 1
 }
 
 ///|
-fn Allocations::take_cow(self : Allocations, ix : Int) -> String {
+fn Allocations::take_cow(self : Allocations, ix : Int32) -> String {
   let v = self.cows[ix]
   self.cows[ix] = ""
   v
@@ -235,7 +234,7 @@ fn Allocations::take_cow(self : Allocations, ix : Int) -> String {
 ///|
 fn Allocations::take_link(
   self : Allocations,
-  ix : Int,
+  ix : Int32,
 ) -> (LinkType, String, String, String) {
   let v = self.links[ix]
   self.links[ix] = (ShortcutUnknown, "", "", "")
@@ -245,7 +244,7 @@ fn Allocations::take_link(
 ///|
 fn Allocations::take_alignment(
   self : Allocations,
-  ix : Int,
+  ix : Int32,
 ) -> Array[Alignment] {
   let v = self.alignments[ix]
   self.alignments[ix] = []
@@ -253,6 +252,6 @@ fn Allocations::take_alignment(
 }
 
 ///|
-fn Allocations::heading_at(self : Allocations, ix : Int) -> HeadingAttributes {
+fn Allocations::heading_at(self : Allocations, ix : Int32) -> HeadingAttributes {
   self.headings[ix - 1]
 }

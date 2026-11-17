@@ -5,7 +5,7 @@
 // is to limit their depth.
 
 ///|
-const LINK_MAX_NESTED_PARENS : Int = 32
+const LINK_MAX_NESTED_PARENS : Int32 = 32
 
 ///|
 /// Markdown event and source range iterator.
@@ -16,7 +16,7 @@ pub struct Parser {
   allocs : Allocations
   html_scan_guard : HtmlScanGuard
   // https://github.com/pulldown-cmark/pulldown-cmark/issues/844
-  mut link_ref_expansion_limit : Int
+  mut link_ref_expansion_limit : Int32
   // used by inline passes
   inline_stack : InlineStack
   link_stack : LinkStack
@@ -26,7 +26,10 @@ pub struct Parser {
 }
 
 ///|
-pub fn parse(source : String, options : Options) -> Array[Event] {
+pub fn parse(
+  source : String,
+  options : Options,
+) -> Array[Event] raise SyntaxError {
   let text = @utf8.encode(source)
   let parser = new_parser(text, options)
   let events : Array[Event] = []
@@ -60,13 +63,15 @@ pub fn new_parser(text : Bytes, options : Options) -> Parser {
 
 ///|
 /// Returns the next event, or `None` when the document is exhausted.
-pub fn Parser::next_event(self : Parser) -> Event? {
+pub fn Parser::next_event(self : Parser) -> Event? raise SyntaxError {
   self.next_event_range().map(ev => ev.0)
 }
 
 ///|
 /// Returns the next event and its source range (start, end), or `None`.
-pub fn Parser::next_event_range(self : Parser) -> (Event, Int, Int)? {
+pub fn Parser::next_event_range(
+  self : Parser,
+) -> (Event, Int32, Int32)? raise SyntaxError {
   guard self.tree.cur() is Some(cur_ix) else { return self.pop_event() }
   let cur_ix = if self.tree.nodes[cur_ix].item.body is TightParagraph {
     // tight paragraphs emit nothing
@@ -92,7 +97,7 @@ pub fn Parser::next_event_range(self : Parser) -> (Event, Int, Int)? {
 ///|
 /// Emits the `End` event of the node being popped, or `None` when the
 /// document is exhausted.
-fn Parser::pop_event(self : Parser) -> (Event, Int, Int)? {
+fn Parser::pop_event(self : Parser) -> (Event, Int32, Int32)? raise SyntaxError {
   guard self.tree.pop() is Some(ix) else { return None }
   guard !(self.tree.nodes[ix].item.body is TightParagraph) else {
     // tight paragraphs emit nothing
@@ -118,7 +123,7 @@ fn body_to_tag_end(body : ItemBody) -> TagEnd {
     Link(_) => TagEnd::Link
     Image(_) => TagEnd::Image
     Heading(level, _) => TagEnd::Heading(level)
-    IndentCodeBlock | FencedCodeBlock(_) => TagEnd::CodeBlock
+    FencedCodeBlock(_) => TagEnd::CodeBlock
     Container(_, kind, _) => TagEnd::ContainerBlock(kind)
     BlockQuote(kind) => TagEnd::BlockQuote(kind)
     HtmlBlock => TagEnd::HtmlBlock
@@ -193,7 +198,6 @@ fn item_to_event(item : Item, text : Bytes, allocs : Allocations) -> Event {
     }
     Heading(level, None) => Tag::Heading(level~, id=None, classes=[], attrs=[])
     FencedCodeBlock(cow_ix) => Tag::CodeBlock(Fenced(allocs.take_cow(cow_ix)))
-    IndentCodeBlock => Tag::CodeBlock(Indented)
     Container(_, kind, cow_ix) =>
       Tag::ContainerBlock(kind, allocs.take_cow(cow_ix))
     BlockQuote(kind) => Tag::BlockQuote(kind)

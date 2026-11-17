@@ -8,7 +8,7 @@ struct RenderOptions {
   disable_math : Bool
   use_cmark : Bool
   output_path : String?
-  range : (Int, Int)?
+  range : (Int32, Int32)?
   halfwidth_punct : Bool
 }
 
@@ -25,7 +25,9 @@ async fn render_input(input_path : String, options : RenderOptions) -> Unit {
       ansi=options.ansi,
       disable_math=options.disable_math,
       halfwidth_punct=options.halfwidth_punct,
-    )
+    ) catch {
+      error => return println("\{error}")
+    }
   } else {
     @notiz.compile(
       source,
@@ -54,14 +56,14 @@ async fn render_input(input_path : String, options : RenderOptions) -> Unit {
 /// the whole file and letting `extract_range` lazily materialize only the
 /// selected lines is both faster and still O(range) in memory, so this is
 /// the optimal strategy given the input sizes obsmark actually handles.
-async fn read_source(input_path : String, range~ : (Int, Int)?) -> String {
+async fn read_source(input_path : String, range~ : (Int32, Int32)?) -> String {
   let content = @fs.read_file(input_path).text()
   guard range is Some((start, end)) else { return content }
   extract_range(content, start, end).join("\n")
 }
 
 ///|
-/// Options for cmark rendering: the full CommonMark plus extension set.
+/// Options for KFC rendering with extensions.
 fn cmark_options() -> @cmark.Options {
   let options = @cmark.Options::empty()
   [
@@ -73,7 +75,6 @@ fn cmark_options() -> @cmark.Options {
     @cmark.enable_yaml_style_metadata_blocks(),
     @cmark.enable_pluses_delimited_metadata_blocks(),
     @cmark.enable_math(),
-    @cmark.enable_math_everywhere(),
     @cmark.enable_gfm(),
     @cmark.enable_definition_list(),
     @cmark.enable_superscript(),

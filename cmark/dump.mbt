@@ -4,7 +4,10 @@
 
 ///|
 /// Parses `source` and returns a line-per-event canonical dump.
-pub fn event_dump(source : String, options : Options) -> String {
+pub fn event_dump(
+  source : String,
+  options : Options,
+) -> String raise SyntaxError {
   let events = parse(source, options)
   let parts = events.map(dump_event)
   parts.join("\n")

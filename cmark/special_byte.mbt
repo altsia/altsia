@@ -3,12 +3,12 @@
 ///|
 fn FirstPass::handle_special_byte(
   self : FirstPass,
-  ix : Int,
+  ix : Int32,
   byte : Byte,
   mode : TableParseMode,
-  limit : Int,
-  bytes_len : Int,
-  start : Int,
+  limit : Int32,
+  bytes_len : Int32,
+  start : Int32,
   state : LineState,
 ) -> (ParseLineAction, LineState) {
   self.handle_special_byte_inner(ix, byte, mode, limit, bytes_len, start, state)
@@ -17,12 +17,12 @@ fn FirstPass::handle_special_byte(
 ///|
 fn FirstPass::handle_special_byte_inner(
   self : FirstPass,
-  ix : Int,
+  ix : Int32,
   byte : Byte,
   mode : TableParseMode,
-  limit : Int,
-  bytes_len : Int,
-  start : Int,
+  limit : Int32,
+  bytes_len : Int32,
+  start : Int32,
   state : LineState,
 ) -> (ParseLineAction, LineState) {
   let bytes = self.text
@@ -170,22 +170,11 @@ fn FirstPass::handle_special_byte_inner(
     }
     b'*' | b'_' | b'~' | b'^' | b'=' => {
       let count = 1 + scan_ch_repeat(bytes.exact_view(start=ix + 1), byte)
-      let can_open = delim_run_can_open(
-        self.text,
-        start,
-        ix,
-        count,
-        mode,
-        self.options,
-      )
-      let can_close = delim_run_can_close(
-        self.text,
-        start,
-        ix,
-        count,
-        mode,
-        self.options,
-      )
+      let is_emphasis = byte == b'*' || byte == b'_'
+      let can_open = is_emphasis ||
+        delim_run_can_open(self.text, start, ix, count, mode, self.options)
+      let can_close = is_emphasis ||
+        delim_run_can_close(self.text, start, ix, count, mode, self.options)
       let is_valid_seq = match byte {
         b'~' => count <= 2
         b'=' => count == 2
@@ -209,18 +198,6 @@ fn FirstPass::handle_special_byte_inner(
       (ParseLineAction::Continue(count - 1), state)
     }
     b'$' => {
-      let byte_suffix = bytes.exact_view(start=ix)
-      let can_open = self.options.contains(enable_math_everywhere()) ||
-        byte_suffix.length() < 2 ||
-        !byte_suffix.unsafe_get(1).to_char().is_ascii_whitespace()
-      let can_close = self.options.contains(enable_math_everywhere()) ||
-        (
-          ix > start &&
-          !bytes.unsafe_get(ix - 1).to_char().is_ascii_whitespace() &&
-          !(ix + 1 < limit &&
-          bytes.unsafe_get(ix + 1).to_char().is_ascii_digit())
-        )
-
       // 0xFF represents the root brace context
       let brace_context = if self.brace_context_stack.length() >
         MATH_BRACE_CONTEXT_MAX_NESTING {
@@ -239,7 +216,7 @@ fn FirstPass::handle_special_byte_inner(
         self.tree.append(Item::{
           start: ix,
           end: ix + 1,
-          body: MaybeMath(can_open, can_close, brace_context),
+          body: MaybeMath(brace_context),
         }),
       )
       state.begin_text = ix + 1

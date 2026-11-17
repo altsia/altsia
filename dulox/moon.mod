@@ -3,7 +3,7 @@ name = "kokic/dulox"
 version = "0.1.1"
 
 import {
-  "kokic/katex-parser@0.6.0",
+  "kokic/katex-parser@0.7.1",
   "moonbitlang/x@0.5.6",
   "kokic/pythagoras@0.1.0",
 }

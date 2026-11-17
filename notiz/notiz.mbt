@@ -1,11 +1,11 @@
 ///|
 pub fn compile(
   source : String,
-  target? : CompileTarget = Text,
-  line_style? : @backend.LineStyle = @backend.LineStyle::Ascii,
-  ansi? : Bool = false,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
+  target~ : CompileTarget = Text,
+  line_style~ : @backend.LineStyle = @backend.LineStyle::Ascii,
+  ansi~ : Bool = false,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
 ) -> String raise @parsing.SyntaxError {
   let (frontmatter, blocks) = match
     @parsing.document_with_metadata.parse(source |> @talc.Input::new) {
@@ -76,16 +76,15 @@ pub fn compile(
 ///|
 /// Compiles `source` with the cmark parser and renders it as terminal text.
 ///
-/// Unlike [`compile`](`compile`), parsing is delegated to the CommonMark-
-/// conformant `@cmark` port, so this entry can never fail.
+/// Parsing follows KFC; invalid emphasis raises `@cmark.SyntaxError`.
 pub fn compile_cmark(
   source : String,
   options : @cmark.Options,
-  line_style? : @backend.LineStyle = @backend.LineStyle::Ascii,
-  ansi? : Bool = false,
-  disable_math? : Bool = false,
-  halfwidth_punct? : Bool = false,
-) -> String {
+  line_style~ : @backend.LineStyle = @backend.LineStyle::Ascii,
+  ansi~ : Bool = false,
+  disable_math~ : Bool = false,
+  halfwidth_punct~ : Bool = false,
+) -> String raise @cmark.SyntaxError {
   @backend.render_terminal_events(
     @cmark.parse(source, options),
     line_style~,

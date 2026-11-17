@@ -10,6 +10,6 @@ license = "AGPL-3.0"
 
 keywords = [ ]
 
-description = "A port of pulldown-cmark's parser to MoonBit."
+description = "A Kodama Flavored CommonMark parser based on pulldown-cmark."
 
 preferred_target = "native"

@@ -41,10 +41,10 @@ fn FirstPass::scan_next_line_or_lazy_continuation(
 /// Returns the offset of the first line after the table.
 fn FirstPass::parse_table(
   self : FirstPass,
-  table_cols : Int,
-  head_start : Int,
-  body_start : Int,
-) -> Int? {
+  table_cols : Int32,
+  head_start : Int32,
+  body_start : Int32,
+) -> Int32? {
   // filled empty cells are limited to protect against quadratic growth
   let missing_empty_cells = 0
   // parse header
@@ -73,17 +73,17 @@ fn FirstPass::parse_table(
 /// Returns bytes scanned, row_ix
 fn FirstPass::parse_table_row_inner(
   self : FirstPass,
-  ix : Int,
-  row_cells : Int,
-  missing_empty_cells : Int,
-) -> (Int, Int)? {
+  ix : Int32,
+  row_cells : Int32,
+  missing_empty_cells : Int32,
+) -> (Int32, Int32)? {
   let mut ix = ix
   // Limit to prevent a malicious input from causing a denial of service.
   let max_autocompleted_cells = 1 << 18
 
   let bytes = self.text
   let mut cells = 0
-  let mut final_cell_ix : Int? = None
+  let mut final_cell_ix : Int32? = None
   let mut missing_empty_cells = missing_empty_cells
 
   let old_cur = self.tree.cur()
@@ -148,10 +148,10 @@ fn FirstPass::parse_table_row_inner(
 /// Returns first offset after the row and the tree index of the row.
 fn FirstPass::parse_table_row(
   self : FirstPass,
-  ix : Int,
-  row_cells : Int,
-  missing_empty_cells : Int,
-) -> (Int, Int)? {
+  ix : Int32,
+  row_cells : Int32,
+  missing_empty_cells : Int32,
+) -> (Int32, Int32)? {
   let mut ix = ix
   let bytes = self.text
   let line_start = LineStart::new(bytes.exact_view(start=ix))
@@ -178,9 +178,9 @@ fn FirstPass::parse_table_row(
 /// Returns offset of line start after paragraph.
 fn FirstPass::parse_paragraph(
   self : FirstPass,
-  start_ix : Int,
+  start_ix : Int32,
   tasklist_marker : Item?,
-) -> Int {
+) -> Int32 {
   let body = {
     guard self.tree.peek_up() is Some(idx) else {
       self.finish_list(start_ix)
@@ -252,24 +252,6 @@ fn FirstPass::parse_paragraph(
     }
     if !line_start.scan_space(4) {
       let ix_new = ix + line_start.bytes_scanned()
-      if current_container {
-        if self.parse_setext_heading(
-            ix_new,
-            node_ix,
-            trailing_backslash_pos is Some(_),
-          )
-          is Some(ix_setext) {
-          if trailing_backslash_pos is Some(pos) {
-            self.tree.append_text(pos, pos + 1, false)
-          }
-          self.pop(ix_setext)
-          let is_maybe_title = body is MaybeDefinitionListTitle
-          if is_maybe_title {
-            self.finish_list(ix)
-          }
-          return ix_setext
-        }
-      }
       // first check for non-empty lists, then for other interrupts
       let suffix = bytes.exact_view(start=ix_new)
       if self.scan_paragraph_interrupt(suffix, current_container, tree_position) {
@@ -328,82 +310,10 @@ fn closes_container(tree : Tree[Item], line_start : LineStart) -> Bool {
 ///|
 /// Mutable state for `parse_line`.
 priv struct LineState {
-  mut pipes : Int
-  mut last_pipe_ix : Int
-  mut begin_text : Int
+  mut pipes : Int32
+  mut last_pipe_ix : Int32
+  mut begin_text : Int32
   mut backslash_escaped : Bool
-}
-
-///|
-/// Returns end ix of setext_heading on success.
-fn FirstPass::parse_setext_heading(
-  self : FirstPass,
-  ix : Int,
-  node_ix : Int,
-  has_trailing_content : Bool,
-) -> Int? {
-  let bytes = self.text
-  guard scan_setext_heading(bytes.exact_view(start=ix)) is Some((n, level)) else {
-    return None
-  }
-  let mut attrs : HeadingAttributes? = None
-
-  if self.tree.cur() is Some(cur_ix) {
-    let parent_ix = self.tree.peek_up().unwrap()
-    let header_start = self.tree.nodes[parent_ix].item.start
-    // Note that `item.end` might be zero at this point.
-    let header_end = self.tree.nodes[cur_ix].item.end
-
-    // extract the trailing attribute block
-    let (content_end, attrs_) = self.extract_and_parse_heading_attribute_block(
-      header_start, header_end,
-    )
-    attrs = attrs_
-
-    // strip trailing whitespace
-    let new_end = if has_trailing_content {
-      content_end
-    } else {
-      let mut last_line_start = header_start
-      if attrs is Some(_) {
-        while true {
-          let next_line_start = last_line_start +
-            scan_nextline(bytes.exact_view(start=last_line_start))
-          if next_line_start >= content_end {
-            break
-          }
-          let line_start = LineStart::new(
-            bytes.exact_view(start=next_line_start, end=content_end),
-          )
-          if line_start.scan_containers(self.tree, self.options) !=
-            self.tree.spine_len() {
-            break
-          }
-          last_line_start = next_line_start + line_start.bytes_scanned()
-        }
-      }
-      let trailing_ws = scan_rev_while(
-        bytes.exact_view(start=last_line_start, end=content_end),
-        c => c.is_ascii_whitespace_no_nl(),
-      )
-      content_end - trailing_ws
-    }
-
-    if attrs is Some(_) {
-      // remove trailing block attributes
-      self.tree.truncate_siblings(new_end)
-    }
-
-    if self.tree.cur() is Some(cur_ix) {
-      self.tree.nodes[cur_ix].item.end = new_end
-    }
-  }
-
-  self.tree.nodes[node_ix].item.body = attrs.map_or(Heading(level, None), attrs => {
-    Heading(level, Some(self.allocs.allocate_heading(attrs)))
-  })
-
-  Some(ix + n)
 }
 
 ///|
@@ -411,10 +321,10 @@ fn FirstPass::parse_setext_heading(
 /// Returns: index after line and an item representing the break.
 fn FirstPass::parse_line(
   self : FirstPass,
-  start : Int,
-  end : Int?,
+  start : Int32,
+  end : Int32?,
   mode : TableParseMode,
-) -> (Int, Item?) {
+) -> (Int32, Item?) {
   let bytes = self.text
   let bytes_len = bytes.length()
   let limit = end.unwrap_or(bytes_len)
@@ -467,6 +377,6 @@ fn FirstPass::parse_line(
 
 ///|
 priv enum ParseLineAction {
-  Continue(Int)
-  BreakWith(Int, Item?)
+  Continue(Int32)
+  BreakWith(Int32, Item?)
 }

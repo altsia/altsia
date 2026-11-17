@@ -1,10 +1,13 @@
 ///|
-fn cm_test_render(source : String) -> String {
+fn cm_test_render(source : String) -> String raise @cmark.SyntaxError {
   cm_test_render_with(source, @cmark.Options::empty())
 }
 
 ///|
-fn cm_test_render_with(source : String, options : @cmark.Options) -> String {
+fn cm_test_render_with(
+  source : String,
+  options : @cmark.Options,
+) -> String raise @cmark.SyntaxError {
   @backend.render_terminal_events(
     @cmark.parse(source, options),
     line_style=@backend.LineStyle::Unicode,
@@ -16,7 +19,7 @@ fn cm_test_render_with(source : String, options : @cmark.Options) -> String {
 fn cm_test_render_halfwidth(
   source : String,
   options : @cmark.Options,
-) -> String {
+) -> String raise @cmark.SyntaxError {
   @backend.render_terminal_events(
     @cmark.parse(source, options),
     line_style=@backend.LineStyle::Unicode,

@@ -4,7 +4,7 @@
 ///|
 /// A `~` delimiter run may be intraword when it is a `~~` strikethrough
 /// or a subscript `~`.
-fn is_intraword_tilde(delim : Byte, run_len : Int, options : Options) -> Bool {
+fn is_intraword_tilde(delim : Byte, run_len : Int32, options : Options) -> Bool {
   delim == b'~' && (run_len > 1 || options.contains(enable_subscript()))
 }
 
@@ -14,9 +14,9 @@ fn is_intraword_tilde(delim : Byte, run_len : Int, options : Options) -> Bool {
 /// for _ delims).
 fn delim_run_can_open(
   s : Bytes,
-  start : Int,
-  ix : Int,
-  run_len : Int,
+  start : Int32,
+  ix : Int32,
+  run_len : Int32,
   mode : TableParseMode,
   options : Options,
 ) -> Bool {
@@ -82,9 +82,9 @@ fn delim_run_can_open(
 /// right-flanking, as defined by the commonmark spec.
 fn delim_run_can_close(
   s : Bytes,
-  start : Int,
-  ix : Int,
-  run_len : Int,
+  start : Int32,
+  ix : Int32,
+  run_len : Int32,
   mode : TableParseMode,
   options : Options,
 ) -> Bool {
@@ -129,7 +129,7 @@ fn delim_run_can_close(
 ///|
 fn is_cjk_friendly_delim(
   delim : Byte,
-  run_len : Int,
+  run_len : Int32,
   options : Options,
 ) -> Bool {
   // two-tilde strikethrough, subscripts, superscript, and highlighter don't use flanking
@@ -236,7 +236,7 @@ fn is_alphanumeric_char(c : Char) -> Bool {
 
 ///|
 /// Decodes the char starting at byte offset `ix`. Returns None if out of range.
-fn decode_char(s : Bytes, ix : Int) -> Char? {
+fn decode_char(s : Bytes, ix : Int32) -> Char? {
   guard ix < s.length() else { return None }
   let b0 = s.unsafe_get(ix).to_int()
   let len = if b0 < 0x80 {
@@ -255,7 +255,7 @@ fn decode_char(s : Bytes, ix : Int) -> Char? {
 
 ///|
 /// Returns the byte index of the char before byte offset `ix`.
-fn prev_char_ix(s : Bytes, ix : Int) -> Int {
+fn prev_char_ix(s : Bytes, ix : Int32) -> Int32 {
   guard ix > 0 else { return 0 }
   let mut i = ix - 1
   while i > 0 && (s.unsafe_get(i).to_int() & 0xC0) == 0x80 {
@@ -265,7 +265,7 @@ fn prev_char_ix(s : Bytes, ix : Int) -> Int {
 }
 
 ///|
-fn ends_with_pipe(s : Bytes, ix : Int) -> Bool {
+fn ends_with_pipe(s : Bytes, ix : Int32) -> Bool {
   let prefix = s.exact_view(start=0, end=ix)
   prefix.has_suffix(b"|".exact_view()) &&
   !prefix.has_suffix(b"\\|".exact_view())
@@ -312,10 +312,10 @@ fn special_bytes(options : Options) -> Array[Bool] {
 /// Computes the number of header columns in a table line.
 fn count_header_cols(
   bytes : BytesView,
-  pipes : Int,
-  start : Int,
-  last_pipe_ix : Int,
-) -> Int {
+  pipes : Int32,
+  start : Int32,
+  last_pipe_ix : Int32,
+) -> Int32 {
   let mut pipes = pipes
   let mut start = start
   // was first pipe preceded by whitespace? if so, subtract one
@@ -336,7 +336,7 @@ fn count_header_cols(
 /// Split the usual heading content range and the content inside the trailing attribute block.
 fn extract_attribute_block_content_from_header_text(
   heading : BytesView,
-) -> (Int, (Int, Int)?) {
+) -> (Int32, (Int32, Int32)?) {
   let heading_len = heading.length()
   let mut ix = heading_len
   ix -= scan_rev_while(heading, b => {

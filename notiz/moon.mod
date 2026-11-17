@@ -4,7 +4,7 @@ version = "0.1.4"
 
 import {
   "kokic/talcparsec@0.4.0",
-  "kokic/katex-parser@0.6.0",
+  "kokic/katex-parser@0.7.1",
   "kokic/dulox@0.1.0",
   "kokic/cmark@0.1.1",
   "moonbit-community/chalk@0.0.1",

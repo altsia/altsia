@@ -3,7 +3,7 @@
 ///
 /// Bit values are a stable ABI, so option sets are interchangeable.
 pub struct Options {
-  mut flags : UInt
+  mut flags : UInt32
 }
 
 ///|
@@ -129,17 +129,9 @@ pub fn enable_highlight() -> Options {
 }
 
 ///|
-/// Enables CJK-friendly emphasis.
+/// Enables CJK-friendly flanking for single-tilde strikethrough.
 pub fn enable_cjk_friendly_emphasis() -> Options {
   { flags: 1 << 18, }
-}
-
-///|
-/// Enables treating every `$` as a math delimiter, regardless of surrounding
-/// whitespace or digits. A literal `$` must be escaped as `\$`. Implies
-/// `enable_math`.
-pub fn enable_math_everywhere() -> Options {
-  { flags: (1 << 19) | (1 << 10), }
 }
 
 ///|

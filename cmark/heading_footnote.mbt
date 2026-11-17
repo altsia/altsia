@@ -6,9 +6,9 @@
 /// Returns index of start of next line.
 fn FirstPass::parse_atx_heading(
   self : FirstPass,
-  start : Int,
+  start : Int32,
   atx_level : HeadingLevel,
-) -> Int {
+) -> Int32 {
   let mut ix = start
   let heading_ix = self.tree.append(Item::{ start, end: 0, body: Root, })
   ix += atx_level.to_int()
@@ -108,7 +108,7 @@ fn not_is_hash(b : Byte) -> Bool {
 
 ///|
 /// Returns the number of bytes scanned on success.
-fn FirstPass::parse_footnote(self : FirstPass, start : Int) -> Int? {
+fn FirstPass::parse_footnote(self : FirstPass, start : Int32) -> Int32? {
   let bytes = self.text.exact_view(start~)
   guard bytes.has_prefix(b"[^".exact_view()) else { return None }
   let (i, label) = if self.options.options_has_gfm_footnotes() {
@@ -166,8 +166,8 @@ fn FirstPass::parse_footnote(self : FirstPass, start : Int) -> Int? {
 /// Tries to parse a reference label, which can be interrupted by new blocks.
 fn FirstPass::parse_refdef_label(
   self : FirstPass,
-  start : Int,
-) -> (Int, String)? {
+  start : Int32,
+) -> (Int32, String)? {
   scan_link_label_rest(
     self.text,
     start,
@@ -181,9 +181,8 @@ fn FirstPass::parse_refdef_label(
       let bytes_scanned = line_start.bytes_scanned()
       let suffix = bytes.exact_view(start=bytes_scanned)
       let interrupt = self.scan_paragraph_interrupt(
-          suffix, current_container, tree_position,
-        ) ||
-        (current_container && scan_setext_heading(suffix) is Some(_))
+        suffix, current_container, tree_position,
+      )
       guard !interrupt else { None }
       Some(bytes_scanned)
     }),
@@ -195,8 +194,8 @@ fn FirstPass::parse_refdef_label(
 /// Returns number of bytes scanned, label and definition on success.
 fn FirstPass::parse_refdef_total(
   self : FirstPass,
-  start : Int,
-) -> (Int, String, LinkDef)? {
+  start : Int32,
+) -> (Int32, String, LinkDef)? {
   let bytes = self.text.exact_view(start~)
   guard bytes.length() > 0 && bytes.unsafe_get(0) == b'[' else { return None }
   guard self.parse_refdef_label(start + 1) is Some((i, label)) else {
@@ -217,8 +216,8 @@ fn FirstPass::parse_refdef_total(
 fn FirstPass::scan_refdef_space(
   self : FirstPass,
   bytes : BytesView,
-  i : Int,
-) -> (Int, Int)? {
+  i : Int32,
+) -> (Int32, Int32)? {
   let mut i = i
   let mut newlines = 0
   while true {
@@ -234,9 +233,8 @@ fn FirstPass::scan_refdef_space(
     if !line_start.scan_space(4) {
       let suffix = bytes.exact_view(start=i + line_start.bytes_scanned())
       let interrupt = self.scan_paragraph_interrupt(
-          suffix, current_container, tree_position,
-        ) ||
-        scan_setext_heading(suffix) is Some(_)
+        suffix, current_container, tree_position,
+      )
       guard !interrupt else { return None }
     }
     i += line_start.bytes_scanned()
@@ -249,7 +247,7 @@ fn FirstPass::scan_refdef_space(
 fn FirstPass::scan_refdef_title(
   self : FirstPass,
   text : BytesView,
-) -> (Int, String)? {
+) -> (Int32, String)? {
   guard text.length() > 0 else { return None }
   let c = text.unsafe_get(0)
   let closing_delim = if c == b'\'' {
@@ -293,9 +291,8 @@ fn FirstPass::scan_refdef_title(
           start=bytecount + line_start.bytes_scanned(),
         )
         let interrupt = self.scan_paragraph_interrupt(
-            suffix, current_container, tree_position,
-          ) ||
-          scan_setext_heading(suffix) is Some(_)
+          suffix, current_container, tree_position,
+        )
         guard !interrupt else { return None }
       }
       line_start.scan_all_space()
@@ -335,9 +332,9 @@ fn FirstPass::scan_refdef_title(
 /// Assumes the label of the reference including colon has already been scanned.
 fn FirstPass::scan_refdef(
   self : FirstPass,
-  span_start : Int,
-  start : Int,
-) -> (Int, LinkDef)? {
+  span_start : Int32,
+  start : Int32,
+) -> (Int32, LinkDef)? {
   let bytes = self.text.exact_view(start=0)
 
   // whitespace between label and url (including up to one newline)
@@ -404,7 +401,7 @@ fn FirstPass::scan_paragraph_interrupt(
   self : FirstPass,
   bytes : BytesView,
   current_container : Bool,
-  tree_position : Int,
+  tree_position : Int32,
 ) -> Bool {
   guard !scan_paragraph_interrupt_no_table(
     bytes,
@@ -468,9 +465,9 @@ fn FirstPass::scan_paragraph_interrupt(
 /// Extracts and parses a heading attribute block if exists.
 fn FirstPass::extract_and_parse_heading_attribute_block(
   self : FirstPass,
-  header_start : Int,
-  header_end : Int,
-) -> (Int, HeadingAttributes?) {
+  header_start : Int32,
+  header_end : Int32,
+) -> (Int32, HeadingAttributes?) {
   guard self.options.contains(enable_heading_attributes()) else {
     return (header_end, None)
   }
@@ -503,7 +500,7 @@ fn scan_paragraph_interrupt_no_table(
   has_footnote : Bool,
   definition_list : Bool,
   tree : Tree[Item],
-  tree_position : Int,
+  tree_position : Int32,
 ) -> Bool {
   guard scan_eol(bytes) is None else { return true }
   guard scan_hrule(bytes) is Err(_) else { return true }
@@ -613,7 +610,7 @@ fn get_html_end_tag(text_bytes : BytesView) -> String? {
 }
 
 ///|
-fn surgerize_tight_list(tree : Tree[Item], list_ix : Int) -> Unit {
+fn surgerize_tight_list(tree : Tree[Item], list_ix : Int32) -> Unit {
   let mut list_item = tree.nodes[list_ix].child
   while true {
     guard list_item is Some(listitem_ix) else { break }
@@ -630,9 +627,9 @@ fn surgerize_tight_list(tree : Tree[Item], list_ix : Int) -> Unit {
 }
 
 ///|
-fn fixup_end_of_definition_list(tree : Tree[Item], list_ix : Int) -> Unit {
+fn fixup_end_of_definition_list(tree : Tree[Item], list_ix : Int32) -> Unit {
   let mut list_item = tree.nodes[list_ix].child
-  let mut previous_list_item : Int? = None
+  let mut previous_list_item : Int32? = None
   while true {
     guard list_item is Some(listitem_ix) else { break }
     match tree.nodes[listitem_ix].item.body {

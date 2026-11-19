@@ -64,7 +64,7 @@ fn dump_tag(tag : Tag) -> String {
       "|" +
       join_attrs(attrs)
     BlockQuote(kind) => "Start|BlockQuote|" + blockquote_str(kind)
-    CodeBlock(kind) => "Start|CodeBlock|" + codeblock_str(kind)
+    CodeBlock(info) => "Start|CodeBlock|Fenced(" + dump_escape(info) + ")"
     ContainerBlock(kind, d) =>
       "Start|ContainerBlock|" + container_str(kind) + "|" + dump_escape(d)
     HtmlBlock => "Start|HtmlBlock"
@@ -199,14 +199,6 @@ fn metadata_str(kind : MetadataBlockKind) -> String {
   match kind {
     YamlStyle => "YamlStyle"
     PlusesStyle => "PlusesStyle"
-  }
-}
-
-///|
-fn codeblock_str(kind : CodeBlockKind) -> String {
-  match kind {
-    Indented => "Indented"
-    Fenced(lang) => "Fenced(" + dump_escape(lang) + ")"
   }
 }
 

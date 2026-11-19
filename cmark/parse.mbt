@@ -193,7 +193,7 @@ fn item_to_event(item : Item, text : Bytes, allocs : Allocations) -> Event {
       )
     }
     Heading(level, None) => Tag::Heading(level~, id=None, classes=[], attrs=[])
-    FencedCodeBlock(cow_ix) => Tag::CodeBlock(Fenced(allocs.take_cow(cow_ix)))
+    FencedCodeBlock(cow_ix) => Tag::CodeBlock(allocs.take_cow(cow_ix))
     Container(_, kind, cow_ix) =>
       Tag::ContainerBlock(kind, allocs.take_cow(cow_ix))
     BlockQuote(kind) => Tag::BlockQuote(kind)

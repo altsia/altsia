@@ -167,8 +167,8 @@ test "KFC headings are ATX only including inside containers" {
 ///|
 test "KFC code blocks require backtick fences" {
   @test.assert_eq(
-    @cmark.parse("```\n***\n```", @cmark.Options::empty())
-    is [Start(CodeBlock(Fenced(""))), Text("***\n"), End(CodeBlock)],
+    @cmark.parse("```mbt extra\n***\n```", @cmark.Options::empty())
+    is [Start(CodeBlock("mbt extra")), Text("***\n"), End(CodeBlock)],
     true,
   )
   @test.assert_eq(

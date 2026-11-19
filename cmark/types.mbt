@@ -1,26 +1,4 @@
 ///|
-/// Code block kind.
-#derive(Debug)
-pub(all) enum CodeBlockKind {
-  Indented
-  /// The `String` describes the language of the code, which may be empty.
-  Fenced(String)
-}
-
-///|
-pub extend CodeBlockKind with Debug::{to_repr}
-
-///|
-pub fn CodeBlockKind::is_indented(self : CodeBlockKind) -> Bool {
-  self is Indented
-}
-
-///|
-pub fn CodeBlockKind::is_fenced(self : CodeBlockKind) -> Bool {
-  self is Fenced(_)
-}
-
-///|
 /// Block quote kind (Note, Tip, Important, Warning, Caution).
 #derive(Debug)
 pub(all) enum BlockQuoteKind {
@@ -57,6 +35,10 @@ pub(all) enum MetadataBlockKind {
 pub extend MetadataBlockKind with Debug::{to_repr}
 
 ///|
+/// The full fence info string, not just the language. It may be empty.
+pub type CodeBlockInfo = String
+
+///|
 /// Tags for elements that can contain other elements.
 #derive(Debug)
 pub(all) enum Tag {
@@ -72,8 +54,8 @@ pub(all) enum Tag {
   )
   /// A block quote.
   BlockQuote(BlockQuoteKind?)
-  /// A code block.
-  CodeBlock(CodeBlockKind)
+  /// A backtick-fenced code block.
+  CodeBlock(CodeBlockInfo)
   /// A container block with the given kind and descriptor.
   ContainerBlock(ContainerKind, String)
   /// An HTML block.

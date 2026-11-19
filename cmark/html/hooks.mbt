@@ -13,19 +13,23 @@ pub(all) enum RawHtmlKind {
 }
 
 ///|
+/// The code block body before HTML escaping, without its fences.
+pub type CodeBlockSource = String
+
+///|
 pub struct Hooks {
   math : ((String, MathKind) -> String?)?
-  code_block : ((String, @cmark.CodeBlockKind) -> String?)?
+  code_block : ((CodeBlockSource, @cmark.CodeBlockInfo) -> String?)?
   raw_html : ((String, RawHtmlKind) -> String?)?
 }
 
 ///|
 /// Each hook gets the unescaped event text. `Some(html)` is inserted verbatim
 /// instead of the node's built-in markup; `None` uses the built-in rendering.
-/// The block hooks run once per block, not once per line.
+/// The block hooks run once per block.
 pub fn Hooks::new(
   math? : (String, MathKind) -> String?,
-  code_block? : (String, @cmark.CodeBlockKind) -> String?,
+  code_block? : (CodeBlockSource, @cmark.CodeBlockInfo) -> String?,
   raw_html? : (String, RawHtmlKind) -> String?,
 ) -> Hooks {
   { math, code_block, raw_html, }
@@ -52,19 +56,17 @@ fn Hooks::write_math(
 fn Hooks::write_code_block(
   self : Hooks,
   out : StringBuilder,
-  source : String,
-  kind : @cmark.CodeBlockKind,
+  source : CodeBlockSource,
+  info : @cmark.CodeBlockInfo,
 ) -> Unit {
-  if self.code_block.bind(hook => hook(source, kind)) is Some(html) {
+  if self.code_block.bind(hook => hook(source, info)) is Some(html) {
     out.write_string(html)
   } else {
     out.write_string("<pre><code")
-    if kind is Fenced(info) {
-      let language = StringBuilder()
-      language.write_iter(info.iter().take_while(c => !c.is_ascii_whitespace()))
-      if !language.is_empty() {
-        write_attr(out, "class", "language-\{language}")
-      }
+    let language = StringBuilder()
+    language.write_iter(info.iter().take_while(c => !c.is_ascii_whitespace()))
+    if !language.is_empty() {
+      write_attr(out, "class", "language-\{language}")
     }
     out.write_char('>')
     write_escaped(out, source)

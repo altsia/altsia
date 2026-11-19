@@ -26,9 +26,9 @@ pub fn render(
         out.write_char('>')
         i = next
       }
-      Start(CodeBlock(kind)) => {
+      Start(CodeBlock(info)) => {
         let (source, next) = read_literal(events, i)
-        hooks.write_code_block(out, source, kind)
+        hooks.write_code_block(out, source, info)
         i = next
       }
       Start(HtmlBlock) => {

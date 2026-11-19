@@ -271,7 +271,7 @@ fn render_reflectbox(body : @katex.ParseNode) -> String {
       mode=Text,
       body=[OrdGroup(body=nodes, ..)],
       style=TextStyle,
-      reset_font=true
+      reset_font=true,
     ) => "\\reflectbox{\{join_tight(nodes.map(render_reflectbox_text))}}"
     _ => "\\mathreflectbox{\{render_arg(body)}}"
   }

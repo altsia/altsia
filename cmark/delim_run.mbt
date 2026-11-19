@@ -3,11 +3,7 @@
 
 ///|
 /// Opening boundary rules for smart quotes.
-fn delim_run_can_open(
-  s : Bytes,
-  ix : Int32,
-  mode : TableParseMode,
-) -> Bool {
+fn delim_run_can_open(s : Bytes, ix : Int32, mode : TableParseMode) -> Bool {
   guard decode_char(s, ix + 1) is Some(next_char) else { return false }
   guard !next_char.is_whitespace() else { return false }
   guard decode_char(s, prev_char_ix(s, ix)) is Some(prev_char) else {

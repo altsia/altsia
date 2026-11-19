@@ -223,7 +223,11 @@ test "KFC treats double equals as ordinary text" {
   let source = "==注意！==。 ==注意！==事項"
   @test.assert_eq(
     @cmark.parse(source, @cmark.Options::empty())
-    is [Start(Paragraph), Text("==注意！==。 ==注意！==事項"), End(Paragraph)],
+    is [
+      Start(Paragraph),
+      Text("==注意！==。 ==注意！==事項"),
+      End(Paragraph),
+    ],
     true,
   )
 }

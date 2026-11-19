@@ -54,11 +54,7 @@ fn InlineStack::find_match(
   count : Int32,
 ) -> InlineEl? {
   let is_emphasis = c == b'*' || c == b'_'
-  let lowerbound = if is_emphasis {
-    0
-  } else {
-    self.lower_bounds[count - 1]
-  }
+  let lowerbound = if is_emphasis { 0 } else { self.lower_bounds[count - 1] }
   // search from the end
   let mut i = self.stack.length() - 1
   while i >= lowerbound {

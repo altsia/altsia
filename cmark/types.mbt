@@ -50,7 +50,7 @@ pub(all) enum Tag {
     id~ : String?,
     classes~ : Array[String],
     /// The first item of the tuple is the attr and second one the value.
-    attrs~ : Array[(String, String?)]
+    attrs~ : Array[(String, String?)],
   )
   /// A block quote.
   BlockQuote(BlockQuoteKind?)
@@ -87,7 +87,7 @@ pub(all) enum Tag {
     dest_url~ : String,
     title~ : String,
     /// Identifier of reference links, e.g. `world` in the link `[hello][world]`.
-    id~ : String
+    id~ : String,
   )
   /// An image.
   Image(
@@ -95,7 +95,7 @@ pub(all) enum Tag {
     dest_url~ : String,
     title~ : String,
     /// Identifier of reference links, e.g. `world` in the link `[hello][world]`.
-    id~ : String
+    id~ : String,
   )
   /// A metadata block.
   MetadataBlock(MetadataBlockKind)

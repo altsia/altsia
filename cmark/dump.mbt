@@ -16,7 +16,7 @@ pub fn event_dump(
 ///|
 fn dump_escape(s : String) -> String {
   let bytes = @utf8.encode(s)
-  let buf = @buffer.Buffer(size_hint=bytes.length())
+  let buf = @buffer.Buffer(capacity=bytes.length())
   for i in 0..<bytes.length() {
     let b = bytes.unsafe_get(i)
     match b.to_int() {

@@ -555,7 +555,7 @@ priv struct AttrScanState {
 
 ///|
 fn attr_state_new() -> AttrScanState {
-  { buffer: Buffer(size_hint=0), last_buf_index: 0, }
+  { buffer: Buffer(capacity=0), last_buf_index: 0, }
 }
 
 ///|

@@ -41,8 +41,6 @@ priv enum ItemBody {
   Strong
   Strikethrough
   Highlight
-  Superscript
-  Subscript
   Math(Int32, Bool) // true for display math
   Code(Int32)
   Link(Int32)

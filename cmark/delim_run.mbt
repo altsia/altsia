@@ -2,36 +2,16 @@
 //! byte lookup table.
 
 ///|
-/// Boundary rules for superscript, highlight, and smart quotes.
+/// Boundary rules for highlight and smart quotes.
 /// KFC emphasis and tilde delimiters bypass these checks.
 fn delim_run_can_open(
   s : Bytes,
-  start : Int32,
   ix : Int32,
   run_len : Int32,
   mode : TableParseMode,
-  options : Options,
 ) -> Bool {
-  let suffix = s.exact_view(start=ix)
   guard decode_char(s, ix + run_len) is Some(next_char) else { return false }
   guard !next_char.is_whitespace() else { return false }
-  let delim = suffix.unsafe_get(0)
-  // `^` with punctuation content (e.g. `^+^`) requires a preceding alphanumeric
-  // or delimiter character (e.g. `H^+^`, `NH~4~^+^`).
-  if delim == b'^' && is_punctuation(next_char.to_int()) {
-    guard ix - start != 0 else { return false }
-    if options.contains(enable_superscript()) {
-      if decode_char(s, prev_char_ix(s, ix)) is Some(prev_char) {
-        if is_alphanumeric_char(prev_char) ||
-          prev_char == '~' ||
-          prev_char == '^' {
-          return true
-        }
-      }
-    }
-    // Punctuation content without qualifying predecessor -- don't open
-    return false
-  }
   guard decode_char(s, prev_char_ix(s, ix)) is Some(prev_char) else {
     return true
   }
@@ -40,8 +20,7 @@ fn delim_run_can_open(
     guard !ends_with_pipe(s, ix) else { return true }
     guard next_char != '|' else { return false }
   }
-  // `^` with non-punctuation content can open intraword
-  guard delim != b'^' else { return true }
+  let delim = s.unsafe_get(ix)
   guard !(delim == b'=' && run_len == 2) else { return true }
 
   prev_char.is_whitespace() ||
@@ -76,16 +55,8 @@ fn delim_run_can_close(
   let is_intraword = (delim == b'=' && run_len == 2) &&
     !is_punctuation(prev_char.to_int())
   guard !is_intraword else { return true }
-  guard !(delim == b'^' && !is_punctuation(prev_char.to_int())) else {
-    return true
-  }
 
   next_char.is_whitespace() || is_punctuation(next_char.to_int())
-}
-
-///|
-fn is_alphanumeric_char(c : Char) -> Bool {
-  c.is_ascii_alphabetic() || c.is_ascii_digit()
 }
 
 ///|
@@ -138,12 +109,8 @@ fn special_bytes(options : Options) -> Array[Bool] {
   if options.contains(enable_tables()) {
     bytes[b'|'.to_int()] = true
   }
-  if options.contains(enable_strikethrough()) ||
-    options.contains(enable_subscript()) {
+  if options.contains(enable_strikethrough()) {
     bytes[b'~'.to_int()] = true
-  }
-  if options.contains(enable_superscript()) {
-    bytes[b'^'.to_int()] = true
   }
   if options.contains(enable_highlight()) {
     bytes[b'='.to_int()] = true

@@ -23,16 +23,14 @@ struct InlineStack {
 fn extension_delim_index(c : Byte, count : Int32) -> Int32 {
   if c == b'~' {
     count - 1
-  } else if c == b'^' {
-    2
   } else {
-    3
+    2
   }
 }
 
 ///|
 fn inline_stack_new() -> InlineStack {
-  { stack: [], lower_bounds: Array::make(4, 0), }
+  { stack: [], lower_bounds: Array::make(3, 0), }
 }
 
 ///|
@@ -43,7 +41,7 @@ fn InlineStack::pop_all(self : InlineStack, tree : Tree[Item]) -> Unit {
     }
   }
   self.stack.clear()
-  for i in 0..<4 {
+  for i in 0..<self.lower_bounds.length() {
     self.lower_bounds[i] = 0
   }
 }
@@ -51,7 +49,7 @@ fn InlineStack::pop_all(self : InlineStack, tree : Tree[Item]) -> Unit {
 ///|
 fn InlineStack::truncate(self : InlineStack, new_bound : Int32) -> Unit {
   self.stack.truncate(new_bound)
-  for i in 0..<4 {
+  for i in 0..<self.lower_bounds.length() {
     if self.lower_bounds[i] > new_bound {
       self.lower_bounds[i] = new_bound
     }
@@ -246,22 +244,8 @@ fn Parser::apply_emphasis_inner(
   while start > el.start + el.count - match_count {
     let inc = if start > el.start + el.count - match_count + 1 { 2 } else { 1 }
     let ty = if c == b'~' {
-      if inc == 2 {
-        if self.options.contains(enable_strikethrough()) {
-          Some(ItemBody::Strikethrough)
-        } else {
-          None
-        }
-      } else if self.options.contains(enable_subscript()) {
-        Some(ItemBody::Subscript)
-      } else if self.options.contains(enable_strikethrough()) {
+      if self.options.contains(enable_strikethrough()) {
         Some(ItemBody::Strikethrough)
-      } else {
-        None
-      }
-    } else if c == b'^' {
-      if self.options.contains(enable_superscript()) {
-        Some(ItemBody::Superscript)
       } else {
         None
       }

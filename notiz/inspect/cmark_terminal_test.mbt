@@ -43,16 +43,12 @@ test "emphasis_and_strong" {
 }
 
 ///|
-test "strikethrough_highlight_superscript" {
+test "strikethrough_and_highlight" {
   let opts = @cmark.Options::empty()
   opts.insert(@cmark.enable_strikethrough())
   opts.insert(@cmark.enable_highlight())
-  opts.insert(@cmark.enable_superscript())
-  opts.insert(@cmark.enable_subscript())
   @test.assert_eq(cm_test_render_with("~~del~~", opts), "del")
   @test.assert_eq(cm_test_render_with("==hi==", opts), "==hi==")
-  @test.assert_eq(cm_test_render_with("a^b^", opts), "a^{b}")
-  @test.assert_eq(cm_test_render_with("~sub~", opts), "_{sub}")
 }
 
 ///|

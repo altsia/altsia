@@ -82,8 +82,6 @@ fn dump_tag(tag : Tag) -> String {
     Strong => "Start|Strong"
     Strikethrough => "Start|Strikethrough"
     Highlight => "Start|Highlight"
-    Superscript => "Start|Superscript"
-    Subscript => "Start|Subscript"
     Link(link_type~, dest_url~, title~, id~) =>
       "Start|Link|" +
       linktype_str(link_type) +
@@ -129,8 +127,6 @@ fn dump_tag_end(te : TagEnd) -> String {
     Strong => "End|Strong"
     Strikethrough => "End|Strikethrough"
     Highlight => "End|Highlight"
-    Superscript => "End|Superscript"
-    Subscript => "End|Subscript"
     Link => "End|Link"
     Image => "End|Image"
     MetadataBlock(kind) => "End|MetadataBlock|" + metadata_str(kind)

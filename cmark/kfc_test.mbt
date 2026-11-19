@@ -168,6 +168,27 @@ test "KFC code blocks require backtick fences" {
 }
 
 ///|
+test "KFC scripts are TeX inside math; underscores still delimit emphasis" {
+  let source = "H^+^。 H~2~O _word_ $x_i^2$ $$\\mathrm{NH}_4^{+}$$"
+  @test.assert_eq(
+    @cmark.parse(source, @cmark.enable_math())
+    is [
+      Start(Paragraph),
+      Text("H^+^。 H~2~O "),
+      Start(Emphasis),
+      Text("word"),
+      End(Emphasis),
+      Text(" "),
+      InlineMath("x_i^2"),
+      Text(" "),
+      DisplayMath("\\mathrm{NH}_4^{+}"),
+      End(Paragraph),
+    ],
+    true,
+  )
+}
+
+///|
 test "KFC emphasis composes with optional inline extensions" {
   let options = @cmark.enable_strikethrough()
   @test.assert_eq(
@@ -187,9 +208,8 @@ test "KFC emphasis composes with optional inline extensions" {
 }
 
 ///|
-test "KFC tilde delimiters ignore boundaries and retain nested meanings" {
-  let options = @cmark.enable_subscript()
-  options.insert(@cmark.enable_strikethrough())
+test "KFC single and double tildes retain strikethrough pairing" {
+  let options = @cmark.enable_strikethrough()
   @test.assert_eq(
     @cmark.parse("文~~ ~ + ~ ~~字", options)
     is [
@@ -197,9 +217,9 @@ test "KFC tilde delimiters ignore boundaries and retain nested meanings" {
       Text("文"),
       Start(Strikethrough),
       Text(" "),
-      Start(Subscript),
+      Start(Strikethrough),
       Text(" + "),
-      End(Subscript),
+      End(Strikethrough),
       Text(" "),
       End(Strikethrough),
       Text("字"),

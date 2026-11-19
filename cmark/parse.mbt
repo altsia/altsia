@@ -115,8 +115,6 @@ fn body_to_tag_end(body : ItemBody) -> TagEnd {
   match body {
     Paragraph => TagEnd::Paragraph
     Emphasis => TagEnd::Emphasis
-    Superscript => TagEnd::Superscript
-    Subscript => TagEnd::Subscript
     Strong => TagEnd::Strong
     Strikethrough => TagEnd::Strikethrough
     Highlight => TagEnd::Highlight
@@ -174,8 +172,6 @@ fn item_to_event(item : Item, text : Bytes, allocs : Allocations) -> Event {
     Rule => return Rule
     Paragraph => Tag::Paragraph
     Emphasis => Tag::Emphasis
-    Superscript => Tag::Superscript
-    Subscript => Tag::Subscript
     Strong => Tag::Strong
     Strikethrough => Tag::Strikethrough
     Highlight => Tag::Highlight

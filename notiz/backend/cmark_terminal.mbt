@@ -510,15 +510,7 @@ fn cm_pad_cell(
 
 ///|
 fn cm_is_inline_tag(tag : @cmark.Tag) -> Bool {
-  tag
-  is (Emphasis
-  | Strong
-  | Strikethrough
-  | Highlight
-  | Superscript
-  | Subscript
-  | Link(_)
-  | Image(_))
+  tag is (Emphasis | Strong | Strikethrough | Highlight | Link(_) | Image(_))
 }
 
 ///|
@@ -708,8 +700,6 @@ fn cm_apply_inline_style(
         @chalk.Modifier::Strikethrough,
       ])
     Highlight => "==" + text + "=="
-    Superscript => "^{" + text + "}"
-    Subscript => "_{" + text + "}"
     Link(link_type~, dest_url~, ..) =>
       match link_type {
         Autolink | Email => text

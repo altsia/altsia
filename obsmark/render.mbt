@@ -77,8 +77,6 @@ fn cmark_options() -> @cmark.Options {
     @cmark.enable_math(),
     @cmark.enable_gfm(),
     @cmark.enable_definition_list(),
-    @cmark.enable_superscript(),
-    @cmark.enable_subscript(),
     @cmark.enable_wikilinks(),
     @cmark.enable_container_extensions(),
     @cmark.enable_highlight(),

@@ -98,17 +98,7 @@ pub fn enable_definition_list() -> Options {
   { flags: 1 << 12, }
 }
 
-///|
-/// Enables superscript.
-pub fn enable_superscript() -> Options {
-  { flags: 1 << 13, }
-}
-
-///|
-/// Enables subscript.
-pub fn enable_subscript() -> Options {
-  { flags: 1 << 14, }
-}
+// Bits 13 and 14 were used by the removed script extensions.
 
 ///|
 /// Enables Obsidian-style wikilinks.

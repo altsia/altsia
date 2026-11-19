@@ -457,82 +457,6 @@ fn parse_decimal(bytes : BytesView, limit : Int32) -> (Int32, Int32) {
   (count, acc)
 }
 
-// returns (number of bytes, parsed hex)
-
-///|
-fn parse_hex(bytes : BytesView, limit : Int32) -> (Int32, Int32) {
-  let mut count = 0
-  let mut acc = 0
-  while count < bytes.length() && count < limit {
-    let mut c = bytes.unsafe_get(count).to_int()
-    let digit = if c >= 0x30 && c <= 0x39 {
-      c - 0x30
-    } else {
-      // make lower case
-      c = c | 0x20
-      if c >= 0x61 && c <= 0x66 {
-        c - 0x61 + 10
-      } else {
-        break
-      }
-    }
-    let new_acc = acc * 16 + digit
-    if new_acc < acc {
-      break
-    }
-    acc = new_acc
-    count += 1
-  }
-  (count, acc)
-}
-
-///|
-fn char_from_codepoint(input : Int32) -> Char? {
-  // Codepoint 0 is treated as invalid (emits U+FFFD).
-  guard input != 0 else { return None }
-  Int32::to_char(input)
-}
-
-// doesn't bother to check data[0] == '&'
-
-///|
-fn scan_entity(bytes : BytesView) -> (Int32, String?) {
-  let mut end = 1
-  if bytes.length() > end && bytes.unsafe_get(end) == b'#' {
-    end += 1
-    let is_hex = end < bytes.length() &&
-      (bytes.unsafe_get(end).to_int() | 0x20) == 0x78
-    let (bytecount, codepoint) = if is_hex {
-      end += 1
-      parse_hex(bytes.exact_view(start=end), 6)
-    } else {
-      parse_decimal(bytes.exact_view(start=end), 7)
-    }
-    end += bytecount
-    if bytecount == 0 || bytes.length() <= end || bytes.unsafe_get(end) != b';' {
-      (0, None)
-    } else {
-      (
-        end + 1,
-        Some(
-          char_from_codepoint(codepoint).map_or("\u{fffd}", c => c.to_string()),
-        ),
-      )
-    }
-  } else {
-    end += scan_while(bytes.exact_view(start=end), c => {
-      c.is_ascii_alphanumeric()
-    })
-    if bytes.length() > end && bytes.unsafe_get(end) == b';' {
-      get_entity(bytes.exact_view(start=1, end~)).map_or((0, None), value => {
-        (end + 1, Some(value))
-      })
-    } else {
-      (0, None)
-    }
-  }
-}
-
 ///|
 fn scan_wikilink_pipe(
   data : BytesView,
@@ -792,7 +716,7 @@ fn scan_attr_value_chars(data : BytesView) -> Int32 {
 }
 
 ///|
-/// Remove backslash escapes and resolve entities
+/// Remove backslash escapes without interpreting HTML character references.
 fn unescape(
   input : Bytes,
   from : Int32,
@@ -827,16 +751,6 @@ fn unescape(
         write_range(result, bytes, mark, i)
         mark = i + 1
         i += 2
-      } else if c == b'&' {
-        match scan_entity(bytes.exact_view(start=i, end=to)) {
-          (n, Some(value)) => {
-            write_range(result, bytes, mark, i)
-            result.write_string(value)
-            i += n
-            mark = i
-          }
-          _ => i += 1
-        }
       } else if c == b'\r' {
         write_range(result, bytes, mark, i)
         i += 1

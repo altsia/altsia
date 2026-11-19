@@ -296,21 +296,6 @@ fn FirstPass::handle_special_byte_inner(
       state.begin_text = ix + 1
       (ParseLineAction::Continue(0), state)
     }
-    b'&' => {
-      guard scan_entity(bytes.exact_view(start=ix)) is (n, Some(value)) else {
-        return (ParseLineAction::Continue(0), state)
-      }
-      self.tree.append_text(state.begin_text, ix)
-      ignore(
-        self.tree.append(Item::{
-          start: ix,
-          end: ix + n,
-          body: SynthesizeText(self.allocs.allocate_cow(value)),
-        }),
-      )
-      state.begin_text = ix + n
-      (ParseLineAction::Continue(n - 1), state)
-    }
     b'|' =>
       if ix != 0 && bytes.unsafe_get(ix - 1) == b'\\' {
         (ParseLineAction::Continue(0), state)

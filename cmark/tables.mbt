@@ -1,23 +1,3 @@
-//! Lookup helpers over the generated tables in the `*_data.mbt` files.
-
-///|
-/// Returns the expansion of the entity whose name is exactly `bytes`, or `None`.
-fn get_entity(bytes : BytesView) -> String? {
-  let mut lo = 0
-  let mut hi = entities_table.length() - 1
-  while lo <= hi {
-    let mid = (lo + hi) / 2
-    let cmp = bytes.lexical_compare(entities_table[mid].0.exact_view())
-    guard cmp != 0 else { return Some(entities_table[mid].1) }
-    if cmp < 0 {
-      hi = mid - 1
-    } else {
-      lo = mid + 1
-    }
-  }
-  None
-}
-
 ///|
 fn is_ascii_punctuation(c : Int32) -> Bool {
   (0x21 <= c && c <= 0x2F) ||

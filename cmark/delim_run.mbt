@@ -100,7 +100,7 @@ fn ends_with_pipe(s : Bytes, ix : Int32) -> Bool {
 fn special_bytes(options : Options) -> Array[Bool] {
   let bytes : Array[Bool] = Array::make(256, false)
   let standard_bytes = [
-    b'\n', b'\r', b'*', b'_', b'&', b'\\', b'[', b']', b'<', b'!', b'`', b'\x00',
+    b'\n', b'\r', b'*', b'_', b'\\', b'[', b']', b'<', b'!', b'`', b'\x00',
   ]
 
   for byte in standard_bytes {

@@ -120,17 +120,6 @@ fn Parser::scan_link_title(
         continue
       }
     }
-    if c == b'&' {
-      if scan_entity(bytes.exact_view(start=i)) is (n, Some(value)) {
-        title.write_stringview(
-          @utf8.decode_lossy(text.exact_view(start=mark, end=i)).exact_view(),
-        )
-        title.write_string(value)
-        i += n
-        mark = i
-        continue
-      }
-    }
     let is_table_pipe_escape = self.tree.is_in_table() &&
       c == b'\\' &&
       i + 2 < bytes.length() &&

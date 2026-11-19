@@ -82,6 +82,36 @@ test "KFC literal contexts do not parse emphasis" {
 }
 
 ///|
+test "KFC leaves named and numeric character references in prose" {
+  let source = "&copy; &#169; &#xA9;"
+  @test.assert_eq(
+    @cmark.parse(source, @cmark.Options::empty())
+    is [Start(Paragraph), Text("&copy; &#169; &#xA9;"), End(Paragraph)],
+    true,
+  )
+}
+
+///|
+test "KFC leaves character references in inline and reference link fields" {
+  for
+    source in [
+      "[x](/?a=1&amp;b=2 \"&copy; &#169;\")", "[x][ref]\n\n[ref]: /?a=1&amp;b=2 \"&copy; &#169;\"",
+    ] {
+    @test.assert_eq(
+      @cmark.parse(source, @cmark.Options::empty())
+      is [
+        Start(Paragraph),
+        Start(Link(dest_url="/?a=1&amp;b=2", title="&copy; &#169;", ..)),
+        Text("x"),
+        End(Link),
+        End(Paragraph),
+      ],
+      true,
+    )
+  }
+}
+
+///|
 test "KFC math has no surrounding whitespace or digit restrictions" {
   @test.assert_eq(
     @cmark.parse("a$ x $2", @cmark.enable_math())

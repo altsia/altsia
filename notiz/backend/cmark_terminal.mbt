@@ -510,7 +510,7 @@ fn cm_pad_cell(
 
 ///|
 fn cm_is_inline_tag(tag : @cmark.Tag) -> Bool {
-  tag is (Emphasis | Strong | Strikethrough | Highlight | Link(_) | Image(_))
+  tag is (Emphasis | Strong | Strikethrough | Link(_) | Image(_))
 }
 
 ///|
@@ -699,7 +699,6 @@ fn cm_apply_inline_style(
       term_style(text, ansi=options.ansi, modifier=[
         @chalk.Modifier::Strikethrough,
       ])
-    Highlight => "==" + text + "=="
     Link(link_type~, dest_url~, ..) =>
       match link_type {
         Autolink | Email => text

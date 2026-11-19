@@ -81,7 +81,6 @@ pub(all) enum Tag {
   Emphasis
   Strong
   Strikethrough
-  Highlight
   /// A link.
   Link(
     link_type~ : LinkType,
@@ -129,7 +128,6 @@ pub(all) enum TagEnd {
   Emphasis
   Strong
   Strikethrough
-  Highlight
   Link
   Image
   MetadataBlock(MetadataBlockKind)

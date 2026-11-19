@@ -117,7 +117,6 @@ fn body_to_tag_end(body : ItemBody) -> TagEnd {
     Emphasis => TagEnd::Emphasis
     Strong => TagEnd::Strong
     Strikethrough => TagEnd::Strikethrough
-    Highlight => TagEnd::Highlight
     Link(_) => TagEnd::Link
     Image(_) => TagEnd::Image
     Heading(level, _) => TagEnd::Heading(level)
@@ -174,7 +173,6 @@ fn item_to_event(item : Item, text : Bytes, allocs : Allocations) -> Event {
     Emphasis => Tag::Emphasis
     Strong => Tag::Strong
     Strikethrough => Tag::Strikethrough
-    Highlight => Tag::Highlight
     Link(link_ix) => {
       let (link_type, dest_url, title, id) = allocs.take_link(link_ix)
       Tag::Link(link_type~, dest_url~, title~, id~)

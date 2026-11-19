@@ -219,6 +219,16 @@ test "KFC scripts are TeX inside math; underscores still delimit emphasis" {
 }
 
 ///|
+test "KFC treats double equals as ordinary text" {
+  let source = "==注意！==。 ==注意！==事項"
+  @test.assert_eq(
+    @cmark.parse(source, @cmark.Options::empty())
+    is [Start(Paragraph), Text("==注意！==。 ==注意！==事項"), End(Paragraph)],
+    true,
+  )
+}
+
+///|
 test "KFC emphasis composes with optional inline extensions" {
   let options = @cmark.enable_strikethrough()
   @test.assert_eq(

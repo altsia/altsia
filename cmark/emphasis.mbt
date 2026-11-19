@@ -18,19 +18,9 @@ struct InlineStack {
 }
 
 ///|
-// Single- and double-tilde runs need separate bounds so matching one
-// cannot hide an unmatched opener of the other length.
-fn extension_delim_index(c : Byte, count : Int32) -> Int32 {
-  if c == b'~' {
-    count - 1
-  } else {
-    2
-  }
-}
-
-///|
 fn inline_stack_new() -> InlineStack {
-  { stack: [], lower_bounds: Array::make(3, 0), }
+  // Keep separate bounds for single- and double-tilde runs.
+  { stack: [], lower_bounds: Array::make(2, 0), }
 }
 
 ///|
@@ -67,7 +57,7 @@ fn InlineStack::find_match(
   let lowerbound = if is_emphasis {
     0
   } else {
-    self.lower_bounds[extension_delim_index(c, count)]
+    self.lower_bounds[count - 1]
   }
   // search from the end
   let mut i = self.stack.length() - 1
@@ -93,7 +83,7 @@ fn InlineStack::find_match(
   }
 
   if !is_emphasis {
-    self.lower_bounds[extension_delim_index(c, count)] = self.stack.length()
+    self.lower_bounds[count - 1] = self.stack.length()
   }
   None
 }
@@ -101,7 +91,7 @@ fn InlineStack::find_match(
 ///|
 fn InlineStack::push(self : InlineStack, el : InlineEl) -> Unit {
   if el.c != b'*' && el.c != b'_' {
-    let ix = extension_delim_index(el.c, el.count)
+    let ix = el.count - 1
     self.lower_bounds[ix] = self.lower_bounds[ix].min(self.stack.length())
   }
   self.stack.push(el)
@@ -226,61 +216,6 @@ fn MathDelims::clear(self : MathDelims) -> Unit {
 }
 
 ///|
-/// Applies the inner "work from the inside out" loop of emphasis matching.
-/// Returns `true` if the opener matched successfully (caller finishes the
-/// outer iteration), or `false` if the opener should be turned into text and
-/// the outer search retried.
-fn Parser::apply_emphasis_inner(
-  self : Parser,
-  el : InlineEl,
-  start : Int32,
-  end : Int32,
-  match_count : Int32,
-  prev : Int32?,
-) -> Bool {
-  let mut start = start
-  let mut end = end
-  let c = el.c
-  while start > el.start + el.count - match_count {
-    let inc = if start > el.start + el.count - match_count + 1 { 2 } else { 1 }
-    let ty = if c == b'~' {
-      if self.options.contains(enable_strikethrough()) {
-        Some(ItemBody::Strikethrough)
-      } else {
-        None
-      }
-    } else if c == b'=' {
-      if inc == 2 && self.options.contains(enable_highlight()) {
-        Some(ItemBody::Highlight)
-      } else {
-        None
-      }
-    } else if inc == 2 {
-      Some(ItemBody::Strong)
-    } else {
-      Some(ItemBody::Emphasis)
-    }
-
-    guard ty is Some(ty) else {
-      self.tree.nodes[el.start].item.body = Text
-      return false
-    }
-    // have a match!
-    let root = start - inc
-    end = end + inc
-    self.tree.nodes[root].item.body = ty
-    self.tree.nodes[root].item.end = self.tree.nodes[end].item.end
-    self.tree.nodes[root].child = Some(start)
-    self.tree.nodes[root].next = None
-    if prev is Some(prev_ix) {
-      self.tree.nodes[prev_ix].next = None
-    }
-    start = root
-  }
-  true
-}
-
-///|
 fn Parser::handle_emphasis_and_hard_break(
   self : Parser,
 ) -> Unit raise SyntaxError {
@@ -301,7 +236,7 @@ fn Parser::handle_emphasis_and_hard_break(
   while true {
     guard cur is Some(cur_ix) else { break }
     match self.tree.nodes[cur_ix].item.body {
-      MaybeEmphasis(count, can_open, can_close) => {
+      MaybeEmphasis(count) => {
         let offset = self.tree.nodes[cur_ix].item.start
         let c = self.text.unsafe_get(offset)
         let is_emphasis = c == b'*' || c == b'_'
@@ -321,37 +256,36 @@ fn Parser::handle_emphasis_and_hard_break(
             false
           }
         } else {
-          can_close
+          true
         }
-        if can_close {
-          if self.inline_stack.find_match(self.tree, c, count) is Some(el) {
-            if self.apply_emphasis_inner(
-                el,
-                el.start + count,
-                cur_ix - 1,
-                count,
-                prev,
-              ) {
-              prev = Some(el.start)
-              cur = self.tree.nodes[cur_ix + count - 1].next
-              self.tree.nodes[el.start].next = cur
-              if is_emphasis {
-                emphasis_open = None
-              }
-              continue
-            }
+        if can_close &&
+          self.inline_stack.find_match(self.tree, c, count) is Some(el) {
+          let last = cur_ix + count - 1
+          let body = if c == b'~' {
+            ItemBody::Strikethrough
+          } else if count == 2 {
+            Strong
+          } else {
+            Emphasis
           }
-        }
-        if can_open {
-          let el = InlineEl::{ start: cur_ix, count, c, }
-          self.inline_stack.push(el)
+          self.tree.nodes[el.start].item.body = body
+          self.tree.nodes[el.start].item.end = self.tree.nodes[last].item.end
+          self.tree.nodes[el.start].child = Some(el.start + count)
+          if prev is Some(prev_ix) {
+            self.tree.nodes[prev_ix].next = None
+          }
+          prev = Some(el.start)
+          cur = self.tree.nodes[last].next
+          self.tree.nodes[el.start].next = cur
           if is_emphasis {
-            emphasis_open = Some(el)
+            emphasis_open = None
           }
-        } else {
-          for i in 0..<count {
-            self.tree.nodes[cur_ix + i].item.body = Text
-          }
+          continue
+        }
+        let el = InlineEl::{ start: cur_ix, count, c, }
+        self.inline_stack.push(el)
+        if is_emphasis {
+          emphasis_open = Some(el)
         }
         let prev_ix = cur_ix + count - 1
         prev = Some(prev_ix)

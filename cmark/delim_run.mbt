@@ -2,15 +2,13 @@
 //! byte lookup table.
 
 ///|
-/// Boundary rules for highlight and smart quotes.
-/// KFC emphasis and tilde delimiters bypass these checks.
+/// Opening boundary rules for smart quotes.
 fn delim_run_can_open(
   s : Bytes,
   ix : Int32,
-  run_len : Int32,
   mode : TableParseMode,
 ) -> Bool {
-  guard decode_char(s, ix + run_len) is Some(next_char) else { return false }
+  guard decode_char(s, ix + 1) is Some(next_char) else { return false }
   guard !next_char.is_whitespace() else { return false }
   guard decode_char(s, prev_char_ix(s, ix)) is Some(prev_char) else {
     return true
@@ -21,8 +19,6 @@ fn delim_run_can_open(
     guard next_char != '|' else { return false }
   }
   let delim = s.unsafe_get(ix)
-  guard !(delim == b'=' && run_len == 2) else { return true }
-
   prev_char.is_whitespace() ||
   (
     is_punctuation(prev_char.to_int()) &&
@@ -31,13 +27,11 @@ fn delim_run_can_open(
 }
 
 ///|
-/// Determines whether the delimiter run starting at given index is
-/// right-flanking, as defined by the commonmark spec.
+/// Closing boundary rules for smart quotes.
 fn delim_run_can_close(
   s : Bytes,
   start : Int32,
   ix : Int32,
-  run_len : Int32,
   mode : TableParseMode,
 ) -> Bool {
   guard ix - start != 0 else { return false }
@@ -45,17 +39,12 @@ fn delim_run_can_close(
     return false
   }
   guard !prev_char.is_whitespace() else { return false }
-  guard decode_char(s, ix + run_len) is Some(next_char) else { return true }
+  guard decode_char(s, ix + 1) is Some(next_char) else { return true }
   let in_table = mode is Active
   if in_table {
     guard !ends_with_pipe(s, ix) else { return false }
     guard next_char != '|' else { return true }
   }
-  let delim = s.exact_view(start=ix).unsafe_get(0)
-  let is_intraword = (delim == b'=' && run_len == 2) &&
-    !is_punctuation(prev_char.to_int())
-  guard !is_intraword else { return true }
-
   next_char.is_whitespace() || is_punctuation(next_char.to_int())
 }
 
@@ -111,9 +100,6 @@ fn special_bytes(options : Options) -> Array[Bool] {
   }
   if options.contains(enable_strikethrough()) {
     bytes[b'~'.to_int()] = true
-  }
-  if options.contains(enable_highlight()) {
-    bytes[b'='.to_int()] = true
   }
   if options.contains(enable_math()) {
     bytes[b'$'.to_int()] = true

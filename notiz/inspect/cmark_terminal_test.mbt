@@ -43,12 +43,9 @@ test "emphasis_and_strong" {
 }
 
 ///|
-test "strikethrough_and_highlight" {
-  let opts = @cmark.Options::empty()
-  opts.insert(@cmark.enable_strikethrough())
-  opts.insert(@cmark.enable_highlight())
+test "strikethrough" {
+  let opts = @cmark.enable_strikethrough()
   @test.assert_eq(cm_test_render_with("~~del~~", opts), "del")
-  @test.assert_eq(cm_test_render_with("==hi==", opts), "==hi==")
 }
 
 ///|

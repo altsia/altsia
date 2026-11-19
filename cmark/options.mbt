@@ -113,12 +113,6 @@ pub fn enable_container_extensions() -> Options {
 }
 
 ///|
-/// Enables `==highlight==`.
-pub fn enable_highlight() -> Options {
-  { flags: 1 << 17, }
-}
-
-///|
 /// True when GFM-style footnotes are enabled (and old footnotes are not).
 fn Options::options_has_gfm_footnotes(self : Options) -> Bool {
   self.contains(enable_footnotes()) && !self.contains(enable_old_footnotes())

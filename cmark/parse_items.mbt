@@ -23,8 +23,7 @@ impl Default for Item with fn default() -> Item {
 priv enum ItemBody {
   // These are possible inline items, need to be resolved in second pass.
 
-  // repeats, can_open, can_close
-  MaybeEmphasis(Int32, Bool, Bool)
+  MaybeEmphasis(Int32) // number of delimiters
   // brace context
   MaybeMath(Int32)
   // quote byte, can_open, can_close
@@ -40,7 +39,6 @@ priv enum ItemBody {
   Emphasis
   Strong
   Strikethrough
-  Highlight
   Math(Int32, Bool) // true for display math
   Code(Int32)
   Link(Int32)
@@ -92,7 +90,7 @@ priv enum ItemBody {
 ///|
 fn item_body_is_maybe_inline(body : ItemBody) -> Bool {
   match body {
-    MaybeEmphasis(_, _, _)
+    MaybeEmphasis(_)
     | MaybeMath(_)
     | MaybeSmartQuote(_, _, _)
     | MaybeCode(_, _)
@@ -107,7 +105,7 @@ fn item_body_is_maybe_inline(body : ItemBody) -> Bool {
 ///|
 fn item_body_is_inline(body : ItemBody) -> Bool {
   match body {
-    MaybeEmphasis(_, _, _)
+    MaybeEmphasis(_)
     | MaybeMath(_)
     | MaybeSmartQuote(_, _, _)
     | MaybeCode(_, _)
@@ -118,7 +116,6 @@ fn item_body_is_inline(body : ItemBody) -> Bool {
     | Emphasis
     | Strong
     | Strikethrough
-    | Highlight
     | Math(_, _)
     | Code(_)
     | Link(_)

@@ -79,7 +79,6 @@ fn cmark_options() -> @cmark.Options {
     @cmark.enable_definition_list(),
     @cmark.enable_wikilinks(),
     @cmark.enable_container_extensions(),
-    @cmark.enable_highlight(),
   ].each(flag => options.insert(flag))
   options
 }

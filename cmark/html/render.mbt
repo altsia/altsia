@@ -210,7 +210,6 @@ fn write_start(
     Emphasis => out.write_string("<em>")
     Strong => out.write_string("<strong>")
     Strikethrough => out.write_string("<del>")
-    Highlight => out.write_string("<mark>")
     CodeBlock(_) | HtmlBlock | Image(..) | MetadataBlock(_) => ()
   }
 }
@@ -245,7 +244,6 @@ fn write_end(
       Emphasis => "</em>"
       Strong => "</strong>"
       Strikethrough => "</del>"
-      Highlight => "</mark>"
       Link => "</a>"
       CodeBlock | HtmlBlock | Image | MetadataBlock(_) => ""
     },

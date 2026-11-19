@@ -146,7 +146,7 @@ fn exact_rational_to_double(
     guard remainder != @bigint.BigInt::from_int(0) else { break }
     remainder = remainder * @bigint.BigInt::from_int(10)
     let digit = remainder / value.denominator()
-    result = result + Double::from_int(digit.to_int()) * place
+    result = result + digit.to_int().to_double() * place
     remainder = remainder % value.denominator()
     place = place * 0.1
   }

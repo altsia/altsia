@@ -1,7 +1,3 @@
 import {
   "kokic/cmark",
 }
-
-import {
-  "moonbitlang/core/test",
-} for "test"

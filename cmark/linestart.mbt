@@ -268,12 +268,12 @@ fn LineStart::scan_list_marker_with_indent(
     } else if c.to_char().is_ascii_digit() {
       let start_ix = self.ix
       let mut ix = self.ix + 1
-      let mut val = Int64::from_int(c.to_int() - 0x30)
+      let mut val = (c.to_int() - 0x30).to_int64()
       while ix < self.bytes.length() && ix - start_ix < 10 {
         let c = self.bytes.unsafe_get(ix)
         ix += 1
         if c.to_char().is_ascii_digit() {
-          val = val * 10 + Int64::from_int(c.to_int() - 0x30)
+          val = val * 10 + (c.to_int() - 0x30).to_int64()
         } else if c == b')' || c == b'.' {
           self.ix = ix
           guard !(self.scan_space(1) || self.is_at_eol()) else {

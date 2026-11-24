@@ -23,7 +23,7 @@ fn render_delimiter(delim : String) -> String {
 /// `\big`/`\Big`/`\bigg`/`\Bigg` carry sizes 1..4; the math class selects the
 /// `l`/`r`/`m` suffix (plain for `Mord`).
 fn render_delim_sizing(
-  size : Int,
+  size : Int32,
   mclass : @katex.AtomFamily,
   delim : String,
 ) -> String {

@@ -8,6 +8,7 @@
 
 ///|
 /// What the parser expected to find at a failure position.
+#derive(Eq, Debug)
 pub(all) enum Expected {
   /// A specific character, e.g. `'*'` from the `char` combinator.
   Char(Char)
@@ -27,7 +28,7 @@ pub(all) enum Expected {
   PaperSize(String)
   /// Any other parser label, e.g. `"not newline"`.
   Other(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Expected with Eq::{not_equal, equal}
@@ -40,12 +41,13 @@ pub extend Expected with Debug::{to_repr}
 ///
 /// Carries the failure [`position`](`SyntaxError::position`) and a structured
 /// description of what went wrong, instead of an opaque message string.
+#derive(Eq, Debug)
 pub(all) suberror SyntaxError {
   /// At the position, the input did not match any of the expected items.
   Mismatch(@talc.Position, Array[Expected])
   /// At the position, the forbidden construct was found.
   Unexpected(@talc.Position, String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend SyntaxError with Eq::{not_equal, equal}
@@ -204,7 +206,7 @@ fn describe_all(expected : Array[Expected]) -> String {
 
 ///|
 /// What the parser actually encountered at the failure offset.
-fn found_token(source : String, offset : Int) -> String {
+fn found_token(source : String, offset : Int32) -> String {
   source
   .get_char(offset)
   .map_or("end of input", c => {
@@ -218,6 +220,6 @@ fn found_token(source : String, offset : Int) -> String {
 
 ///|
 /// One space per column before the error, then `^`.
-fn caret_marker(line : String, col : Int) -> String {
+fn caret_marker(line : String, col : Int32) -> String {
   " ".repeat((col - 1).min(line.length())) + "^"
 }

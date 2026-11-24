@@ -3,20 +3,20 @@
 /// markers.
 priv struct LineStart {
   mut bytes : BytesView
-  mut ix : Int
+  mut ix : Int32
 
   // The index in `bytes` after the last tab we scanned; initially zero.
-  mut tab_start : Int
+  mut tab_start : Int32
 
   // In contexts where spaces help to define block structure, tabs
   // behave as if they were replaced by spaces with a tab stop of 4
   // characters. If we have scanned past a tab character but not consumed all
   // the horizontal width it contributed, this is the number of spaces
   // logically remaining, before the character at `ix`.
-  mut spaces_remaining : Int
+  mut spaces_remaining : Int32
 
   // no thematic breaks can occur before this offset.
-  mut min_hrule_offset : Int
+  mut min_hrule_offset : Int32
 }
 
 ///|
@@ -47,20 +47,20 @@ fn LineStart::restore(self : LineStart, save : LineStart) -> Unit {
 ///|
 /// Try to scan a number of spaces.
 /// Returns true if all spaces were consumed.
-fn LineStart::scan_space(self : LineStart, n_space : Int) -> Bool {
+fn LineStart::scan_space(self : LineStart, n_space : Int32) -> Bool {
   self.scan_space_inner(n_space) == 0
 }
 
 ///|
 /// Scan a number of spaces up to a maximum.
 /// Returns number of spaces scanned.
-fn LineStart::scan_space_upto(self : LineStart, n_space : Int) -> Int {
+fn LineStart::scan_space_upto(self : LineStart, n_space : Int32) -> Int32 {
   n_space - self.scan_space_inner(n_space)
 }
 
 ///|
 /// Returns unused remainder of spaces.
-fn LineStart::scan_space_inner(self : LineStart, n_space : Int) -> Int {
+fn LineStart::scan_space_inner(self : LineStart, n_space : Int32) -> Int32 {
   let mut n_space = n_space
   // Consume any common prefix between the number of spaces we
   // want and the number of unscanned tab-introduced spaces.
@@ -204,7 +204,7 @@ fn LineStart::scan_blockquote_marker(self : LineStart) -> Bool {
 ///|
 fn LineStart::scan_closing_container_extensions_fence(
   self : LineStart,
-  length : Int,
+  length : Int32,
 ) -> Bool {
   let fence_length = scan_while_max(
     self.bytes.exact_view(start=self.ix),
@@ -223,8 +223,8 @@ fn LineStart::scan_closing_container_extensions_fence(
 /// Scan a definition marker.
 fn LineStart::scan_definition_list_definition_marker_with_indent(
   self : LineStart,
-  indent : Int,
-) -> Int? {
+  indent : Int32,
+) -> Int32? {
   let save = self.clone()
   if self.scan_ch(b':') {
     let save = self.clone()
@@ -245,8 +245,8 @@ fn LineStart::scan_definition_list_definition_marker_with_indent(
 /// Scan a list marker.
 fn LineStart::scan_list_marker_with_indent(
   self : LineStart,
-  indent : Int,
-) -> (Byte, Int64, Int)? {
+  indent : Int32,
+) -> (Byte, Int64, Int32)? {
   let save = self.clone()
   if self.ix < self.bytes.length() {
     let c = self.bytes.unsafe_get(self.ix)
@@ -268,12 +268,12 @@ fn LineStart::scan_list_marker_with_indent(
     } else if c.to_char().is_ascii_digit() {
       let start_ix = self.ix
       let mut ix = self.ix + 1
-      let mut val = Int64::from_int(c.to_int() - 0x30)
+      let mut val = (c.to_int() - 0x30).to_int64()
       while ix < self.bytes.length() && ix - start_ix < 10 {
         let c = self.bytes.unsafe_get(ix)
         ix += 1
         if c.to_char().is_ascii_digit() {
-          val = val * 10 + Int64::from_int(c.to_int() - 0x30)
+          val = val * 10 + (c.to_int() - 0x30).to_int64()
         } else if c == b')' || c == b'.' {
           self.ix = ix
           guard !(self.scan_space(1) || self.is_at_eol()) else {
@@ -295,8 +295,8 @@ fn LineStart::finish_list_marker(
   self : LineStart,
   c : Byte,
   start : Int64,
-  indent : Int,
-) -> (Byte, Int64, Int)? {
+  indent : Int32,
+) -> (Byte, Int64, Int32)? {
   let mut indent = indent
   let save = self.clone()
 
@@ -357,12 +357,12 @@ fn LineStart::scan_task_list_marker(self : LineStart) -> Bool? {
 }
 
 ///|
-fn LineStart::bytes_scanned(self : LineStart) -> Int {
+fn LineStart::bytes_scanned(self : LineStart) -> Int32 {
   self.ix
 }
 
 ///|
-fn LineStart::remaining_space(self : LineStart) -> Int {
+fn LineStart::remaining_space(self : LineStart) -> Int32 {
   self.spaces_remaining
 }
 
@@ -372,7 +372,7 @@ fn LineStart::scan_containers(
   self : LineStart,
   tree : Tree[Item],
   options : Options,
-) -> Int {
+) -> Int32 {
   let mut i = 0
   let spine = tree.walk_spine()
   for idx in 0..<spine.length() {

@@ -3,7 +3,7 @@
 ///
 /// Bit values are a stable ABI, so option sets are interchangeable.
 pub struct Options {
-  mut flags : UInt
+  mut flags : UInt32
 }
 
 ///|
@@ -98,17 +98,7 @@ pub fn enable_definition_list() -> Options {
   { flags: 1 << 12, }
 }
 
-///|
-/// Enables superscript.
-pub fn enable_superscript() -> Options {
-  { flags: 1 << 13, }
-}
-
-///|
-/// Enables subscript.
-pub fn enable_subscript() -> Options {
-  { flags: 1 << 14, }
-}
+// Bits 13 and 14 were used by the removed script extensions.
 
 ///|
 /// Enables Obsidian-style wikilinks.
@@ -120,26 +110,6 @@ pub fn enable_wikilinks() -> Options {
 /// Enables colon-delimited container extension blocks.
 pub fn enable_container_extensions() -> Options {
   { flags: 1 << 16, }
-}
-
-///|
-/// Enables `==highlight==`.
-pub fn enable_highlight() -> Options {
-  { flags: 1 << 17, }
-}
-
-///|
-/// Enables CJK-friendly emphasis.
-pub fn enable_cjk_friendly_emphasis() -> Options {
-  { flags: 1 << 18, }
-}
-
-///|
-/// Enables treating every `$` as a math delimiter, regardless of surrounding
-/// whitespace or digits. A literal `$` must be escaped as `\$`. Implies
-/// `enable_math`.
-pub fn enable_math_everywhere() -> Options {
-  { flags: (1 << 19) | (1 << 10), }
 }
 
 ///|

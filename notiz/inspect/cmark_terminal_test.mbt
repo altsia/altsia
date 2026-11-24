@@ -1,10 +1,13 @@
 ///|
-fn cm_test_render(source : String) -> String {
+fn cm_test_render(source : String) -> String raise @cmark.SyntaxError {
   cm_test_render_with(source, @cmark.Options::empty())
 }
 
 ///|
-fn cm_test_render_with(source : String, options : @cmark.Options) -> String {
+fn cm_test_render_with(
+  source : String,
+  options : @cmark.Options,
+) -> String raise @cmark.SyntaxError {
   @backend.render_terminal_events(
     @cmark.parse(source, options),
     line_style=@backend.LineStyle::Unicode,
@@ -16,7 +19,7 @@ fn cm_test_render_with(source : String, options : @cmark.Options) -> String {
 fn cm_test_render_halfwidth(
   source : String,
   options : @cmark.Options,
-) -> String {
+) -> String raise @cmark.SyntaxError {
   @backend.render_terminal_events(
     @cmark.parse(source, options),
     line_style=@backend.LineStyle::Unicode,
@@ -40,16 +43,9 @@ test "emphasis_and_strong" {
 }
 
 ///|
-test "strikethrough_highlight_superscript" {
-  let opts = @cmark.Options::empty()
-  opts.insert(@cmark.enable_strikethrough())
-  opts.insert(@cmark.enable_highlight())
-  opts.insert(@cmark.enable_superscript())
-  opts.insert(@cmark.enable_subscript())
+test "strikethrough" {
+  let opts = @cmark.enable_strikethrough()
   @test.assert_eq(cm_test_render_with("~~del~~", opts), "del")
-  @test.assert_eq(cm_test_render_with("==hi==", opts), "==hi==")
-  @test.assert_eq(cm_test_render_with("a^b^", opts), "a^{b}")
-  @test.assert_eq(cm_test_render_with("~sub~", opts), "_{sub}")
 }
 
 ///|

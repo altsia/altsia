@@ -4,7 +4,10 @@
 
 ///|
 /// Parses `source` and returns a line-per-event canonical dump.
-pub fn event_dump(source : String, options : Options) -> String {
+pub fn event_dump(
+  source : String,
+  options : Options,
+) -> String raise SyntaxError {
   let events = parse(source, options)
   let parts = events.map(dump_event)
   parts.join("\n")
@@ -13,7 +16,7 @@ pub fn event_dump(source : String, options : Options) -> String {
 ///|
 fn dump_escape(s : String) -> String {
   let bytes = @utf8.encode(s)
-  let buf = @buffer.Buffer(size_hint=bytes.length())
+  let buf = @buffer.Buffer(capacity=bytes.length())
   for i in 0..<bytes.length() {
     let b = bytes.unsafe_get(i)
     match b.to_int() {
@@ -61,7 +64,7 @@ fn dump_tag(tag : Tag) -> String {
       "|" +
       join_attrs(attrs)
     BlockQuote(kind) => "Start|BlockQuote|" + blockquote_str(kind)
-    CodeBlock(kind) => "Start|CodeBlock|" + codeblock_str(kind)
+    CodeBlock(info) => "Start|CodeBlock|Fenced(" + dump_escape(info) + ")"
     ContainerBlock(kind, d) =>
       "Start|ContainerBlock|" + container_str(kind) + "|" + dump_escape(d)
     HtmlBlock => "Start|HtmlBlock"
@@ -78,9 +81,6 @@ fn dump_tag(tag : Tag) -> String {
     Emphasis => "Start|Emphasis"
     Strong => "Start|Strong"
     Strikethrough => "Start|Strikethrough"
-    Highlight => "Start|Highlight"
-    Superscript => "Start|Superscript"
-    Subscript => "Start|Subscript"
     Link(link_type~, dest_url~, title~, id~) =>
       "Start|Link|" +
       linktype_str(link_type) +
@@ -125,9 +125,6 @@ fn dump_tag_end(te : TagEnd) -> String {
     Emphasis => "End|Emphasis"
     Strong => "End|Strong"
     Strikethrough => "End|Strikethrough"
-    Highlight => "End|Highlight"
-    Superscript => "End|Superscript"
-    Subscript => "End|Subscript"
     Link => "End|Link"
     Image => "End|Image"
     MetadataBlock(kind) => "End|MetadataBlock|" + metadata_str(kind)
@@ -200,14 +197,6 @@ fn metadata_str(kind : MetadataBlockKind) -> String {
   match kind {
     YamlStyle => "YamlStyle"
     PlusesStyle => "PlusesStyle"
-  }
-}
-
-///|
-fn codeblock_str(kind : CodeBlockKind) -> String {
-  match kind {
-    Indented => "Indented"
-    Fenced(lang) => "Fenced(" + dump_escape(lang) + ")"
   }
 }
 

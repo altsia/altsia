@@ -6,9 +6,9 @@
 fn Parser::scan_inline_link(
   self : Parser,
   underlying : BytesView,
-  ix : Int,
-  node : Int?,
-) -> (Int, String, String)? {
+  ix : Int32,
+  node : Int32?,
+) -> (Int32, String, String)? {
   let mut ix = ix
   guard underlying.length() > ix && underlying.unsafe_get(ix) == b'(' else {
     return None
@@ -52,8 +52,8 @@ fn Parser::scan_inline_link(
 fn Parser::scan_separator(
   self : Parser,
   underlying : BytesView,
-  ix0 : Int,
-) -> Int {
+  ix0 : Int32,
+) -> Int32 {
   let start = ix0
   let mut i = ix0
   i += scan_while(underlying.exact_view(start=i), c => {
@@ -79,9 +79,9 @@ fn Parser::scan_separator(
 fn Parser::scan_link_title(
   self : Parser,
   text : BytesView,
-  start_ix : Int,
-  node : Int?,
-) -> (Int, String)? {
+  start_ix : Int32,
+  node : Int32?,
+) -> (Int32, String)? {
   let bytes = text
   guard bytes.length() > start_ix else { return None }
   let open = bytes.unsafe_get(start_ix)
@@ -120,17 +120,6 @@ fn Parser::scan_link_title(
         continue
       }
     }
-    if c == b'&' {
-      if scan_entity(bytes.exact_view(start=i)) is (n, Some(value)) {
-        title.write_stringview(
-          @utf8.decode_lossy(text.exact_view(start=mark, end=i)).exact_view(),
-        )
-        title.write_string(value)
-        i += n
-        mark = i
-        continue
-      }
-    }
     let is_table_pipe_escape = self.tree.is_in_table() &&
       c == b'\\' &&
       i + 2 < bytes.length() &&
@@ -162,13 +151,13 @@ fn Parser::scan_link_title(
 }
 
 ///|
-fn Parser::make_math_span(self : Parser, open : Int, close : Int) -> Unit {
+fn Parser::make_math_span(self : Parser, open : Int32, close : Int32) -> Unit {
   let mut close = close
   let start_is_display = self.tree.nodes[open].next.map_or(false, next_ix => {
-    next_ix != close && self.tree.nodes[next_ix].item.body is MaybeMath(_, _, _)
+    next_ix != close && self.tree.nodes[next_ix].item.body is MaybeMath(_)
   })
   let end_is_display = self.tree.nodes[close].next.map_or(false, next_ix => {
-    self.tree.nodes[next_ix].item.body is MaybeMath(_, _, _)
+    self.tree.nodes[next_ix].item.body is MaybeMath(_)
   })
   let is_display = start_is_display && end_is_display
   if is_display {
@@ -181,7 +170,7 @@ fn Parser::make_math_span(self : Parser, open : Int, close : Int) -> Unit {
   } else {
     if self.tree.nodes[open].item.end == self.tree.nodes[close].item.start {
       // inline math spans cannot be empty
-      self.tree.nodes[open].item.body = Text(false)
+      self.tree.nodes[open].item.body = Text
       return
     }
     self.tree.nodes[open].next = Some(close)
@@ -260,8 +249,8 @@ fn Parser::make_math_span(self : Parser, open : Int, close : Int) -> Unit {
 /// Make a code span.
 fn Parser::make_code_span(
   self : Parser,
-  open : Int,
-  close : Int,
+  open : Int32,
+  close : Int32,
   preceding_backslash : Bool,
 ) -> Unit {
   let span_start = self.tree.nodes[open].item.end
@@ -361,7 +350,7 @@ fn Parser::make_code_span(
   }
 
   if preceding_backslash {
-    self.tree.nodes[open].item.body = Text(true)
+    self.tree.nodes[open].item.body = Text
     self.tree.nodes[open].item.end = self.tree.nodes[open].item.start + 1
     self.tree.nodes[open].next = Some(close)
     self.tree.nodes[close].item.body = Code(self.allocs.allocate_cow(cow))
@@ -378,8 +367,8 @@ fn Parser::make_code_span(
 fn Parser::scan_inline_html(
   self : Parser,
   bytes : BytesView,
-  ix : Int,
-) -> (Array[Byte], Int)? {
+  ix : Int32,
+) -> (Array[Byte], Int32)? {
   guard bytes.length() > ix else { return None }
   let c = bytes.unsafe_get(ix)
   if c == b'!' {
@@ -415,7 +404,7 @@ fn Parser::disable_all_links(self : Parser) -> Unit {
 fn Parser::fetch_link_type_url_title(
   self : Parser,
   link_label : String,
-  _span : (Int, Int),
+  _span : (Int32, Int32),
   link_type : LinkType,
 ) -> (LinkType, String, String)? {
   guard self.link_ref_expansion_limit != 0 else { return None }
@@ -444,7 +433,7 @@ fn skip_container_prefixes(
   tree : Tree[Item],
   bytes : BytesView,
   options : Options,
-) -> Int {
+) -> Int32 {
   let line_start = LineStart::new(bytes)
   ignore(line_start.scan_containers(tree, options))
   line_start.bytes_scanned()
@@ -455,9 +444,9 @@ fn skip_container_prefixes(
 fn Parser::handle_wikilink(
   self : Parser,
   block_text : BytesView,
-  cur_ix : Int,
-  prev : Int?,
-) -> Int? {
+  cur_ix : Int32,
+  prev : Int32?,
+) -> Int32? {
   guard self.tree.nodes[cur_ix].next is Some(next_ix) else { return None }
   guard self.wikilink_stack.pop() is Some(tos) else { return None }
   guard !(tos.ty is Disabled) else { return None }
@@ -484,7 +473,7 @@ fn Parser::handle_wikilink(
         let body_node = self.tree.create_node(Item::{
           start: rest,
           end: rest,
-          body: Text(false),
+          body: Text,
         })
         Some((true, body_node, wikitext))
       } else {
@@ -504,7 +493,7 @@ fn Parser::handle_wikilink(
       let body_node = self.tree.create_node(Item::{
         start: start_ix,
         end: end_ix,
-        body: Text(false),
+        body: Text,
       })
       if wikitext.contains("\u0000") {
         self.tree.nodes[body_node].item.body = SynthesizeText(

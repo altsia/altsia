@@ -24,7 +24,7 @@ impl Show for RangeError with fn output(self, logger) {
 ///|
 /// Parses a 1-indexed line number, rejecting anything that is not a
 /// positive integer.
-fn parse_line_number(text : String) -> Int raise RangeError {
+fn parse_line_number(text : String) -> Int32 raise RangeError {
   let number = @string.parse_int(text) catch {
     _ => raise RangeError::NotALineNumber(text)
   }
@@ -36,7 +36,7 @@ fn parse_line_number(text : String) -> Int raise RangeError {
 /// Parses `--range` values of the form `N` or `N,M`, where lines are
 /// 1-indexed and the end is inclusive. A single `N` spans `N` up to
 /// `N + default_range_span`.
-fn parse_range(value : String) -> (Int, Int) raise RangeError {
+fn parse_range(value : String) -> (Int32, Int32) raise RangeError {
   let parts = value.split(",").map(part => part.trim().to_owned()).to_array()
   match parts {
     [start_str, end_str] => {
@@ -58,7 +58,7 @@ fn parse_range(value : String) -> (Int, Int) raise RangeError {
 /// Lines outside the range are not materialized. A trailing newline yields
 /// an empty element after the last line; drop it so the range matches what a
 /// text editor shows.
-fn extract_range(content : String, start : Int, end : Int) -> Array[String] {
+fn extract_range(content : String, start : Int32, end : Int32) -> Array[String] {
   let lines = content
     .split("\n")
     .drop(start - 1)

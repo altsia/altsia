@@ -1,9 +1,10 @@
 ///|
 /// Line style for drawn table borders.
+#derive(Eq)
 pub(all) enum LineStyle {
   Ascii
   Unicode
-} derive(Eq)
+}
 
 ///|
 pub extend LineStyle with Eq::{not_equal, equal}

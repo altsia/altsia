@@ -1,11 +1,12 @@
 ///|
 /// The paper size of a rendered document, also usable as a builtin
 /// frontmatter attribute.
+#derive(Eq, Debug)
 pub(all) enum Paper {
   A4
   B5
   Book
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Paper with Eq::{not_equal, equal}

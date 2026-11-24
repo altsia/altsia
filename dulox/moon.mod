@@ -1,16 +1,16 @@
 name = "kokic/dulox"
 
-version = "0.1.0"
+version = "0.1.1"
 
 import {
-  "kokic/katex-parser@0.6.0",
-  "moonbitlang/x@0.5.5",
+  "kokic/katex-parser@0.7.1",
+  "moonbitlang/x@0.5.6",
   "kokic/pythagoras@0.1.0",
 }
 
 readme = "README.md"
 
-repository = "https://codeberg.org/kokic/obsmark"
+repository = "https://github.com/altsia/altsia"
 
 license = "AGPL-3.0"
 

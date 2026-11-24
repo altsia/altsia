@@ -7,7 +7,7 @@ priv enum BinOp {
 
 ///|
 priv enum LowerItem {
-  ItemNumber(Int)
+  ItemNumber(Int32)
   ItemOp(BinOp)
   ItemExpr(EvalExpr)
 }
@@ -75,10 +75,10 @@ fn scan_items(
 /// Lowers exactly one item and returns the cursor position after it.
 fn scan_item_at(
   nodes : Array[@katex.ParseNode],
-  cursor : Int,
+  cursor : Int32,
   items : Array[LowerItem],
   options : EvalOptions,
-) -> Int raise EvalDiagnostic {
+) -> Int32 raise EvalDiagnostic {
   match nodes[cursor] {
     MathOrd(text~, ..) | TextOrd(text~, ..) if is_all_digits(text) =>
       append_number_item(nodes, cursor, items)
@@ -98,9 +98,9 @@ fn scan_item_at(
 ///|
 fn append_number_item(
   nodes : Array[@katex.ParseNode],
-  start : Int,
+  start : Int32,
   items : Array[LowerItem],
-) -> Int raise EvalDiagnostic {
+) -> Int32 raise EvalDiagnostic {
   let (value, next) = scan_number(nodes, start)
   items.push(ItemNumber(value))
   next
@@ -124,10 +124,10 @@ fn append_operator_item(
 ///|
 fn append_parenthesized_item(
   nodes : Array[@katex.ParseNode],
-  start : Int,
+  start : Int32,
   items : Array[LowerItem],
   options : EvalOptions,
-) -> Int raise EvalDiagnostic {
+) -> Int32 raise EvalDiagnostic {
   guard scan_paren_end(nodes, start) is Some(end) else {
     push_lowered(items, nodes[start], options)
     return start + 1
@@ -139,7 +139,7 @@ fn append_parenthesized_item(
 ///|
 fn lower_parenthesized_group(
   nodes : Array[@katex.ParseNode],
-  start : Int,
+  start : Int32,
   end : ParenEnd,
   options : EvalOptions,
 ) -> EvalExpr raise EvalDiagnostic {
@@ -154,8 +154,8 @@ fn lower_parenthesized_group(
 ///|
 fn parenthesized_group_body(
   nodes : Array[@katex.ParseNode],
-  start : Int,
-  closing : Int,
+  start : Int32,
+  closing : Int32,
 ) -> Array[@katex.ParseNode] {
   let inner : Array[@katex.ParseNode] = []
   for index in (start + 1)..<closing {
@@ -165,7 +165,7 @@ fn parenthesized_group_body(
 }
 
 ///|
-fn parenthesized_group_parts(end : ParenEnd) -> (Int, @katex.ParseNode?) {
+fn parenthesized_group_parts(end : ParenEnd) -> (Int32, @katex.ParseNode?) {
   match end {
     ParenEndNoExp(closing) => (closing, None)
     ParenEndWithExp(closing, exponent) => (closing, Some(exponent))
@@ -173,7 +173,7 @@ fn parenthesized_group_parts(end : ParenEnd) -> (Int, @katex.ParseNode?) {
 }
 
 ///|
-fn parenthesized_group_next(end : ParenEnd) -> Int {
+fn parenthesized_group_next(end : ParenEnd) -> Int32 {
   match end {
     ParenEndNoExp(closing) | ParenEndWithExp(closing, _) => closing + 1
   }
@@ -203,8 +203,8 @@ fn push_lowered(
 /// arithmetic is not supported yet.
 fn scan_number(
   nodes : Array[@katex.ParseNode],
-  start : Int,
-) -> (Int, Int) raise EvalDiagnostic {
+  start : Int32,
+) -> (Int32, Int32) raise EvalDiagnostic {
   let first_text = match nodes[start] {
     MathOrd(text~, ..) | TextOrd(text~, ..) => text
     _ => raise EvalDiagnostic::make(InvalidNumber)
@@ -232,7 +232,7 @@ fn scan_number(
 
 ///|
 /// Parses digit text into an `Int`, rejecting overflow.
-fn parse_decimal_int(text : String) -> Int? {
+fn parse_decimal_int(text : String) -> Int32? {
   let mut value = 0
   for c in text {
     let digit = c.to_int() - '0'.to_int()
@@ -266,7 +266,7 @@ fn split_terms(items : Array[LowerItem]) -> Array[(Array[LowerItem], Bool)] {
 ///|
 fn is_term_separator(
   item : LowerItem,
-  index : Int,
+  index : Int32,
   items : Array[LowerItem],
 ) -> Bool {
   match item {
@@ -338,16 +338,16 @@ fn parse_factors(items : Array[LowerItem]) -> EvalExpr raise EvalDiagnostic {
 ///|
 priv enum ParenEnd {
   /// The group is closed by a standalone `)` atom at the given index.
-  ParenEndNoExp(Int)
+  ParenEndNoExp(Int32)
   /// The group is closed by a superscripted `)` atom (`(x+1)^2` parses as
   /// `SupSub(base=Atom(")"), sup=...)`); the node carries the exponent.
-  ParenEndWithExp(Int, @katex.ParseNode)
+  ParenEndWithExp(Int32, @katex.ParseNode)
 }
 
 ///|
 /// Returns the node that closes the paren group opened at `start`, counting
 /// nested parens; `None` when unbalanced.
-fn scan_paren_end(nodes : Array[@katex.ParseNode], start : Int) -> ParenEnd? {
+fn scan_paren_end(nodes : Array[@katex.ParseNode], start : Int32) -> ParenEnd? {
   let mut depth = 0
   let mut j = start
   while j < nodes.length() {

@@ -2,6 +2,7 @@
 /// The ambient number system for solving. `Real` forbids imaginary results and
 /// emits a `NonNegative(discriminant)` condition for symbolic discriminants;
 /// `Complex` folds `sqrt` of negatives into `Complex` nodes.
+#derive(Eq, Debug)
 pub(all) enum Domain {
   // Z
   // Fp
@@ -9,7 +10,7 @@ pub(all) enum Domain {
   R
   // Qp
   C
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Domain::display(domain : Domain) -> @katex.ParseNode {

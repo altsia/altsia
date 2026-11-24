@@ -2,14 +2,15 @@
 /// A side condition on a solution: the expression is required to be non-zero
 /// (e.g. a symbolic leading coefficient) or non-negative (e.g. a symbolic
 /// discriminant in the real domain).
+#derive(Eq, Debug)
 pub(all) enum Condition {
   Zero(EvalExpr)
   NonZero(EvalExpr)
   NonNegative(EvalExpr)
-} derive(Eq, Debug)
+}
 
 ///|
-fn Condition::is_satisfied(condition : Condition, value : Int) -> Bool {
+fn Condition::is_satisfied(condition : Condition, value : Int32) -> Bool {
   match condition {
     Zero(_) => value == 0
     NonZero(_) => value != 0

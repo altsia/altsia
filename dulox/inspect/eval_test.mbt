@@ -10,7 +10,7 @@ fn canonical(source : String) -> String raise {
 ///|
 fn eval_render(
   source : String,
-  allow_degenerate? : Bool = false,
+  allow_degenerate~ : Bool = false,
 ) -> String raise @katex.ParseFailure {
   @unicode.render(@eval.parse(source, allow_degenerate~))
 }

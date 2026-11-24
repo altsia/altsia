@@ -12,9 +12,9 @@ fn[T] interleave(groups : Array[Array[T]], separator : T) -> Array[T] {
 fn table_cell_widths(
   header : Array[String],
   rows : Array[Array[String]],
-  count : Int,
-  measure? : (String) -> Int = String::length,
-) -> Array[Int] {
+  count : Int32,
+  measure~ : (String) -> Int32 = String::length,
+) -> Array[Int32] {
   let widths = Array::make(count, 0)
   for i in 0..<count {
     widths[i] = measure(header[i])

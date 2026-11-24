@@ -13,7 +13,7 @@ fn render_mclass(
           @katex.ParseNode::Op(
             content=@katex.OperatorContent::BodyOperator(operator),
             ..
-          )
+          ),
         ),
         sup~,
         sub~,

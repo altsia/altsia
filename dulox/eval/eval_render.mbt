@@ -7,7 +7,7 @@ pub fn render(expr : EvalExpr) -> @katex.ParseNode {
 }
 
 ///|
-fn precedence(expr : EvalExpr) -> Int {
+fn precedence(expr : EvalExpr) -> Int32 {
   match expr {
     Add(_) | Complex(_, _) => 1
     Mul(_) => 2
@@ -18,7 +18,7 @@ fn precedence(expr : EvalExpr) -> Int {
 }
 
 ///|
-fn render_expr(expr : EvalExpr, parent_prec : Int) -> @katex.ParseNode {
+fn render_expr(expr : EvalExpr, parent_prec : Int32) -> @katex.ParseNode {
   let prec = precedence(expr)
   let node = match expr {
     Integer(value) => render_number(value)
@@ -143,7 +143,7 @@ fn render_add(children : Array[EvalExpr]) -> @katex.ParseNode {
 
 ///|
 /// Extracts the sign of an addition term, leaving a non-negative magnitude.
-fn split_sign(expr : EvalExpr) -> (Int, EvalExpr) {
+fn split_sign(expr : EvalExpr) -> (Int32, EvalExpr) {
   match expr {
     Integer(value) if value < 0 => (-1, Integer(-value))
     Mul(children) if children.length() > 0 =>
@@ -186,7 +186,7 @@ fn render_mul(children : Array[EvalExpr]) -> @katex.ParseNode {
 }
 
 ///|
-fn render_pow(base : EvalExpr, exp : Int) -> @katex.ParseNode {
+fn render_pow(base : EvalExpr, exp : Int32) -> @katex.ParseNode {
   let base_node = render_expr(base, 4)
   let base_node = match base {
     Integer(value) if value < 0 =>
@@ -228,7 +228,7 @@ fn render_general_pow(base : EvalExpr, exponent : EvalExpr) -> @katex.ParseNode 
 }
 
 ///|
-fn render_exponent(exp : Int) -> @katex.ParseNode {
+fn render_exponent(exp : Int32) -> @katex.ParseNode {
   if exp >= 0 {
     @katex.ParseNode::MathOrd(
       mode=@katex.Mode::Math,
@@ -253,7 +253,7 @@ fn render_exponent(exp : Int) -> @katex.ParseNode {
 }
 
 ///|
-fn render_number(value : Int) -> @katex.ParseNode {
+fn render_number(value : Int32) -> @katex.ParseNode {
   if value < 0 {
     return @katex.ParseNode::OrdGroup(
       mode=@katex.Mode::Math,

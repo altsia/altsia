@@ -1,6 +1,7 @@
 ///|
 /// Parsed content preserves source nesting and paragraph separators. Paragraphs
 /// are assembled after parsing, not represented in this tree.
+#derive(Eq, Debug)
 pub(all) enum Content {
   Text(String)
   Strong(Array[Content])
@@ -22,7 +23,7 @@ pub(all) enum Content {
   FootnoteDef(String, Array[Content])
   Comment(String)
   Element(String, Array[Value], Map[String, Value])
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Content with Eq::{not_equal, equal}
@@ -31,11 +32,12 @@ pub extend Content with Eq::{not_equal, equal}
 pub extend Content with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 pub(all) enum TableAlignment {
   Left
   Center
   Right
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend TableAlignment with Eq::{not_equal, equal}
@@ -44,9 +46,10 @@ pub extend TableAlignment with Eq::{not_equal, equal}
 pub extend TableAlignment with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct TableRow {
   cells : Array[Array[Content]]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend TableRow with Eq::{not_equal, equal}
@@ -55,11 +58,12 @@ pub extend TableRow with Eq::{not_equal, equal}
 pub extend TableRow with Debug::{to_repr}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct MdListItem {
   checked : Bool?
   content : Array[Content]
   children : Array[Content]
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend MdListItem with Eq::{not_equal, equal}
@@ -72,13 +76,14 @@ pub extend MdListItem with Debug::{to_repr}
 /// value. `Content` is a `[ ... ]` content block (a call's trailing content
 /// block is the same value as a positional `Content` argument), `Call` a
 /// nested call expression.
+#derive(Eq, Debug)
 pub(all) enum Value {
   Text(String)
   Integer(Int32)
   Content(Array[Content])
   Call(String, Array[Value], Map[String, Value])
   Comment(String)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend Value with Eq::{not_equal, equal}

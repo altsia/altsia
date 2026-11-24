@@ -5,7 +5,7 @@
 fn concrete_root_of_unity(
   order : EvalExpr,
   power : EvalExpr,
-) -> (Int, Int)? raise EvalDiagnostic {
+) -> (Int32, Int32)? raise EvalDiagnostic {
   let order = exact_integer(order)
   let power = exact_integer(power)
   guard (order, power) is (Some(order), Some(power)) else { return None }
@@ -65,8 +65,8 @@ fn UnitRootCollector::add(
 /// Retains both factors if their powers cannot be added exactly.
 fn UnitRootCollector::add_concrete_root(
   self : UnitRootCollector,
-  order : Int,
-  power : Int,
+  order : Int32,
+  power : Int32,
   root : EvalExpr,
 ) -> Unit raise EvalDiagnostic {
   for i in 0..<self.factors.length() {

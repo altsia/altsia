@@ -6,11 +6,11 @@
 /// this will find the end of the block.
 fn FirstPass::parse_html_block_type_1_to_5(
   self : FirstPass,
-  start_ix : Int,
+  start_ix : Int32,
   html_end_tag : String,
-  remaining_space : Int,
-  indent : Int,
-) -> Int {
+  remaining_space : Int32,
+  indent : Int32,
+) -> Int32 {
   let mut remaining_space = remaining_space
   let mut indent = indent
   ignore(self.tree.append(Item::{ start: start_ix, end: 0, body: HtmlBlock, }))
@@ -53,10 +53,10 @@ fn FirstPass::parse_html_block_type_1_to_5(
 /// When start_ix is at the beginning of an HTML block of type 6 or 7.
 fn FirstPass::parse_html_block_type_6_or_7(
   self : FirstPass,
-  start_ix : Int,
-  remaining_space : Int,
-  indent : Int,
-) -> Int {
+  start_ix : Int32,
+  remaining_space : Int32,
+  indent : Int32,
+) -> Int32 {
   let mut remaining_space = remaining_space
   let mut indent = indent
   ignore(self.tree.append(Item::{ start: start_ix, end: 0, body: HtmlBlock, }))
@@ -94,64 +94,13 @@ fn FirstPass::parse_html_block_type_6_or_7(
 }
 
 ///|
-fn FirstPass::parse_indented_code_block(
-  self : FirstPass,
-  start_ix : Int,
-  remaining_space : Int,
-) -> Int {
-  let mut remaining_space = remaining_space
-  ignore(
-    self.tree.append(Item::{ start: start_ix, end: 0, body: IndentCodeBlock, }),
-  )
-  ignore(self.tree.push())
-  let bytes = self.text
-  let mut last_nonblank_child : Int? = None
-  let mut last_nonblank_ix = 0
-  let mut end_ix = 0
-  self.last_line_blank = false
-
-  let mut ix = start_ix
-  while true {
-    let line_start_ix = ix
-    ix += scan_nextline(bytes.exact_view(start=ix))
-    self.append_code_text(remaining_space, line_start_ix, ix)
-
-    if !self.last_line_blank {
-      last_nonblank_child = self.tree.cur()
-      last_nonblank_ix = ix
-      end_ix = ix
-    }
-
-    let line_start = LineStart::new(bytes.exact_view(start=ix))
-    let n_containers = line_start.scan_containers(self.tree, self.options)
-    let cont = n_containers >= self.tree.spine_len() &&
-      (line_start.scan_space(4) || line_start.is_at_eol())
-    guard cont else { break }
-    let next_line_ix = ix + line_start.bytes_scanned()
-    guard next_line_ix != self.text.length() else { break }
-    ix = next_line_ix
-    remaining_space = line_start.remaining_space()
-    self.last_line_blank = scan_blank_line(bytes.exact_view(start=ix))
-      is Some(_)
-  }
-
-  // Trim trailing blank lines.
-  if last_nonblank_child is Some(child) {
-    self.tree.nodes[child].next = None
-    self.tree.nodes[child].item.end = last_nonblank_ix
-  }
-  self.pop(end_ix)
-  ix
-}
-
-///|
 fn FirstPass::parse_fenced_code_block(
   self : FirstPass,
-  start_ix : Int,
-  indent : Int,
+  start_ix : Int32,
+  indent : Int32,
   fence_ch : Byte,
-  n_fence_char : Int,
-) -> Int {
+  n_fence_char : Int32,
+) -> Int32 {
   let bytes = self.text
   let mut info_start = start_ix + n_fence_char
   info_start += scan_whitespace_no_nl(bytes.exact_view(start=info_start))
@@ -212,9 +161,9 @@ fn FirstPass::parse_fenced_code_block(
 ///|
 fn FirstPass::parse_metadata_block(
   self : FirstPass,
-  start_ix : Int,
+  start_ix : Int32,
   metadata_block_ch : Byte,
-) -> Int {
+) -> Int32 {
   let bytes = self.text
   let metadata_block_kind = if metadata_block_ch == b'-' {
     YamlStyle
@@ -264,9 +213,9 @@ fn FirstPass::parse_metadata_block(
 ///|
 fn FirstPass::append_code_text(
   self : FirstPass,
-  remaining_space : Int,
-  start : Int,
-  end : Int,
+  remaining_space : Int32,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   let mut start = start
   if remaining_space > 0 {
@@ -284,7 +233,7 @@ fn FirstPass::append_code_text(
     guard bytes_find_byte(self.text, start, end, 0) is Some(offset) else {
       break
     }
-    self.tree.append_text(start, start + offset, false)
+    self.tree.append_text(start, start + offset)
     ignore(
       self.tree.append(Item::{
         start: start + offset,
@@ -296,10 +245,10 @@ fn FirstPass::append_code_text(
   }
   if self.text.unsafe_get(end - 2) == b'\r' {
     // Normalize CRLF to LF
-    self.tree.append_text(start, end - 2, false)
-    self.tree.append_text(end - 1, end, false)
+    self.tree.append_text(start, end - 2)
+    self.tree.append_text(end - 1, end)
   } else {
-    self.tree.append_text(start, end, false)
+    self.tree.append_text(start, end)
   }
 }
 
@@ -307,9 +256,9 @@ fn FirstPass::append_code_text(
 /// Appends a line of HTML to the tree.
 fn FirstPass::append_html_line(
   self : FirstPass,
-  remaining_space : Int,
-  start : Int,
-  end : Int,
+  remaining_space : Int32,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   if remaining_space > 0 {
     let spaces = String::repeat(" ", remaining_space)
@@ -333,7 +282,7 @@ fn FirstPass::append_html_line(
 
 ///|
 /// Pop a container, setting its end.
-fn FirstPass::pop(self : FirstPass, ix : Int) -> Unit {
+fn FirstPass::pop(self : FirstPass, ix : Int32) -> Unit {
   let cur_ix = self.tree.pop().unwrap()
   self.tree.nodes[cur_ix].item.end = ix
   if self.tree.nodes[cur_ix].item.body is DefinitionList(_) {
@@ -350,7 +299,7 @@ fn FirstPass::pop(self : FirstPass, ix : Int) -> Unit {
 ///|
 /// Close a list if it's open. Also set loose if last line was blank
 /// and end current list if it's a lone, empty item
-fn FirstPass::finish_list(self : FirstPass, ix : Int) -> Unit {
+fn FirstPass::finish_list(self : FirstPass, ix : Int32) -> Unit {
   self.finish_empty_list_item()
   if self.tree.peek_up() is Some(node_ix) {
     if self.tree.nodes[node_ix].item.body is (List(_, _, _) | DefinitionList(_)) {
@@ -390,7 +339,7 @@ fn FirstPass::finish_empty_list_item(self : FirstPass) -> Unit {
 /// list that matches.
 fn FirstPass::continue_list(
   self : FirstPass,
-  start : Int,
+  start : Int32,
   ch : Byte,
   index : Int64,
 ) -> Unit {
@@ -415,7 +364,11 @@ fn FirstPass::continue_list(
 
 ///|
 /// Parse a thematic break.
-fn FirstPass::parse_hrule(self : FirstPass, hrule_size : Int, ix : Int) -> Int {
+fn FirstPass::parse_hrule(
+  self : FirstPass,
+  hrule_size : Int32,
+  ix : Int32,
+) -> Int32 {
   ignore(
     self.tree.append(Item::{ start: ix, end: ix + hrule_size, body: Rule, }),
   )

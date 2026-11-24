@@ -34,7 +34,7 @@ fn Byte::is_valid_unquoted_attr_value_char(c : Byte) -> Bool {
 
 ///|
 /// scan a single character
-fn scan_ch(data : BytesView, c : Byte) -> Int {
+fn scan_ch(data : BytesView, c : Byte) -> Int32 {
   if !data.is_empty() && data.unsafe_get(0) == c {
     1
   } else {
@@ -43,7 +43,7 @@ fn scan_ch(data : BytesView, c : Byte) -> Int {
 }
 
 ///|
-fn scan_while(data : BytesView, f : (Byte) -> Bool) -> Int {
+fn scan_while(data : BytesView, f : (Byte) -> Bool) -> Int32 {
   let mut i = 0
   while i < data.length() && f(data.unsafe_get(i)) {
     i += 1
@@ -52,7 +52,7 @@ fn scan_while(data : BytesView, f : (Byte) -> Bool) -> Int {
 }
 
 ///|
-fn scan_while_max(data : BytesView, f : (Byte) -> Bool, m : Int) -> Int {
+fn scan_while_max(data : BytesView, f : (Byte) -> Bool, m : Int32) -> Int32 {
   let mut i = 0
   while i < data.length() && i < m && f(data.unsafe_get(i)) {
     i += 1
@@ -61,7 +61,7 @@ fn scan_while_max(data : BytesView, f : (Byte) -> Bool, m : Int) -> Int {
 }
 
 ///|
-fn scan_rev_while(data : BytesView, f : (Byte) -> Bool) -> Int {
+fn scan_rev_while(data : BytesView, f : (Byte) -> Bool) -> Int32 {
   let mut i = data.length()
   while i > 0 && f(data.unsafe_get(i - 1)) {
     i -= 1
@@ -70,7 +70,7 @@ fn scan_rev_while(data : BytesView, f : (Byte) -> Bool) -> Int {
 }
 
 ///|
-fn scan_ch_repeat(data : BytesView, c : Byte) -> Int {
+fn scan_ch_repeat(data : BytesView, c : Byte) -> Int32 {
   scan_while(data, x => x == c)
 }
 
@@ -78,12 +78,12 @@ fn scan_ch_repeat(data : BytesView, c : Byte) -> Int {
 // a different function.
 
 ///|
-fn scan_whitespace_no_nl(data : BytesView) -> Int {
+fn scan_whitespace_no_nl(data : BytesView) -> Int32 {
   scan_while(data, c => c.is_ascii_whitespace_no_nl())
 }
 
 ///|
-fn scan_eol(bytes : BytesView) -> Int? {
+fn scan_eol(bytes : BytesView) -> Int32? {
   guard !bytes.is_empty() else { return Some(0) }
   let c = bytes.unsafe_get(0)
   guard c != b'\n' else { return Some(1) }
@@ -97,13 +97,13 @@ fn scan_eol(bytes : BytesView) -> Int? {
 }
 
 ///|
-fn scan_blank_line(bytes : BytesView) -> Int? {
+fn scan_blank_line(bytes : BytesView) -> Int32? {
   let i = scan_whitespace_no_nl(bytes)
   scan_eol(bytes.exact_view(start=i)).map(n => i + n)
 }
 
 ///|
-fn scan_nextline(bytes : BytesView) -> Int {
+fn scan_nextline(bytes : BytesView) -> Int32 {
   // Per CommonMark, a line ending is LF, CRLF, or a lone CR.
   let mut i = 0
   while i < bytes.length() {
@@ -127,8 +127,8 @@ fn scan_nextline(bytes : BytesView) -> Int {
 fn scan_closing_code_fence(
   bytes : BytesView,
   fence_char : Byte,
-  n_fence_char : Int,
-) -> Int? {
+  n_fence_char : Int32,
+) -> Int32? {
   guard !bytes.is_empty() else { return Some(0) }
   let num_fence_chars_found = scan_ch_repeat(bytes, fence_char)
   guard num_fence_chars_found >= n_fence_char else { return None }
@@ -142,7 +142,7 @@ fn scan_closing_code_fence(
 // if the line is ! a closing metadata block
 
 ///|
-fn scan_closing_metadata_block(bytes : BytesView, fence_char : Byte) -> Int? {
+fn scan_closing_metadata_block(bytes : BytesView, fence_char : Byte) -> Int32? {
   let mut num_fence_chars_found = scan_ch_repeat(bytes, fence_char)
   if num_fence_chars_found != 3 {
     // if YAML style metadata block the closing character can also be `.`
@@ -159,7 +159,7 @@ fn scan_closing_metadata_block(bytes : BytesView, fence_char : Byte) -> Int? {
 // returned pair is (number of bytes, number of spaces)
 
 ///|
-fn calc_indent(text : BytesView, max : Int) -> (Int, Int) {
+fn calc_indent(text : BytesView, max : Int32) -> (Int32, Int32) {
   let mut spaces = 0
   let mut offset = 0
 
@@ -195,10 +195,10 @@ fn calc_indent(text : BytesView, max : Int) -> (Int, Int) {
 ///
 /// Returns Err(x) when it does ! find an hrule and x is
 /// the offset in data before no hrule can appear.
-fn scan_hrule(bytes : BytesView) -> Result[Int, Int] {
+fn scan_hrule(bytes : BytesView) -> Result[Int32, Int32] {
   guard bytes.length() >= 3 else { return Err(0) }
   let c = bytes.unsafe_get(0)
-  guard c == b'*' || c == b'-' || c == b'_' else { return Err(0) }
+  guard c == b'-' else { return Err(0) }
   let mut n = 0
   let mut i = 0
 
@@ -238,23 +238,11 @@ fn scan_atx_heading(data : BytesView) -> HeadingLevel? {
   }
 }
 
-///|
-/// Scan a setext heading underline.
-///
-/// Returns number of bytes in line (including trailing newline) and level.
-fn scan_setext_heading(data : BytesView) -> (Int, HeadingLevel)? {
-  guard !data.is_empty() else { return None }
-  let c = data.unsafe_get(0)
-  let level = if c == b'=' { H1 } else if c == b'-' { H2 } else { return None }
-  let i = 1 + scan_ch_repeat(data.exact_view(start=1), c)
-  scan_blank_line(data.exact_view(start=i)).map(n => (i + n, level))
-}
-
 // returns number of bytes in line (including trailing
 // newline) and column alignments
 
 ///|
-fn scan_table_head(data : BytesView) -> (Int, Array[Alignment]) {
+fn scan_table_head(data : BytesView) -> (Int32, Array[Alignment]) {
   let (i0, spaces) = calc_indent(data, 4)
   let mut i = i0
   guard !(spaces > 3 || i == data.length()) else { return (0, []) }
@@ -321,21 +309,18 @@ fn scan_table_head(data : BytesView) -> (Int, Array[Alignment]) {
 ///
 /// Returns number of bytes scanned and the char that is repeated to make the
 /// code fence.
-fn scan_code_fence(data : BytesView) -> (Int, Byte)? {
+fn scan_code_fence(data : BytesView) -> (Int32, Byte)? {
   guard !data.is_empty() else { return None }
   let c = data.unsafe_get(0)
-  guard c == b'`' || c == b'~' else { return None }
+  guard c == b'`' else { return None }
   let i = 1 + scan_ch_repeat(data.exact_view(start=1), c)
   if i >= 3 {
-    if c == b'`' {
-      let suffix = data.exact_view(start=i)
-      let next_line = i + scan_nextline(suffix)
-      // FIXME: make sure this is correct
-      let mut j = 0
-      while j < next_line - i {
-        guard suffix.unsafe_get(j) != b'`' else { return None }
-        j += 1
-      }
+    let suffix = data.exact_view(start=i)
+    let next_line = i + scan_nextline(suffix)
+    let mut j = 0
+    while j < next_line - i {
+      guard suffix.unsafe_get(j) != b'`' else { return None }
+      j += 1
     }
     Some((i, c))
   } else {
@@ -365,7 +350,7 @@ fn scan_metadata_block(
   data : BytesView,
   yaml_style_enabled : Bool,
   pluses_style_enabled : Bool,
-) -> (Int, Byte)? {
+) -> (Int32, Byte)? {
   // Only if metadata blocks are enabled
   guard yaml_style_enabled || pluses_style_enabled else { None }
   guard !data.is_empty() else { return None }
@@ -405,7 +390,7 @@ fn scan_metadata_block(
 }
 
 ///|
-fn scan_blockquote_start(data : BytesView) -> Int? {
+fn scan_blockquote_start(data : BytesView) -> Int32? {
   guard !data.is_empty() && data.unsafe_get(0) == b'>' else { None }
   let space = if data.length() >= 2 && data.unsafe_get(1) == b' ' {
     1
@@ -417,7 +402,7 @@ fn scan_blockquote_start(data : BytesView) -> Int? {
 
 ///|
 /// return number of bytes scanned, delimiter, start index, and indent
-fn scan_listitem(bytes : BytesView) -> (Int, Byte, Int, Int)? {
+fn scan_listitem(bytes : BytesView) -> (Int32, Byte, Int32, Int32)? {
   guard !bytes.is_empty() else { return None }
   let mut c = bytes.unsafe_get(0)
   let (w, start) = if c == b'-' || c == b'+' || c == b'*' {
@@ -452,7 +437,7 @@ fn scan_listitem(bytes : BytesView) -> (Int, Byte, Int, Int)? {
 // returns (number of bytes, parsed decimal)
 
 ///|
-fn parse_decimal(bytes : BytesView, limit : Int) -> (Int, Int) {
+fn parse_decimal(bytes : BytesView, limit : Int32) -> (Int32, Int32) {
   let mut count = 0
   let mut acc = 0
   while count < bytes.length() && count < limit {
@@ -472,88 +457,12 @@ fn parse_decimal(bytes : BytesView, limit : Int) -> (Int, Int) {
   (count, acc)
 }
 
-// returns (number of bytes, parsed hex)
-
-///|
-fn parse_hex(bytes : BytesView, limit : Int) -> (Int, Int) {
-  let mut count = 0
-  let mut acc = 0
-  while count < bytes.length() && count < limit {
-    let mut c = bytes.unsafe_get(count).to_int()
-    let digit = if c >= 0x30 && c <= 0x39 {
-      c - 0x30
-    } else {
-      // make lower case
-      c = c | 0x20
-      if c >= 0x61 && c <= 0x66 {
-        c - 0x61 + 10
-      } else {
-        break
-      }
-    }
-    let new_acc = acc * 16 + digit
-    if new_acc < acc {
-      break
-    }
-    acc = new_acc
-    count += 1
-  }
-  (count, acc)
-}
-
-///|
-fn char_from_codepoint(input : Int) -> Char? {
-  // Codepoint 0 is treated as invalid (emits U+FFFD).
-  guard input != 0 else { return None }
-  Int::to_char(input)
-}
-
-// doesn't bother to check data[0] == '&'
-
-///|
-fn scan_entity(bytes : BytesView) -> (Int, String?) {
-  let mut end = 1
-  if bytes.length() > end && bytes.unsafe_get(end) == b'#' {
-    end += 1
-    let is_hex = end < bytes.length() &&
-      (bytes.unsafe_get(end).to_int() | 0x20) == 0x78
-    let (bytecount, codepoint) = if is_hex {
-      end += 1
-      parse_hex(bytes.exact_view(start=end), 6)
-    } else {
-      parse_decimal(bytes.exact_view(start=end), 7)
-    }
-    end += bytecount
-    if bytecount == 0 || bytes.length() <= end || bytes.unsafe_get(end) != b';' {
-      (0, None)
-    } else {
-      (
-        end + 1,
-        Some(
-          char_from_codepoint(codepoint).map_or("\u{fffd}", c => c.to_string()),
-        ),
-      )
-    }
-  } else {
-    end += scan_while(bytes.exact_view(start=end), c => {
-      c.is_ascii_alphanumeric()
-    })
-    if bytes.length() > end && bytes.unsafe_get(end) == b';' {
-      get_entity(bytes.exact_view(start=1, end~)).map_or((0, None), value => {
-        (end + 1, Some(value))
-      })
-    } else {
-      (0, None)
-    }
-  }
-}
-
 ///|
 fn scan_wikilink_pipe(
   data : BytesView,
-  start_ix : Int,
-  len : Int,
-) -> (Int, Int)? {
+  start_ix : Int32,
+  len : Int32,
+) -> (Int32, Int32)? {
   let end_ix = (start_ix + len).min(data.length())
   let mut i = start_ix
   while i < end_ix {
@@ -569,9 +478,9 @@ fn scan_wikilink_pipe(
 ///|
 fn scan_link_dest(
   data : BytesView,
-  start_ix : Int,
-  max_next : Int,
-) -> (Int, Int, Int)? {
+  start_ix : Int32,
+  max_next : Int32,
+) -> (Int32, Int32, Int32)? {
   let bytes = data.exact_view(start=start_ix)
   let mut i = scan_ch(bytes, b'<')
 
@@ -619,7 +528,7 @@ fn scan_link_dest(
 
 ///|
 /// Returns bytes scanned
-fn scan_attribute_name(data : BytesView) -> Int? {
+fn scan_attribute_name(data : BytesView) -> Int32? {
   guard !data.is_empty() else { return None }
   let c = data.unsafe_get(0)
   guard c.to_char().is_ascii_alphabetic() || c == b'_' || c == b':' else {
@@ -641,12 +550,12 @@ fn scan_attribute_name(data : BytesView) -> Int? {
 /// State shared between attribute-scanning functions.
 priv struct AttrScanState {
   buffer : Buffer
-  mut last_buf_index : Int
+  mut last_buf_index : Int32
 }
 
 ///|
 fn attr_state_new() -> AttrScanState {
-  { buffer: Buffer(size_hint=0), last_buf_index: 0, }
+  { buffer: Buffer(capacity=0), last_buf_index: 0, }
 }
 
 ///|
@@ -656,9 +565,9 @@ fn attr_state_new() -> AttrScanState {
 fn AttrScanState::scan_whitespace_with_newline_handler(
   self : AttrScanState,
   data : BytesView,
-  i : Int,
-  newline_handler : ((BytesView) -> Int)?,
-) -> Int? {
+  i : Int32,
+  newline_handler : ((BytesView) -> Int32)?,
+) -> Int32? {
   let mut i = i
   while i < data.length() {
     guard data.unsafe_get(i).to_char().is_ascii_whitespace() else {
@@ -687,9 +596,9 @@ fn AttrScanState::scan_whitespace_with_newline_handler(
 /// by the newline handler.
 fn scan_whitespace_with_newline_handler_without_buffer(
   data : BytesView,
-  i : Int,
-  newline_handler : ((BytesView) -> Int)?,
-) -> Int? {
+  i : Int32,
+  newline_handler : ((BytesView) -> Int32)?,
+) -> Int32? {
   let mut i = i
   while i < data.length() {
     guard data.unsafe_get(i).to_char().is_ascii_whitespace() else {
@@ -713,9 +622,9 @@ fn scan_whitespace_with_newline_handler_without_buffer(
 fn AttrScanState::scan_attribute_value(
   self : AttrScanState,
   data : BytesView,
-  i : Int,
-  newline_handler : ((BytesView) -> Int)?,
-) -> Int? {
+  i : Int32,
+  newline_handler : ((BytesView) -> Int32)?,
+) -> Int32? {
   let mut i = i
   guard i < data.length() else { return None }
   let c = data.unsafe_get(i)
@@ -760,9 +669,9 @@ fn AttrScanState::scan_attribute_value(
 fn AttrScanState::scan_attribute(
   self : AttrScanState,
   data : BytesView,
-  ix : Int,
-  newline_handler : ((BytesView) -> Int)?,
-) -> Int? {
+  ix : Int32,
+  newline_handler : ((BytesView) -> Int32)?,
+) -> Int32? {
   let mut ix = ix
   guard scan_attribute_name(data.exact_view(start=ix)) is Some(n) else {
     return None
@@ -802,13 +711,18 @@ fn AttrScanState::scan_attribute(
 }
 
 ///|
-fn scan_attr_value_chars(data : BytesView) -> Int {
+fn scan_attr_value_chars(data : BytesView) -> Int32 {
   scan_while(data, c => c.is_valid_unquoted_attr_value_char())
 }
 
 ///|
-/// Remove backslash escapes and resolve entities
-fn unescape(input : Bytes, from : Int, to : Int, is_in_table : Bool) -> String {
+/// Remove backslash escapes without interpreting HTML character references.
+fn unescape(
+  input : Bytes,
+  from : Int32,
+  to : Int32,
+  is_in_table : Bool,
+) -> String {
   let result = StringBuilder()
   let mut mark = from
   let mut i = from
@@ -837,16 +751,6 @@ fn unescape(input : Bytes, from : Int, to : Int, is_in_table : Bool) -> String {
         write_range(result, bytes, mark, i)
         mark = i + 1
         i += 2
-      } else if c == b'&' {
-        match scan_entity(bytes.exact_view(start=i, end=to)) {
-          (n, Some(value)) => {
-            write_range(result, bytes, mark, i)
-            result.write_string(value)
-            i += n
-            mark = i
-          }
-          _ => i += 1
-        }
       } else if c == b'\r' {
         write_range(result, bytes, mark, i)
         i += 1
@@ -869,8 +773,8 @@ fn unescape(input : Bytes, from : Int, to : Int, is_in_table : Bool) -> String {
 fn write_range(
   buf : StringBuilder,
   bytes : BytesView,
-  from : Int,
-  to : Int,
+  from : Int32,
+  to : Int32,
 ) -> Unit {
   if to > from {
     buf.write_stringview(
@@ -924,7 +828,7 @@ fn is_html_tag(tag : BytesView) -> Bool {
 }
 
 ///|
-fn compare_case_insensitive(a : BytesView, b : BytesView) -> Int {
+fn compare_case_insensitive(a : BytesView, b : BytesView) -> Int32 {
   let n = a.length().min(b.length())
   let mut i = 0
   while i < n {
@@ -954,7 +858,7 @@ fn html_tags() -> Array[String] {
 ///|
 /// Assumes that `data` starts with `<`.
 /// Returns the index into data directly after the html tag on success.
-fn scan_html_type_7(data : BytesView) -> Int? {
+fn scan_html_type_7(data : BytesView) -> Int32? {
   // Block type html does ! allow for newlines, so we
   // do ! pass a newline handler.
   guard scan_html_block_inner(data, None) is Some((_span, i)) else {
@@ -971,8 +875,8 @@ fn scan_html_type_7(data : BytesView) -> Int? {
 /// the html is returned as a vector of bytes.
 fn scan_html_block_inner(
   data : BytesView,
-  newline_handler : ((BytesView) -> Int)?,
-) -> (Array[Byte], Int)? {
+  newline_handler : ((BytesView) -> Int32)?,
+) -> (Array[Byte], Int32)? {
   let state = attr_state_new()
 
   let close_tag_bytes = scan_ch(data.exact_view(start=1), b'/')
@@ -1039,7 +943,10 @@ fn scan_html_block_inner(
 
 ///|
 /// Returns (next_byte_offset, uri, type)
-fn scan_autolink(text : BytesView, start_ix : Int) -> (Int, String, LinkType)? {
+fn scan_autolink(
+  text : BytesView,
+  start_ix : Int32,
+) -> (Int32, String, LinkType)? {
   guard scan_uri(text, start_ix) is Some((bytes, uri)) else {
     return scan_email(text, start_ix).map(link => {
       let (bytes, uri) = link
@@ -1051,7 +958,7 @@ fn scan_autolink(text : BytesView, start_ix : Int) -> (Int, String, LinkType)? {
 
 ///|
 /// Returns (next_byte_offset, uri)
-fn scan_uri(text : BytesView, start_ix : Int) -> (Int, String)? {
+fn scan_uri(text : BytesView, start_ix : Int32) -> (Int32, String)? {
   let bytes = text.exact_view(start=start_ix)
 
   // scheme's first byte must be an ascii letter
@@ -1101,7 +1008,7 @@ fn scan_uri(text : BytesView, start_ix : Int) -> (Int, String)? {
 
 ///|
 /// Returns (next_byte_offset, email)
-fn scan_email(text : BytesView, start_ix : Int) -> (Int, String)? {
+fn scan_email(text : BytesView, start_ix : Int32) -> (Int32, String)? {
   // using a regex library would be convenient, but doing it by hand is not too bad
   let bytes = text.exact_view(start=start_ix)
   let mut i = 0
@@ -1193,9 +1100,9 @@ fn scan_email(text : BytesView, start_ix : Int) -> (Int, String)? {
 /// Returns byte offset on match.
 fn scan_inline_html_comment(
   bytes : BytesView,
-  ix : Int,
+  ix : Int32,
   scan_guard : HtmlScanGuard,
-) -> Int? {
+) -> Int32? {
   let mut ix = ix
   guard ix < bytes.length() else { return None }
   let c = bytes.unsafe_get(ix)
@@ -1253,7 +1160,7 @@ fn scan_inline_html_comment(
 }
 
 ///|
-fn find_byte(bytes : BytesView, from : Int, b : Byte) -> Int? {
+fn find_byte(bytes : BytesView, from : Int32, b : Byte) -> Int32? {
   let mut i = from
   while i < bytes.length() {
     guard bytes.unsafe_get(i) != b else { return Some(i) }
@@ -1267,9 +1174,9 @@ fn find_byte(bytes : BytesView, from : Int, b : Byte) -> Int? {
 /// Returns the next byte offset on success.
 fn scan_inline_html_processing(
   bytes : BytesView,
-  ix : Int,
+  ix : Int32,
   scan_guard : HtmlScanGuard,
-) -> Int? {
+) -> Int32? {
   let mut ix = ix
   guard ix > scan_guard.processing else { return None }
   while true {
@@ -1288,10 +1195,10 @@ fn scan_inline_html_processing(
 
 ///|
 struct HtmlScanGuard {
-  mut cdata : Int
-  mut processing : Int
-  mut declaration : Int
-  mut comment : Int
+  mut cdata : Int32
+  mut processing : Int32
+  mut declaration : Int32
+  mut comment : Int32
 }
 
 ///|
@@ -1300,7 +1207,7 @@ fn html_scan_guard_default() -> HtmlScanGuard {
 }
 
 ///|
-fn bytes_find_byte(bytes : Bytes, from : Int, to : Int, b : Byte) -> Int? {
+fn bytes_find_byte(bytes : Bytes, from : Int32, to : Int32, b : Byte) -> Int32? {
   let mut i = from
   while i < to {
     guard bytes.unsafe_get(i) != b else { return Some(i - from) }
@@ -1312,8 +1219,8 @@ fn bytes_find_byte(bytes : Bytes, from : Int, to : Int, b : Byte) -> Int? {
 ///|
 fn bytes_contains_str(
   bytes : Bytes,
-  from : Int,
-  to : Int,
+  from : Int32,
+  to : Int32,
   needle : String,
 ) -> Bool {
   let nb = @utf8.encode(needle)
@@ -1329,7 +1236,7 @@ fn bytes_contains_str(
 }
 
 ///|
-fn bytesview_iter_rev_position(bytes : BytesView, f : (Byte) -> Bool) -> Int? {
+fn bytesview_iter_rev_position(bytes : BytesView, f : (Byte) -> Bool) -> Int32? {
   let mut i = bytes.length()
   while i > 0 {
     i -= 1

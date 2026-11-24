@@ -77,8 +77,7 @@ pub fn compile(
 ///|
 /// Compiles `source` with the cmark parser and renders it as terminal text.
 ///
-/// Unlike [`compile`](`compile`), parsing is delegated to the CommonMark-
-/// conformant `@cmark` port, so this entry can never fail.
+/// Parsing follows KFC; invalid emphasis raises `@cmark.SyntaxError`.
 pub fn compile_cmark(
   source : String,
   options : @cmark.Options,
@@ -86,7 +85,7 @@ pub fn compile_cmark(
   ansi~ : Bool = false,
   disable_math~ : Bool = false,
   halfwidth_punct~ : Bool = false,
-) -> String {
+) -> String raise @cmark.SyntaxError {
   @backend.render_terminal_events(
     @cmark.parse(source, options),
     line_style~,

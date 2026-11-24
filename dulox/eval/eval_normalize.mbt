@@ -12,7 +12,7 @@ pub fn normalize(
 ///|
 fn rewrite_to_fixed_point(
   expr : EvalExpr,
-  max_steps : Int,
+  max_steps : Int32,
   rewrite : (EvalExpr) -> EvalExpr raise EvalDiagnostic,
 ) -> EvalExpr raise EvalDiagnostic {
   let mut current = expr
@@ -120,7 +120,7 @@ fn normalize_add_children(
 fn normalize_sum_children(
   children : Array[EvalExpr],
   options : EvalOptions,
-) -> Polynomial[Int] raise EvalDiagnostic {
+) -> Polynomial[Int32] raise EvalDiagnostic {
   let mut result = Polynomial::zero([])
   for child in children {
     result = normalize_add_polynomials(
@@ -161,7 +161,7 @@ fn normalize_mul_children(
 fn normalize_product_children(
   children : Array[EvalExpr],
   options : EvalOptions,
-) -> Polynomial[Int] raise EvalDiagnostic {
+) -> Polynomial[Int32] raise EvalDiagnostic {
   let mut result = normalize_poly_one()
   for child in children {
     result = normalize_mul_polynomials(
@@ -198,19 +198,19 @@ fn flatten_mul(children : Array[EvalExpr]) -> Array[EvalExpr] {
 }
 
 ///|
-const NORMALIZE_MAX_POLYNOMIAL_POWER : Int = 16
+const NORMALIZE_MAX_POLYNOMIAL_POWER : Int32 = 16
 
 ///|
-const NORMALIZE_MAX_INTEGER_POWER : Int = 4096
+const NORMALIZE_MAX_INTEGER_POWER : Int32 = 4096
 
 ///|
-const NORMALIZE_MAX_EXPONENT_COMPOSITION : Int = 1 << 30
+const NORMALIZE_MAX_EXPONENT_COMPOSITION : Int32 = 1 << 30
 
 ///|
 /// An explicit conversion budget for exact integer division. Division does not
 /// create new terms, so this permits inspection of an already-built numerator
 /// without constraining it by the expansion budget used by normalization.
-const NORMALIZE_DIVISION_CONVERSION_TERM_LIMIT : Int = 0x7FFF_FFFF
+const NORMALIZE_DIVISION_CONVERSION_TERM_LIMIT : Int32 = 0x7FFF_FFFF
 
 ///|
 /// Evaluates an integer power. Integer bases fold exactly; polynomial bases are
@@ -218,7 +218,7 @@ const NORMALIZE_DIVISION_CONVERSION_TERM_LIMIT : Int = 0x7FFF_FFFF
 /// and stay as `IntPow`.
 fn normalize_power(
   base : EvalExpr,
-  exp : Int,
+  exp : Int32,
   options : EvalOptions,
 ) -> EvalExpr raise EvalDiagnostic {
   let base = normalize_once(base, options)
@@ -249,7 +249,7 @@ fn normalize_power(
 ///|
 fn normalize_polynomial_power(
   base : EvalExpr,
-  exponent : Int,
+  exponent : Int32,
   options : EvalOptions,
 ) -> EvalExpr raise EvalDiagnostic {
   guard exponent <= NORMALIZE_MAX_POLYNOMIAL_POWER else {
@@ -279,7 +279,7 @@ fn normalize_general_power(
 }
 
 ///|
-fn power_int(base : Int, exp : Int) -> EvalExpr raise EvalDiagnostic {
+fn power_int(base : Int32, exp : Int32) -> EvalExpr raise EvalDiagnostic {
   guard exp >= 0 else {
     // e.g. 2^-1: not representable as an integer; keep the power.
     return IntPow(Integer(base), exp)
@@ -331,7 +331,7 @@ fn normalize_div(
 fn normalize_integer_division(
   numer : EvalExpr,
   denom : EvalExpr,
-  divisor : Int,
+  divisor : Int32,
 ) -> EvalExpr raise EvalDiagnostic {
   let polynomial = normalize_poly_from_expr(
     numer,

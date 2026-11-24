@@ -9,10 +9,10 @@
 /// Returns the number of bytes read (including closing bracket) and label on success.
 fn scan_link_label_rest(
   text : BytesView,
-  start : Int,
-  linebreak_handler : ((BytesView) -> Int?)?,
+  start : Int32,
+  linebreak_handler : ((BytesView) -> Int32?)?,
   is_in_table : Bool,
-) -> (Int, String)? {
+) -> (Int32, String)? {
   let bytes = text.exact_view(start~)
   let mut ix = 0
   let mut only_white_space = true

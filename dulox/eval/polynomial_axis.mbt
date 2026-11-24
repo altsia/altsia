@@ -1,10 +1,11 @@
 ///|
 /// A polynomial axis: a symbolic variable, or an opaque expression that can
 /// participate in symbolic arithmetic as an indivisible factor.
+#derive(Eq, Debug)
 pub(all) enum MonomialFactor {
   SymbolFactor(SymbolKey)
   OpaqueFactor(EvalExpr)
-} derive(Eq, Debug)
+}
 
 ///|
 fn MonomialFactor::to_canonical_string(self : MonomialFactor) -> String {
@@ -15,7 +16,7 @@ fn MonomialFactor::to_canonical_string(self : MonomialFactor) -> String {
 }
 
 ///|
-fn compare_canonical_strings(left : String, right : String) -> Int {
+fn compare_canonical_strings(left : String, right : String) -> Int32 {
   let left_length = left.length()
   let right_length = right.length()
   for i = 0; i < left_length && i < right_length; i = i + 1 {

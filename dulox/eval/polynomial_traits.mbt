@@ -13,21 +13,21 @@ pub trait PolynomialRing: PolynomialSemiring + Neg {
 }
 
 ///|
-pub impl PolynomialSemiring for Int with fn zero() -> Int {
+pub impl PolynomialSemiring for Int32 with fn zero() -> Int32 {
   0
 }
 
 ///|
-pub impl PolynomialSemiring for Int with fn one() -> Int {
+pub impl PolynomialSemiring for Int32 with fn one() -> Int32 {
   1
 }
 
 ///|
-pub impl PolynomialSemiring for Int with fn is_zero(self : Int) -> Bool {
+pub impl PolynomialSemiring for Int32 with fn is_zero(self : Int32) -> Bool {
   self == 0
 }
 
 ///|
-pub impl PolynomialRing for Int with fn sub(self : Int, other : Int) -> Int {
+pub impl PolynomialRing for Int32 with fn sub(self : Int32, other : Int32) -> Int32 {
   self - other
 }

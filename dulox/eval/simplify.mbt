@@ -7,7 +7,7 @@
 pub fn EvalExpr::simplify_solve(
   expr : EvalExpr,
   domain : Domain,
-  max_rewrite_steps? : Int = 256,
+  max_rewrite_steps~ : Int32 = 256,
 ) -> EvalExpr raise EvalDiagnostic {
   rewrite_to_fixed_point(expr, max_rewrite_steps, current => {
     current.simplify_once(domain)
@@ -248,7 +248,7 @@ fn simplify_nonrational_division(
 ///|
 fn simplify_integer_division(
   numer : EvalExpr,
-  divisor : Int,
+  divisor : Int32,
   domain : Domain,
 ) -> EvalExpr raise EvalDiagnostic {
   match numer {
@@ -263,7 +263,7 @@ fn simplify_integer_division(
 fn simplify_complex_division(
   real : EvalExpr,
   imaginary : EvalExpr,
-  divisor : Int,
+  divisor : Int32,
   domain : Domain,
 ) -> EvalExpr raise EvalDiagnostic {
   complex(

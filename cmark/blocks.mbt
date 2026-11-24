@@ -5,20 +5,20 @@
 // Each level of brace nesting adds another entry to a hash table.
 
 ///|
-const MATH_BRACE_CONTEXT_MAX_NESTING : Int = 25
+const MATH_BRACE_CONTEXT_MAX_NESTING : Int32 = 25
 
 ///|
 /// State for the first parsing pass.
 priv struct FirstPass {
   text : Bytes
   tree : Tree[Item]
-  mut begin_list_item : Int?
+  mut begin_list_item : Int32?
   mut last_line_blank : Bool
   allocs : Allocations
   options : Options
   // Math environment brace nesting.
-  brace_context_stack : Array[Int]
-  mut brace_context_next : Int
+  brace_context_stack : Array[Int32]
+  mut brace_context_next : Int32
 }
 
 ///|
@@ -52,7 +52,7 @@ fn FirstPass::run(self : FirstPass) -> (Tree[Item], Allocations) {
 
 ///|
 /// Returns offset after block.
-fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
+fn FirstPass::parse_block(self : FirstPass, start_ix : Int32) -> Int32 {
   let mut start_ix = start_ix
   let bytes = self.text
   let mut line_start = LineStart::new(bytes.exact_view(start=start_ix))
@@ -371,11 +371,8 @@ fn FirstPass::parse_block(self : FirstPass, start_ix : Int) -> Int {
 
   let indent = line_start.scan_space_upto(4)
   guard indent != 4 else {
-    self.finish_list(start_ix)
-    return self.parse_indented_code_block(
-      start_ix + line_start.bytes_scanned(),
-      line_start.remaining_space(),
-    )
+    line_start.scan_all_space()
+    return self.parse_paragraph(start_ix + line_start.bytes_scanned(), None)
   }
 
   let ix = start_ix + line_start.bytes_scanned()

@@ -60,7 +60,7 @@ fn render_case(
 ///|
 fn render_equation(
   variable : SymbolKey,
-  index : Int,
+  index : Int32,
   root : EvalExpr,
 ) -> @katex.ParseNode {
   OrdGroup(

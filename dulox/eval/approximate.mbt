@@ -1,18 +1,20 @@
 ///|
 /// A machine-precision complex approximation. A zero imaginary part is
 /// represented as `ApproxValue::Real` by the public evaluator.
+#derive(Eq, Debug)
 pub(all) struct ApproxComplex {
   real : Double
   imaginary : Double
-} derive(Eq, Debug)
+}
 
 ///|
 /// The fixed-precision approximation result used until an arbitrary-precision
 /// numeric backend is introduced.
+#derive(Eq, Debug)
 pub(all) enum ApproxValue {
   Real(Double)
   Complex(ApproxComplex)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Approximates a closed exact expression using machine `Double` precision.
@@ -22,7 +24,7 @@ pub fn EvalExpr::approximate(
   self : EvalExpr,
 ) -> ApproxValue raise EvalDiagnostic {
   match self {
-    Integer(value) => Real(Double::from_int(value))
+    Integer(value) => Real(value.to_double())
     Rational(value) => Real(exact_rational_to_double(value))
     Symbol(_) | Residual(_) => raise EvalDiagnostic::make(NumericUnavailable)
     Add(children) => approximate_add(children)
@@ -82,7 +84,7 @@ fn approximate_mul(
 ///|
 fn approximate_integer_power(
   base : EvalExpr,
-  exponent : Int,
+  exponent : Int32,
 ) -> ApproxValue raise EvalDiagnostic {
   guard exponent != 0 else { Real(1.0) }
   let value = base.approximate()
@@ -132,35 +134,32 @@ fn approximate_divide(
 }
 
 ///|
-fn approximate_root(index : Int, radicand : ApproxValue) -> ApproxValue {
+fn approximate_root(index : Int32, radicand : ApproxValue) -> ApproxValue {
   guard index != 1 else { radicand }
   match radicand {
     Real(value) if value >= 0.0 =>
-      Real(@math.pow(value, 1.0 / Double::from_int(index)))
+      Real(@math.pow(value, 1.0 / index.to_double()))
     Real(value) if index % 2 == 1 =>
-      Real(-@math.pow(-value, 1.0 / Double::from_int(index)))
+      Real(-@math.pow(-value, 1.0 / index.to_double()))
     Real(value) => complex_root({ real: value, imaginary: 0.0, }, index)
     Complex(value) => complex_root(value, index)
   }
 }
 
 ///|
-fn approximate_root_of_unity(order : Int, power : Int) -> ApproxValue {
+fn approximate_root_of_unity(order : Int32, power : Int32) -> ApproxValue {
   let reduced = power % order
-  let angle = 2.0 *
-    @math.PI *
-    Double::from_int(reduced) /
-    Double::from_int(order)
+  let angle = 2.0 * @math.PI * reduced.to_double() / order.to_double()
   Complex({ real: @math.cos(angle), imaginary: @math.sin(angle), })
 }
 
 ///|
-fn complex_root(value : ApproxComplex, index : Int) -> ApproxValue {
+fn complex_root(value : ApproxComplex, index : Int32) -> ApproxValue {
   let magnitude = (value.real * value.real + value.imaginary * value.imaginary).sqrt()
   guard magnitude != 0.0 else { Real(0.0) }
   let angle = @math.atan2(value.imaginary, value.real)
-  let root_magnitude = @math.pow(magnitude, 1.0 / Double::from_int(index))
-  let root_angle = angle / Double::from_int(index)
+  let root_magnitude = @math.pow(magnitude, 1.0 / index.to_double())
+  let root_angle = angle / index.to_double()
   Complex({
     real: root_magnitude * @math.cos(root_angle),
     imaginary: root_magnitude * @math.sin(root_angle),

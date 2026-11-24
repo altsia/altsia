@@ -1,10 +1,11 @@
 ///|
 /// A univariate view of a polynomial, with coefficients in ascending power
 /// order. Coefficients are expressions that do not contain `variable`.
+#derive(Eq, Debug)
 pub(all) struct UnivariatePoly {
   variable : SymbolKey
   coeffs : Array[EvalExpr]
-} derive(Eq, Debug)
+}
 
 ///|
 /// Converts any supported polynomial expression into coefficients. The input
@@ -149,7 +150,7 @@ fn divide_coefficient_array(
 /// normalizes its values before the next binary-power step.
 fn polynomial_coeff_power(
   base : CoefficientArray,
-  exp : Int,
+  exp : Int32,
 ) -> CoefficientArray raise EvalDiagnostic {
   guard exp >= 0 else { raise EvalDiagnostic::make(NotPolynomial) }
   let mut result = CoefficientArray::one()
@@ -186,7 +187,7 @@ fn add_coefficient_arrays(
 }
 
 ///|
-fn coefficient_at(values : Array[EvalExpr], index : Int) -> EvalExpr {
+fn coefficient_at(values : Array[EvalExpr], index : Int32) -> EvalExpr {
   if index < values.length() {
     values[index]
   } else {
@@ -277,7 +278,7 @@ fn collect_symbols(expr : EvalExpr, out : Array[SymbolKey]) -> Unit {
 pub fn infer_variable(expr : EvalExpr) -> SymbolKey raise EvalDiagnostic {
   let symbols : Array[SymbolKey] = []
   collect_symbols(expr, symbols)
-  let candidates : Array[(SymbolKey, Int)] = []
+  let candidates : Array[(SymbolKey, Int32)] = []
   for symbol in symbols {
     if candidates.any(item => item.0 == symbol) {
       continue
